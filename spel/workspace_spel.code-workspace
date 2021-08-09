@@ -1,0 +1,30 @@
+{
+	"folders": [
+		{
+			"path": ".."
+		},
+		{
+			"path": "."
+		},
+		{
+			"name": "learn",
+			"path": "..\\..\\..\\..\\..\\Google Drive\\Colab Notebooks\\Småprojekt\\Krypto\\catboost_info\\learn"
+		}
+	],
+	"settings": {
+		"jupyter.jupyterServerType": "local"
+	},
+	"launch": {
+		"version": "0.2.0",
+		"configurations": [
+		
+			{
+				"name": "Python: Current File",
+				"type": "python",
+				"request": "launch",
+				"program": "${file}",
+				"console": "integratedTerminal"
+			}
+		]
+	}
+}
