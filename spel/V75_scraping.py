@@ -5,7 +5,7 @@ from IPython import get_ipython
 # # Gör scraping av en eller flera omgångar och returnerar en DataFrame
 # - Körs med v75_scraping(resultat=False,history=True)
 # - Parametrar: resultat=True/False, history=True/False
-# - Input: omg_to_learn_link.csv() med en eler flera omgångar/veckor
+# - Input: omg_att_spela_link.csv() med en eler flera omgångar/veckor
 
 # %%
 #!apt install chromium-chromedriver
@@ -304,7 +304,7 @@ def anpassa(driver_s):
 # %%
 def v75_scraping(resultat=False, history=False,driver_s=None,driver_r=None):
     ### Hela loopen med alla lopp i alla veckor i omg_df ###
-    omg_df = pd.read_csv('C:\\Users\\peter\\Documents\\MyProjects\\PyProj\\Trav\\spel\\omg_to_learn_link.csv' )
+    omg_df = pd.read_csv('C:\\Users\\peter\\Documents\\MyProjects\\PyProj\\Trav\\spel\\omg_att_spela_link.csv' )
     df = pd.DataFrame()
 
     if not driver_r:

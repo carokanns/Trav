@@ -409,10 +409,10 @@ def sätt_poäng(df,extra_ettor=2,tvåor=4,treor=8,fyror=10):
 
     return df,ix
 
-v75 = st.beta_container()
-scrape = st.beta_container()
-avd = st.beta_container()
-sortera = st.beta_container()
+v75 = st.container()
+scrape = st.container()
+avd = st.container()
+sortera = st.container()
 
 with scrape:
     if st.button('scrape'):
@@ -431,6 +431,7 @@ def init():
             st.balloons()
             
         df.to_csv('sparad_scrape.csv',index=False)
+        # st.experimental_rerun()
     return df
     
 with v75:
@@ -446,7 +447,7 @@ with v75:
 with avd:
     use = avd.radio('Välj avdelning', ('Avd 1 och 2','Avd 3 och 4','Avd 5 och 6','Avd 7','exit'))
     avd.subheader(use)
-    col1, col2 = st.beta_columns(2)
+    col1, col2 = st.columns(2)
     if use=='Avd 1 och 2':
         col1.write(df[(df.avd==1)&(df.poäng<15)].sort_values(by=['poäng'])[['nr','häst','poäng']])
         col2.write(df[(df.avd==2)&(df.poäng<15)].sort_values(by=['poäng'])[['nr','häst','poäng']])
