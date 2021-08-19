@@ -218,7 +218,21 @@ def do_scraping(driver_s, driver_r, history, datum): #get data from web site
                 
                 for h,d in enumerate(h_dates)  : 
                     fld='h'+str(h+1)+'_'
-                    vdict[fld+'dat'].append(d.text)
+                    dtext=d.text
+                    vdict[fld+'dat'].append(dtext)
+                    vdict[fld+'bana'].append(h_banor[h].text)
+                    vdict[fld+'kusk'].append(h_kuskar[h].text)
+                    vdict[fld+'plac'].append(h_plac[h].text)
+                    vdict[fld+'dist'].append(h_dist[h].text)
+                    vdict[fld+'spår'].append(h_spår[h].text)
+                    vdict[fld+'kmtid'].append(h_kmtid[h].text)
+                    vdict[fld+'odds'].append(h_odds[h].text)
+                    vdict[fld+'pris'].append(h_pris[h].text)
+                if len(h_dates) < 5:
+                    # Duplicera hist_4
+                    fld='h'+str(5)+'_'
+                    h=3
+                    vdict[fld+'dat'].append(dtext)
                     vdict[fld+'bana'].append(h_banor[h].text)
                     vdict[fld+'kusk'].append(h_kuskar[h].text)
                     vdict[fld+'plac'].append(h_plac[h].text)
