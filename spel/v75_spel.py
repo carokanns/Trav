@@ -12,7 +12,7 @@ import numpy as np
 import streamlit as st
 import sys
 
-sys.path.append('C:\\Users\peter\\Documents\\MyProjects\\PyProj\\Trav\\spel\\version 3\\')
+sys.path.append('C:\\Users\peter\\Documents\\MyProjects\\PyProj\\Trav\\spel\\modeller\\')
 import V75_scraping as vs
 import time
 import logging
@@ -319,7 +319,7 @@ def alternativ_v75(progressbar=None):
     from catboost import CatBoostClassifier,Pool
     strukna = pd.DataFrame(columns=['datum','avd','startnr','häst','vodds'])
 
-    modell = 'version 3/model_senaste'
+    modell = 'modeller/model_senaste'
     model = CatBoostClassifier()
     model.load_model(modell, format='cbm')
 
