@@ -1,10 +1,5 @@
-spel/version 3/catboost_info/learn_error.tsv
-spel/version 3/catboost_info/time_left.tsv
-spel/version 3/catboost_info/learn/events.out.tfevents
+spel/version 3/catboost_info/**
 spel/sparad_scrape.csv
 spel/__pycache__/V75_scraping.cpython-38.pyc
 spel/sparad_scrape.csv
-spel/version 3/catboost_info/learn_error.tsv
-spel/version 3/catboost_info/catboost_training.json
-spel/version 3/catboost_info/time_left.tsv
-spel/version 3/catboost_info/learn/events.out.tfevents
+spel/catboost_info/**
