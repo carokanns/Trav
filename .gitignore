@@ -3,3 +3,7 @@ spel/sparad_scrape.csv
 spel/__pycache__/V75_scraping.cpython-38.pyc
 spel/sparad_scrape.csv
 spel/catboost_info/**
+spel/catboost_info/*.*
+spel/catboost_info/*.tsv
+spel/catboost_info/*.tfevents
+spel/catboost_info/catboost_training.json
