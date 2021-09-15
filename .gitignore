@@ -7,3 +7,6 @@ spel/catboost_info/*.*
 spel/catboost_info/*.tsv
 spel/catboost_info/*.tfevents
 spel/catboost_info/catboost_training.json
+spel/.tmp.drivedownload/**
+spel/.tmp.drivedownload/*
+spel/.tmp.drivedownload/*.*
