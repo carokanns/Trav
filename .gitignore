@@ -10,3 +10,4 @@ spel/catboost_info/catboost_training.json
 spel/.tmp.drivedownload/**
 spel/.tmp.drivedownload/*
 spel/.tmp.drivedownload/*.*
+spel/v75_tester/flaml.log
