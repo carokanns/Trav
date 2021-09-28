@@ -125,6 +125,7 @@ def do_scraping(driver_s, omg_links): #get data from web site
 # ## Start the scraping
 
 # %%
+global df
 df=pd.DataFrame()
 def scraping(omg_df, driver_s): #get data from web site
     global df 
@@ -305,7 +306,7 @@ def visa_faser(vecko_df,dat,startnr=True):
 # %%
 ##### Alternativ V75-rad #####
 pd.set_option('display.width',100)
-def alternativ_v75(progressbar=None):
+def alternativ_v75(FLAML_version=1):
     global df
     
     def remove_features(df,remove_mer=[]):
@@ -314,22 +315,33 @@ def alternativ_v75(progressbar=None):
             df.drop(remove_mer,axis=1,inplace=True)
         
         return df
-###############################################################################
+        ######################################
 
     from catboost import CatBoostClassifier,Pool
     strukna = pd.DataFrame(columns=['datum','avd','startnr','häst','vodds'])
 
-    modell = 'modeller/model_senaste'
-    model = CatBoostClassifier()
-    model.load_model(modell, format='cbm')
-
+    # modell = 'modeller/model_senaste'
+    # model = CatBoostClassifier()
+    # model.load_model(modell, format='cbm')
+    
+    # Open the file in binary mode
+    import pickle
+    FLAML='FLAML'
+    if FLAML_version==2:
+        FLAML='FLAML2'
+    with open('modeller\\'+FLAML+'_model.sav', 'rb') as file:
+        # Call load method to deserialze
+        print(FLAML)
+        model = pickle.load(file)
+  
     ### scraing och predict ###
     df, strukna = vs.v75_scraping(history=True,resultat=False) 
 
     dfr = remove_features(df.copy()) ## för cat_features och pool
     cat_features=list(dfr.loc[:,dfr.dtypes=='O'].columns)
     pool = Pool(dfr,cat_features=cat_features)
-    proba = model.predict_proba(pool)
+    # proba = model.predict_proba(pool)
+    proba = model.predict_proba(dfr)
 
     # Ordna proba per avdelning samt beräkna Kelly
     kassa=200
@@ -409,6 +421,34 @@ def sätt_poäng(df,extra_ettor=2,tvåor=4,treor=8,fyror=10):
 
     return df,ix
 
+def uppdatera_FLAML(df_,version=1):
+    df=df_.copy()
+    import pickle
+    FLAML='FLAML'
+    if version==2:
+        FLAML='FLAML2'
+    with open('modeller\\'+FLAML+'_model.sav', 'rb') as file:
+        # Call load method to deserialze
+        # st.write(f'open {FLAML}_model_sav')
+        model = pickle.load(file)
+
+    proba = model.predict_proba(df.drop('startnr',axis=1))
+
+    # Ordna proba per avdelning samt beräkna Kelly
+    kassa=200
+    df['proba'] = proba[:,1]
+    df['f'] = (df.proba*df.vodds - 1) / (df.vodds-1)  # kelly formel
+    df['spela'] = df.f >0
+    df['insats'] = df.spela * df.f * kassa
+
+    # Ta ut de 2 bästa per avd
+    df.sort_values(['datum','avd','proba'],ascending=[True,True,False],inplace=True)
+    proba_order=df.groupby(['datum','avd']).proba.cumcount()
+
+    df['prob_order']=proba_order+1
+    st.write(df.proba[0])
+    return df
+    
 v75 = st.container()
 scrape = st.container()
 avd = st.container()
@@ -427,7 +467,7 @@ def init():
         scrape.write('Starta web-scraping för ny data')
         with st.spinner('Ta det lugnt!'):
             st.image('winning_horse.png')  # ,use_column_width=True)
-            df=alternativ_v75()
+            df=alternativ_v75(FLAML_version=1)
             st.balloons()
             
         df.to_csv('sparad_scrape.csv',index=False)
@@ -449,6 +489,7 @@ with avd:
     avd.subheader(use)
     col1, col2 = st.columns(2)
     if use=='Avd 1 och 2':
+        st.write(df.proba[0])
         col1.write(df[(df.avd==1)&(df.poäng<15)].sort_values(by=['poäng'])[['nr','häst','poäng']])
         col2.write(df[(df.avd==2)&(df.poäng<15)].sort_values(by=['poäng'])[['nr','häst','poäng']])
     elif use=='Avd 3 och 4':
@@ -471,8 +512,19 @@ with sortera:
             if sort=='insats':
                 st.write(df[['avd','häst','poäng','proba','insats','prob_order']].sort_values(by=['insats','proba'],ascending=[False,False]))
             else:
-                st.write(df[['avd','häst','poäng','proba','insats','prob_order']].sort_values(by=[sort,'proba'],ascending=[True,False]))    
-
+                st.write(df[['avd','häst','poäng','proba','insats','prob_order']].sort_values(by=[sort,'proba'],ascending=[True,False]))  
+                  
+if st.sidebar.checkbox('FLAML alt'):
+    df.rename(columns={"nr":"startnr"},inplace=True)
+    df=uppdatera_FLAML(df,version=2)
+    df.to_csv('sparad_scrape.csv',index=False)
+    df.rename(columns={"startnr":"nr"},inplace=True)  # För att få plats i två kolumner
+else:
+    df.rename(columns={"nr":"startnr"},inplace=True)
+    df=uppdatera_FLAML(df,version=1)
+    df.to_csv('sparad_scrape.csv',index=False)
+    df.rename(columns={"startnr":"nr"},inplace=True)  # För att få plats i två kolumner
+            
 # print('\navd=2')
 # print(df[(df.avd==2)&(df.poäng<15)].sort_values(by=['poäng'])[['startnr','häst','poäng']])
 

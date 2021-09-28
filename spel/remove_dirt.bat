@@ -1,0 +1,1 @@
+for /D %%f in (catboost_1*.*) do rmdir "%%f" /Q /S
