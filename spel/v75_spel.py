@@ -278,13 +278,13 @@ def v75(df,modell, ant_rader=2):
 def visa_v75(df,antal_rader):    
     df['p_o']=df.prob_order
     print(f"V75 {antal_rader}-raders")
-    print(df[df.prob_order<=antal_rader][['avd','startnr','häst','vodds','p_o','proba','f','insats']])
+    # print(df[df.prob_order<=antal_rader][['avd','startnr','häst','vodds','p_o','proba','f','insats']])
     #print(df[df.prob_order<=antal_rader][['avd','startnr','häst','vodds','prob_order','proba','f','insats']])
     
 def reserver(df, antal_rader):
     df['p_o']=df.prob_order
     print(f"Antal prob_order>{antal_rader} med insats>0")
-    print(df[(df.prob_order>antal_rader) & (df.insats>0)] [['avd','startnr','häst','vodds','proba','p_o','f','insats']].sort_values(by='insats',ascending=False))
+    # print(df[(df.prob_order>antal_rader) & (df.insats>0)] [['avd','startnr','häst','vodds','proba','p_o','f','insats']].sort_values(by='insats',ascending=False))
     df.drop('p_o',axis=1,inplace=True)
 
 def visa_faser(vecko_df,dat,startnr=True):
@@ -417,7 +417,7 @@ def sätt_poäng(df,extra_ettor=2,tvåor=4,treor=8,fyror=10):
     df.loc[ix,'poäng']=2
     print(f"\nmin Kelly-häst: {df.loc[ix,'häst'].values} avd={df.loc[ix,'avd'].values[0]} insats={round(df.loc[ix,'insats'].values[0],2)}\n")
 
-    print('poängfördelning',df.poäng.value_counts())
+    # print('poängfördelning',df.poäng.value_counts())
 
     return df,ix
 
