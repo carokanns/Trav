@@ -116,8 +116,8 @@ def inkludera_resultat(res_avd, anr):
 
 # %%
 def do_scraping(driver_s, driver_r, history, datum):  # get data from web site
-    logging.basicConfig(filename='app.log', filemode='w',
-                        format='%(name)s - %(message)s', level=logging.INFO)
+    # logging.basicConfig(filename='app.log', filemode='w',
+    #                     format='%(name)s - %(message)s', level=logging.INFO)
 
     vdict = {'datum': [], 'bana': [], 'avd': [], 'startnr': [], 'häst': [], 'ålder': [], 'kön': [], 'kusk': [], 'lopp_dist': [],
              'start': [], 'dist': [], 'pris': [], 'spår': [], 'streck': [], 'vodds': [], 'podds': [], 'kr': [], }
@@ -170,7 +170,7 @@ def do_scraping(driver_s, driver_r, history, datum):  # get data from web site
     print('Ant priser', len(priser))
     # ett lopp (de häst-relaterade som inte kan bli 'missing' tar jag direkt på loppnivå)
     for anr, avd in enumerate(start_tab):
-        logging.warning(datum+' avd: '+str(avd))
+        # logging.warning(datum+' avd: '+str(avd))
 
         bana = comb[anr].text.split('\n')[0]
         lopp_dist = comb[anr].text.split('\n')[1].split(' ')[0][:-1]
@@ -208,7 +208,7 @@ def do_scraping(driver_s, driver_r, history, datum):  # get data from web site
 
         for r, rad in enumerate(rader):
             # en häst
-            logging.warning(r)
+            # logging.warning(r)
 
             vdict['datum'].append(datum)
             vdict['bana'].append(bana)
