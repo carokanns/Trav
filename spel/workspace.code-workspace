@@ -4,5 +4,9 @@
 			"path": ".."
 		}
 	],
-	"settings": {}
+	"settings": {
+		"projectManager.git.baseFolders": [
+			"C:\\\\Users\\\\peter\\\\Documents\\\\MyProjects\\\\PyProj\\\\Trav\\\\Trav\\\\spel"
+		]
+	}
 }
