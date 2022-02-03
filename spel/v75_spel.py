@@ -1,6 +1,7 @@
 # To add a new cell, type '# %%'
 # To add a new markdown cell, type '# %% [markdown]'
 # %%
+from unittest.case import DIFF_OMITTED
 from IPython import get_ipython
 
 # %% 
@@ -302,6 +303,23 @@ def visa_faser(vecko_df,dat,startnr=True):
 
 # %% [markdown]
 # # Main
+#%%
+
+def load_enc():
+    import pickle
+    with open('modeller/encoder.sav', 'rb') as file:
+        enc = pickle.load(file)
+    return enc
+
+def ordinal_enc(df_, feature):
+    enc = load_enc()
+    df = df_.copy()
+    from sklearn.preprocessing import OrdinalEncoder
+    enc.transform(df[[feature]])
+    
+    # enc.fit_transform(df[[feature]])
+    df[[feature]] = enc.transform(df[[feature]])
+    return df
 
 # %%
 ##### Alternativ V75-rad #####
@@ -309,7 +327,8 @@ pd.set_option('display.width',100)
 def alternativ_v75(FLAML_version=1):
     global df
     
-    def remove_features(df,remove_mer=[]):
+    def remove_features(df_,remove_mer=[]):
+        df=df_.copy()
         df.drop(['avd','startnr','vodds','podds','bins','h1_dat','h2_dat','h3_dat','h4_dat','h5_dat'],axis=1,inplace=True) #
         if remove_mer:
             df.drop(remove_mer,axis=1,inplace=True)
@@ -335,13 +354,24 @@ def alternativ_v75(FLAML_version=1):
         model = pickle.load(file)
   
     ### scraing och predict ###
+    ##################################### TEST TEST TEST
     df, strukna = vs.v75_scraping(history=True,resultat=False) 
+    # enc = load_enc()
+    # df = pd.read_csv('sparad_scrape_tst.csv')
+    # df[['häst']] = enc.inverse_transform(df[['häst']])
+    # ##################################### TEST TEST TEST
 
-    dfr = remove_features(df.copy()) ## för cat_features och pool
-    cat_features=list(dfr.loc[:,dfr.dtypes=='O'].columns)
-    pool = Pool(dfr,cat_features=cat_features)
+    ### ordinal encoding ###
+    print('vodds före',df.vodds.iloc[0])
+    df=ordinal_enc(df,'häst')
+
+    ### ordinal encoding ###
+    
+    # dfr = remove_features(df.copy())  # för cat_features och pool
+    # cat_features=list(dfr.loc[:,dfr.dtypes=='O'].columns)
+    # pool = Pool(dfr,cat_features=cat_features)
     # proba = model.predict_proba(pool)
-    proba = model.predict_proba(dfr)
+    proba = model.predict_proba(remove_features(df))
 
     # Ordna proba per avdelning samt beräkna Kelly
     kassa=200
@@ -358,6 +388,7 @@ def alternativ_v75(FLAML_version=1):
 
     visa_v75(df, 2)
     reserver(df,2)
+
     return df
 
 # %%
@@ -399,6 +430,7 @@ def klassificering(df,proba=0.1,insats=0,antal_A=10):
     print(df[df.ranking!='A'].sort_values(by='insats',ascending=False)[['avd','häst','ranking','proba','insats']])
 
 def sätt_poäng(df,extra_ettor=2,tvåor=4,treor=8,fyror=10):
+    """ returnerar poäng och ix till Kelly-häst"""
     df['poäng'] = 15
     df.loc[df.prob_order==1,'poäng'] = 1
     df.sort_values(by='proba',ascending=False,inplace=True)
@@ -449,6 +481,7 @@ def uppdatera_FLAML(df_,version=1):
     st.write(df.proba[0])
     return df
     
+import pickle
 v75 = st.container()
 scrape = st.container()
 avd = st.container()
@@ -467,7 +500,9 @@ def init():
         scrape.write('Starta web-scraping för ny data')
         with st.spinner('Ta det lugnt!'):
             st.image('winning_horse.png')  # ,use_column_width=True)
-            df=alternativ_v75(FLAML_version=1)
+            
+            df=alternativ_v75(FLAML_version=1)  ########################## TEST TEST TEST
+            
             st.balloons()
             
         df.to_csv('sparad_scrape.csv',index=False)
@@ -481,25 +516,37 @@ with v75:
     st.title('Veckans v75 -  ' +datum)
     df=init()            
     df,ix=sätt_poäng(df)
+    
     df.rename(columns={"startnr":"nr"},inplace=True)  # För att få plats i två kolumner
-    st.write(f"Kelly-häst:  Avd={df.loc[ix,'avd'].values[0]} \'{df.loc[ix,'häst'].values[0]}\' insats={round(df.loc[ix,'insats'].values[0],2)} odds={df.loc[ix,'vodds'].values[0]} streck={int(df.loc[ix,'streck'].values[0])}%")
+    enc = load_enc()
+    Kelly_häst = enc.inverse_transform(df.loc[ix, ['häst']])[0][0]
+    st.write(f"Kelly-häst:  Avd={df.loc[ix,'avd'].values[0]} \'{Kelly_häst}\' insats={round(df.loc[ix,'insats'].values[0],2)} odds={df.loc[ix,'vodds'].values[0]} streck={int(df.loc[ix,'streck'].values[0])}%")
+    print(Kelly_häst)
+    # df = ordinal_enc(df, 'häst') # redan gjort
    
 with avd:
     use = avd.radio('Välj avdelning', ('Avd 1 och 2','Avd 3 och 4','Avd 5 och 6','Avd 7','exit'))
     avd.subheader(use)
     col1, col2 = st.columns(2)
-    if use=='Avd 1 och 2':
+    enc=load_enc()
+    # print(df.iloc[0].häst)
+    dfi=df.copy()
+    if use == 'Avd 1 och 2':
         st.write(df.proba[0])
-        col1.write(df[(df.avd==1)&(df.poäng<15)].sort_values(by=['poäng'])[['nr','häst','poäng']])
-        col2.write(df[(df.avd==2)&(df.poäng<15)].sort_values(by=['poäng'])[['nr','häst','poäng']])
+        dfi[['häst']] = enc.inverse_transform(df[['häst']])
+        col1.write(dfi[(dfi.avd==1)&(dfi.poäng<15)].sort_values(by=['poäng'])[['nr','häst','poäng']])
+        col2.write(dfi[(dfi.avd==2)&(dfi.poäng<15)].sort_values(by=['poäng'])[['nr','häst','poäng']])
     elif use=='Avd 3 och 4':
-        col1.write(df[(df.avd==3)&(df.poäng<15)].sort_values(by=['poäng'])[['nr','häst','poäng']])
-        col2.write(df[(df.avd==4)&(df.poäng<15)].sort_values(by=['poäng'])[['nr','häst','poäng']])
+        dfi[['häst']] = enc.inverse_transform(df[['häst']])
+        col1.write(dfi[(dfi.avd==3)&(dfi.poäng<15)].sort_values(by=['poäng'])[['nr','häst','poäng']])
+        col2.write(dfi[(dfi.avd==4)&(dfi.poäng<15)].sort_values(by=['poäng'])[['nr','häst','poäng']])
     elif use=='Avd 5 och 6':
-        col1.write(df[(df.avd==5)&(df.poäng<15)].sort_values(by=['poäng'])[['nr','häst','poäng']])
-        col2.write(df[(df.avd==6)&(df.poäng<15)].sort_values(by=['poäng'])[['nr','häst','poäng']])
+        dfi[['häst']] = enc.inverse_transform(df[['häst']])
+        col1.write(dfi[(dfi.avd==5)&(dfi.poäng<15)].sort_values(by=['poäng'])[['nr','häst','poäng']])
+        col2.write(dfi[(dfi.avd==6)&(dfi.poäng<15)].sort_values(by=['poäng'])[['nr','häst','poäng']])
     elif use=='Avd 7':
-        col1.write(df[(df.avd==7)&(df.poäng<15)].sort_values(by=['poäng'])[['nr','häst','poäng']])
+        dfi[['häst']] = enc.inverse_transform(df[['häst']])
+        col1.write(dfi[(dfi.avd==7)&(dfi.poäng<15)].sort_values(by=['poäng'])[['nr','häst','poäng']])
     elif use=='exit':
         st.stop()    
     else:
@@ -507,19 +554,23 @@ with avd:
 
 with sortera:   
     if st.sidebar.checkbox('se data'):
+        dfr=df.copy()
+        dfr[['häst']] = enc.inverse_transform(dfr[['häst']])
         sort=st.sidebar.radio('sortera på',['poäng','avd','insats'])
         if sort:
             if sort=='insats':
-                st.write(df[['avd','häst','poäng','proba','insats','prob_order']].sort_values(by=['insats','proba'],ascending=[False,False]))
+                st.write(dfr[['avd','häst','poäng','proba','insats','prob_order']].sort_values(by=['insats','proba'],ascending=[False,False]))
             else:
-                st.write(df[['avd','häst','poäng','proba','insats','prob_order']].sort_values(by=[sort,'proba'],ascending=[True,False]))  
+                st.write(dfr[['avd','häst','poäng','proba','insats','prob_order']].sort_values(by=[sort,'proba'],ascending=[True,False]))  
                   
 if st.sidebar.checkbox('FLAML alt'):
+    # dfr = ordinal_enc(df, 'häst')
     df.rename(columns={"nr":"startnr"},inplace=True)
     df=uppdatera_FLAML(df,version=2)
     df.to_csv('sparad_scrape.csv',index=False)
     df.rename(columns={"startnr":"nr"},inplace=True)  # För att få plats i två kolumner
 else:
+    # df = ordinal_enc(df, 'häst')
     df.rename(columns={"nr":"startnr"},inplace=True)
     df=uppdatera_FLAML(df,version=1)
     df.to_csv('sparad_scrape.csv',index=False)
