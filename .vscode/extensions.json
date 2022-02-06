@@ -1,5 +1,7 @@
 {
     "recommendations": [
-        "alefragnani.project-manager"
+        "alefragnani.project-manager",
+        "github.copilot",
+        "donjayamanne.githistory"
     ]
 }
