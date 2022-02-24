@@ -339,8 +339,8 @@ def anpassa(driver_s):
             # print('dist')
             flag6 = False
         elif flag7 and t.text == 'V-ODDS':
-            t.click()
-            # print('vodds')
+            # t.click()
+            print('hoppar över voods click (verkar vara förifyllt')
             flag7 = False
         elif flag8 and t.text == 'P-ODDS':
             t.click()

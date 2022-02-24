@@ -1,12 +1,3 @@
-# To add a new cell, type '# %%'
-# To add a new markdown cell, type '# %% [markdown]'
-# %%
-from unittest.case import DIFF_OMITTED
-from IPython import get_ipython
-
-# %% 
-# get_ipython().system('pip install -U streamlit')
-
 # %%
 import pandas as pd 
 import numpy as np 
