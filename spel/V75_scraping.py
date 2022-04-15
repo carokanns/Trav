@@ -59,8 +59,9 @@ def städa_och_rensa(df, history):
 
 # %%
 def scrape_utdelning(the_driver):
-    utdelningar = the_driver.find_elements_by_class_name(
-        "css-mxas0-Payouts-styles--amount")
+    # gammal lösn: utdelningar = the_driver.find_elements_by_class_name("css-mxas0-Payouts-styles--amount")
+
+    utdelningar = the_driver.find_elements(By.CLASS_NAME, "css-fu45i8-Payouts-styles--amount")
 
     utd7 = utdelningar[0].text.replace(' ', '')
     utd7 = utd7.replace('kr', '')
@@ -77,16 +78,17 @@ def scrape_utdelning(the_driver):
     return int(utd7), int(utd6), int(utd5)
 
 # hämta utdelnings-info och spara på fil
-
-
 def utdelning(driver_r, dat, bana):
     utd7, utd6, utd5 = scrape_utdelning(driver_r)
+    assert utd7 > utd6 or utd7==0, '7 rätt skall ge mer pengar än 6 rätt'
+    assert utd6 > utd5 or utd6 == 0, '6 rätt skall ge mer pengar än 5 rätt'
+
     print(f'utdelning: {utd7}, {utd6}, {utd5}')
     utd_file = 'C:\\Users\\peter\\Documents\\MyProjects\\PyProj\\Trav\\spel\\utdelning.csv'
     utdelning = pd.read_csv(utd_file)
     utd = pd.DataFrame([[dat, bana, utd7, utd6, utd5]])
     utd.columns = utdelning.columns
-    utdelning = pd.concat([utdelning, utd])
+    utdelning = pd.concat([utdelning, utd], ignore_index=True)
     utdelning.drop_duplicates(['datum'], inplace=True)
 
     utdelning.sort_values(by=['datum'], inplace=True)
@@ -97,9 +99,9 @@ def utdelning(driver_r, dat, bana):
 # %%
 # returnerar en lista av placeringar i startnr-ordning
 def inkludera_resultat(res_avd, anr):
-    res_rader = res_avd.find_elements_by_class_name(
+    res_rader = res_avd.find_elements(By.CLASS_NAME,
         "startlist__row")  # alla rader i loppet
-    res_startnr = res_avd.find_elements_by_class_name(
+    res_startnr = res_avd.find_elements(By.CLASS_NAME,
         "css-1jc4209-horseview-styles--startNumber")  # alla startnr
     d = {'plac': [], 'startnr': []}
     for nr, rad in enumerate(res_rader):
@@ -135,21 +137,21 @@ def do_scraping(driver_s, driver_r, history, datum):  # get data from web site
     start_time = time.perf_counter()
 
     if driver_r:
-        result_tab = driver_r.find_elements_by_class_name(
+        result_tab = driver_r.find_elements(By.CLASS_NAME,
             'game-table')[:]  # alla lopp med resultatordning
         if len(result_tab) == 8:
             result_tab = result_tab[1:]
         print('ant resultat', len(result_tab))
 
-    start_tab = driver_s.find_elements_by_class_name(
+    start_tab = driver_s.find_elements(By.CLASS_NAME,
         'game-table')[:]  # alla lopp med startlistor
     if len(start_tab) == 8:
         start_tab = start_tab[1:]
     print('ant lopp', len(start_tab))
 
-    comb = driver_s.find_elements_by_class_name(
+    comb = driver_s.find_elements(By.CLASS_NAME,
         'race-combined-info')  # alla bana,dist,start
-    priselement = driver_s.find_elements_by_class_name(
+    priselement = driver_s.find_elements(By.CLASS_NAME,
         'css-1lnkuf6-startlistraceinfodetails-styles--infoContainer')
     NOK, EUR = False, False
     for p in priselement:
@@ -184,15 +186,15 @@ def do_scraping(driver_s, driver_r, history, datum):  # get data from web site
             pris = priser[anr].split('-')[0].split(' ')[1]
 
         print('pris:', pris)
-        names = avd.find_elements_by_class_name(
+        names = avd.find_elements(By.CLASS_NAME,
             "horse-name")  # alla hästar/kön/åldet i loppet
-        voddss = avd.find_elements_by_class_name(
+        voddss = avd.find_elements(By.CLASS_NAME,
             "vOdds-col")[1:]  # vodds i loppet utan rubrik
-        poddss = avd.find_elements_by_class_name(
+        poddss = avd.find_elements(By.CLASS_NAME,
             "pOdds-col")[1:]  # podds i loppet utan rubrik
-        rader = avd.find_elements_by_class_name(
+        rader = avd.find_elements(By.CLASS_NAME,
             "startlist__row")  # alla rader i loppet
-        strecks = avd.find_elements_by_class_name(
+        strecks = avd.find_elements(By.CLASS_NAME,
             "betDistribution-col")[1:]  # streck i loppet  utan rubrik
         print('ant names,vodds,podds,rader,streck', len(
             names), len(voddss), len(poddss), len(strecks))
@@ -201,7 +203,7 @@ def do_scraping(driver_s, driver_r, history, datum):  # get data from web site
             res_avd = result_tab[anr]
             # placeringar sorterade efter startnr för en avd
             places = inkludera_resultat(res_avd, anr+1)
-            # res_startnr = res_avd.find_elements_by_class_name("css-1jc4209-horseview-styles--startNumber")[1:]
+            # res_startnr = res_avd.find_elements(By.CLASS_NAME,"css-1jc4209-horseview-styles--startNumber")[1:]
             vdict['plac'] += places    # konkatenera listorna
 
         print('AVD', anr+1, bana, lopp_dist, start, end=' ')
@@ -224,39 +226,39 @@ def do_scraping(driver_s, driver_r, history, datum):  # get data from web site
             vdict['streck'].append(strecks[r].text)
             # kusk måste tas på hästnivå (pga att driver-col finns också i hist)
             vdict['kusk'].append(
-                rad.find_elements_by_class_name("driver-col")[0].text)
+                rad.find_elements(By.CLASS_NAME,"driver-col")[0].text)
             vdict['ålder'].append(
-                rad.find_elements_by_class_name("horse-age")[0].text)
+                rad.find_elements(By.CLASS_NAME,"horse-age")[0].text)
             vdict['kön'].append(
-                rad.find_elements_by_class_name("horse-sex")[0].text)
-            vdict['kr'].append(rad.find_elements_by_class_name(
+                rad.find_elements(By.CLASS_NAME,"horse-sex")[0].text)
+            vdict['kr'].append(rad.find_elements(By.CLASS_NAME,
                 "earningsPerStart-col")[0].text)  # kr/start i lopp 1 utan rubrik
 
-            dist_sp = rad.find_elements_by_class_name(
+            dist_sp = rad.find_elements(By.CLASS_NAME,
                 "postPositionAndDistance-col")  # dist och spår i lopp 1 utan rubrik
             vdict['dist'].append(dist_sp[0].text.split(':')[0])
             vdict['spår'].append(dist_sp[0].text.split(':')[1])
 
             if history:
                 ## history från startlistan ##
-                hist = avd.find_elements_by_class_name(
+                hist = avd.find_elements(By.CLASS_NAME,
                     "start-info-panel")  # all history för loppet
 
-                h_dates = hist[r].find_elements_by_class_name('date-col')[1:]
-                h_kuskar = hist[r].find_elements_by_class_name(
+                h_dates = hist[r].find_elements(By.CLASS_NAME,'date-col')[1:]
+                h_kuskar = hist[r].find_elements(By.CLASS_NAME,
                     'driver-col')[1:]
-                h_banor = hist[r].find_elements_by_class_name('track-col')[1:]
-                h_plac = hist[r].find_elements_by_class_name(
+                h_banor = hist[r].find_elements(By.CLASS_NAME,'track-col')[1:]
+                h_plac = hist[r].find_elements(By.CLASS_NAME,
                     'place-col')[1:]  # obs varannan rad (10 rader)
                 h_plac = h_plac[::2]   # ta ut varannat värde
 
-                h_dist = hist[r].find_elements_by_class_name(
+                h_dist = hist[r].find_elements(By.CLASS_NAME,
                     'distance-col')[1:]
-                h_spår = hist[r].find_elements_by_class_name(
+                h_spår = hist[r].find_elements(By.CLASS_NAME,
                     'position-col')[1:]
-                h_kmtid = hist[r].find_elements_by_class_name('kmTime-col')[1:]
-                h_odds = hist[r].find_elements_by_class_name('odds-col')[1:]
-                h_pris = hist[r].find_elements_by_class_name(
+                h_kmtid = hist[r].find_elements(By.CLASS_NAME,'kmTime-col')[1:]
+                h_odds = hist[r].find_elements(By.CLASS_NAME,'odds-col')[1:]
+                h_pris = hist[r].find_elements(By.CLASS_NAME,
                     'firstPrize-col')[1:]
 
                 for h, d in enumerate(h_dates):
@@ -294,15 +296,18 @@ def do_scraping(driver_s, driver_r, history, datum):  # get data from web site
 
 # %%
 
-
 def anpassa(driver_s):
-    sl = driver_s.find_elements_by_class_name("startlist")
-    buts = sl[0].find_elements_by_class_name("button")
-    buts[2].click()
-    print('klickade på', buts[2].text)
+    sl = driver_s.find_elements(By.CLASS_NAME, "startlist")
+    # print('sl all text\n', sl[0].text)
+    # print('sl end')
+    buts = sl[0].find_elements(
+        By.CLASS_NAME, "css-eugx3a-startlistoptionsview-styles--configButton-Button--buttonComponent")
 
-    tics = driver_s.find_elements_by_class_name(
-        "css-1hngy38-Checkbox-styles--label")
+    buts[0].click()
+    time.sleep(1)
+    print('klickade på', buts[0].text)
+
+    tics = driver_s.find_elements_by_class_name("css-1hngy38-Checkbox-styles--label")
     driver_s.implicitly_wait(5)     # seconds
     # print('len tics',len(tics))
 
@@ -351,11 +356,14 @@ def anpassa(driver_s):
             # print('kön')
             flag9 = False
 
-    ## Spara ##
+    ## Tryck på Spara-knappen ##
     driver_s.implicitly_wait(5)     # seconds
-    driver_s.find_elements_by_class_name(
-        "css-1fh4n7y-Button-styles--root-PrimaryButton-styles--root-StartlistDisplayOptionsDialog-styles--saveButton-PrimaryButton--PrimaryButton-StartlistDisplayOptionsDialog-styles--saveButton")[0].click()
-# anpassa(driver_s)
+    save_button = driver_s.driver_s.find_elements(By.CLASS_NAME,
+        "css-1fh4n7y-Button-styles--root-PrimaryButton-styles--root-StartlistDisplayOptionsDialog-styles--saveButton-PrimaryButton--PrimaryButton-StartlistDisplayOptionsDialog-styles--saveButton")
+    save_button[0].click()
+
+
+
 
 # %% [markdown]
 # ## Starta Här!
@@ -388,11 +396,11 @@ def v75_scraping(resultat=False, history=False, driver_s=None, driver_r=None):
 
         if enum == 0:  # första gången startlista
             # ok till första popup om kakor
-            driver_s.find_element_by_id("onetrust-accept-btn-handler").click()
+            driver_s.find_element(By.ID,"onetrust-accept-btn-handler").click()
             driver_s.fullscreen_window()
             driver_s.implicitly_wait(5)     # seconds
 
-            driver_s.find_elements_by_class_name(
+            driver_s.find_elements(By.CLASS_NAME,
                 "race-info-toggle")[1].click()  # prissummor mm
             driver_s.implicitly_wait(5)     # seconds
 
@@ -404,8 +412,7 @@ def v75_scraping(resultat=False, history=False, driver_s=None, driver_r=None):
             driver_r.implicitly_wait(5)     # seconds
             if enum == 0:
                 # ok till första popup om kakor
-                driver_r.find_element_by_id(
-                    "onetrust-accept-btn-handler").click()
+                driver_r.find_element(By.ID,"onetrust-accept-btn-handler").click()
                 driver_r.fullscreen_window()
 
         # scraping
@@ -430,12 +437,3 @@ def v75_scraping(resultat=False, history=False, driver_s=None, driver_r=None):
     df = städa_och_rensa(df, history)
 
     return df, strukna
-
-    # df.to_csv('lopp_to_learn.csv',index=False,date_format='%s') # spara
-
-# %% [markdown]
-# ### När allt är klart
-
-# %%
-# Spara undan loppen för learn
-# df.to_csv('lopp_to_learn.csv',index=False,date_format='%s')
