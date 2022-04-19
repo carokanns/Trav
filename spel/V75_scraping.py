@@ -358,9 +358,11 @@ def anpassa(driver_s):
 
     ## Tryck på Spara-knappen ##
     driver_s.implicitly_wait(5)     # seconds
-    save_button = driver_s.driver_s.find_elements(By.CLASS_NAME,
+    save_button = driver_s.find_elements(By.CLASS_NAME,
         "css-1fh4n7y-Button-styles--root-PrimaryButton-styles--root-StartlistDisplayOptionsDialog-styles--saveButton-PrimaryButton--PrimaryButton-StartlistDisplayOptionsDialog-styles--saveButton")
+    print('före click Spara')
     save_button[0].click()
+    print('efter click Spara')
 
 
 

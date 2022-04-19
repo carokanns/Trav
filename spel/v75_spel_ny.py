@@ -119,12 +119,16 @@ def remove_features(df_, remove_mer=[]):
 
 
 def v75_scraping():
-    st.write("TILLFÄLLIGT AVSTÄNGD. ANVÄNDER SPARAT")
-    # df, strukna = vs.v75_scraping(history=True,resultat=False)
+    # st.write("TILLFÄLLIGT AVSTÄNGD. ANVÄNDER SPARAT")
+    df, strukna = vs.v75_scraping(history=True,resultat=False)
+    for f in ['häst','bana', 'kusk', 'h1_kusk', 'h2_kusk', 'h3_kusk', 'h4_kusk', 'h5_kusk', 'h1_bana', 'h2_bana', 'h3_bana', 'h4_bana', 'h5_bana']:
+        df[f] = df[f].str.lower()
+    return df, strukna  
+  
+    # df_scraped = pd.read_csv('sparad_scrape.csv')
     # for f in ['häst','bana', 'kusk', 'h1_kusk', 'h2_kusk', 'h3_kusk', 'h4_kusk', 'h5_kusk', 'h1_bana', 'h2_bana', 'h3_bana', 'h4_bana', 'h5_bana']:
-    #     df[f] = df[f].str.lower()
-    df_scraped = pd.read_csv('sparad_scrape.csv')
-    return df_scraped
+    #      df_scraped[f] = df_scraped[f].str.lower()
+    # return df_scraped
 
 # remove NaN for cat_features in X and return (X, cat_features)
 # ta bort alla features som inte används innan call
@@ -346,8 +350,8 @@ with scraping:
             st.image('winning_horse.png')  # ,use_column_width=True)
             
             #####################
-            df_scraped=v75_scraping()
-            # df_scraped.to_csv('sparad_scrape.csv', index=False)
+            df_scraped, strukna=v75_scraping()
+            df_scraped.to_csv('sparad_scrape.csv', index=False)
             #########################
             
             st.balloons()
