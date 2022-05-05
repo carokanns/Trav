@@ -13,8 +13,9 @@ import sys
 import pickle
 from sklearn.ensemble import RandomForestRegressor
 
-sys.path.append('C:\\Users\peter\\Documents\\MyProjects\\PyProj\\Trav\\spel\\modeller\\')
+sys.path.append('C:\\Users\\peter\\Documents\\MyProjects\\PyProj\\Trav\\spel\\modeller\\')
 import V75_scraping as vs
+import typ as tp
 import time
 import logging
 logging.basicConfig(filename='app.log', filemode='w',
@@ -32,11 +33,13 @@ def remove_features(df_, remove_mer=[]):
 
     return df
 
-def v75_scraping():
-    # st.write("TILLFÄLLIGT AVSTÄNGD. ANVÄNDER SPARAT")
-    # df = pd.read_csv('sparad_scrape.csv')
-
-    df, strukna = vs.v75_scraping(history=True, resultat=False)
+def v75_scraping(full=True):
+    if not full:
+        # st.write("ANVÄNDER SPARAT")
+        df = pd.read_csv('sparad_scrape.csv')
+    else:
+        df, strukna = vs.v75_scraping(history=True, resultat=False, headless=True)
+    
     for f in ['häst','bana', 'kusk', 'h1_kusk', 'h2_kusk', 'h3_kusk', 'h4_kusk', 'h5_kusk', 'h1_bana', 'h2_bana', 'h3_bana', 'h4_bana', 'h5_bana']:
         df[f] = df[f].str.lower()
     return df
@@ -44,29 +47,6 @@ def v75_scraping():
     # Alternativ metod
     # Ta fram rader för varje typ enligt test-resultaten innan
     # låt meta_model välja mellan typerna tills max insats, sorterat på meta_proba
-
-# remove NaN for cat_features in X and return (X, cat_features)
-# ta bort alla features som inte används innan call
-
-
-def prepare_for_catboost(X_, features=[]):
-    X = X_.copy()
-    Xtemp = remove_features(X, remove_mer=['avd', 'datum'])
-
-    if len(features) > 0:
-      Xtemp = Xtemp[features]
-    # get numerical features and cat_features
-    num_features = list(Xtemp.select_dtypes(include=[np.number]).columns)
-    cat_features = list(Xtemp.select_dtypes(include=['object']).columns)
-
-    # check cat_features isna
-    print('Number of NaN in cat before:', X[cat_features].isna().sum()[
-          X[cat_features].isna().sum() > 0].sort_values(ascending=False).sum())
-
-    # impute 'missing' for all NaN in cat_features
-    X[cat_features] = X[cat_features].fillna('missing')
-    print('Number of NaN in cat after:', X[cat_features].isna().sum().sum())
-    return X, cat_features
 
 # Funktioner för att prioritera mellan hästar
 # Skapa ett Kelly-värde baserat på streck omvandlat till odds
@@ -151,8 +131,6 @@ def lägg_in_motståndare(X_, ant_motståndare):
     return X
 
 # som föregående men med diff istf faktiska värden
-
-
 def lägg_in_diff_motståndare(X_, motståndare):
     X = X_.copy()
 
@@ -169,114 +147,114 @@ def lägg_in_diff_motståndare(X_, motståndare):
 #%%
 
 
-class Typ():
-    def __init__(self, name, ant_hästar, proba, kelly, motst_ant, motst_diff,  ant_favoriter, only_clear, streck):
-        assert (motst_diff == False and motst_ant == 0) or (motst_ant > 0)
-        assert (ant_favoriter == 0 and only_clear ==
-                False) or (ant_favoriter > 0)
-        self.name = name                # string för filnamn mm
+# class Typ():
+#     def __init__(self, name, ant_hästar, proba, kelly, motst_ant, motst_diff,  ant_favoriter, only_clear, streck):
+#         assert (motst_diff == False and motst_ant == 0) or (motst_ant > 0)
+#         assert (ant_favoriter == 0 and only_clear ==
+#                 False) or (ant_favoriter > 0)
+#         self.name = name                # string för filnamn mm
 
-        # inkludera features eller ej
-        self.ant_hästar = ant_hästar    # int feature med antal hästar per avdelning
-        # int inkludera n features med bästa motståndare (streck)
-        self.motst_ant = motst_ant
-        self.motst_diff = motst_diff    # bool ovanstående med diff istf fasta värden
-        self.streck = streck            # bool inkludera feature med streck
+#         # inkludera features eller ej
+#         self.ant_hästar = ant_hästar    # int feature med antal hästar per avdelning
+#         # int inkludera n features med bästa motståndare (streck)
+#         self.motst_ant = motst_ant
+#         self.motst_diff = motst_diff    # bool ovanstående med diff istf fasta värden
+#         self.streck = streck            # bool inkludera feature med streck
 
-        # urval av rader
-        self.proba = proba              # bool för prioritering vid urval av rader
-        self.kelly = kelly              # bool för prioritering vid urval av rader
-        # int för hur många favoriter (avd med en häst) som ska användas
-        self.ant_favoriter = ant_favoriter
-        self.only_clear = only_clear    # bool för att bara avvända klara favoriter
+#         # urval av rader
+#         self.proba = proba              # bool för prioritering vid urval av rader
+#         self.kelly = kelly              # bool för prioritering vid urval av rader
+#         # int för hur många favoriter (avd med en häst) som ska användas
+#         self.ant_favoriter = ant_favoriter
+#         self.only_clear = only_clear    # bool för att bara avvända klara favoriter
 
-    def load_model(self):
-        with open('modeller/'+self.name+'.model', 'rb') as f:
-            model = pickle.load(f)
-        return model
+#     def load_model(self):
+#         with open('modeller/'+self.name+'.model', 'rb') as f:
+#             model = pickle.load(f)
+#         return model
 
-    def save_model(self, model):
-        with open('modeller/'+self.name+'.model', 'wb') as f:
-            pickle.dump(model, f)
+#     def save_model(self, model):
+#         with open('modeller/'+self.name+'.model', 'wb') as f:
+#             pickle.dump(model, f)
 
-    def prepare_for_model(self, X_):
-        # X_ måste ha datum och avd
-        X = X_.copy()
-        print(self.name, end=', ')
-        if self.ant_hästar:
-            print('Lägg in ant_hästar', end=', ')
-            X = lägg_in_antal_hästar(X)
-        if self.motst_diff:
-            print('Lägg in diff motståndare', end=', ')
-            X = lägg_in_diff_motståndare(X, self.motst_ant)
-        elif self.motst_ant > 0:
-            print('Lägg in motståndare', end=', ')
-            X = lägg_in_motståndare(X, self.motst_ant)
-        # Behåll streck ända tills learn och predict (används för prioritera rader)
-        print()
-        return X
+#     def prepare_for_model(self, X_):
+#         # X_ måste ha datum och avd
+#         X = X_.copy()
+#         print(self.name, end=', ')
+#         if self.ant_hästar:
+#             print('Lägg in ant_hästar', end=', ')
+#             X = lägg_in_antal_hästar(X)
+#         if self.motst_diff:
+#             print('Lägg in diff motståndare', end=', ')
+#             X = lägg_in_diff_motståndare(X, self.motst_ant)
+#         elif self.motst_ant > 0:
+#             print('Lägg in motståndare', end=', ')
+#             X = lägg_in_motståndare(X, self.motst_ant)
+#         # Behåll streck ända tills learn och predict (används för prioritera rader)
+#         print()
+#         return X
 
-    def learn(self, X_, y, features, iterations=1000, save=True, verbose=False):
-        # X_ måste ha datum och avd
+#     def learn(self, X_, y, features, iterations=1000, save=True, verbose=False):
+#         # X_ måste ha datum och avd
 
-        cbc = CatBoostClassifier(
-            iterations=iterations, loss_function='Logloss', eval_metric='AUC', verbose=verbose)
+#         cbc = CatBoostClassifier(
+#             iterations=iterations, loss_function='Logloss', eval_metric='AUC', verbose=verbose)
 
-        X = self.prepare_for_model(X_)
-        if not self.streck:
-            X.drop('streck', axis=1, inplace=True)
+#         X = self.prepare_for_model(X_)
+#         if not self.streck:
+#             X.drop('streck', axis=1, inplace=True)
 
-        X, cat_features = prepare_for_catboost(X)
+#         X, cat_features = prepare_for_catboost(X)
 
-        X = remove_features(X, remove_mer=['datum', 'avd'])
-        cbc.fit(X, y, cat_features, use_best_model=False)
+#         X = remove_features(X, remove_mer=['datum', 'avd'])
+#         cbc.fit(X, y, cat_features, use_best_model=False)
 
-        print('best score', cbc.best_score_)
-        if save:
-            self.save_model(cbc)
-        return cbc
+#         print('best score', cbc.best_score_)
+#         if save:
+#             self.save_model(cbc)
+#         return cbc
 
-    def predict(self, X_):
-        # X_ måste ha datum och avd
-        X = self.prepare_for_model(X_)
-        model = self.load_model()
-        if not self.streck:
-            # print('drop streck')
-            X.drop('streck', axis=1, inplace=True)
+#     def predict(self, X_):
+#         # X_ måste ha datum och avd
+#         X = self.prepare_for_model(X_)
+#         model = self.load_model()
+#         if not self.streck:
+#             # print('drop streck')
+#             X.drop('streck', axis=1, inplace=True)
 
-        X, cat_features = prepare_for_catboost(X, model.feature_names_)
+#         X, cat_features = prepare_for_catboost(X, model.feature_names_)
 
-        # all features in model
-        X = remove_features(X, remove_mer=['datum', 'avd'])
-        # print(len(X.columns), len(model.feature_names_))
-        # print('Diff', set(X.columns) - set(model.feature_names_))
-        # print('X.columns\n',X.columns)
-        # print('model features names\n',model.feature_names_)
+#         # all features in model
+#         X = remove_features(X, remove_mer=['datum', 'avd'])
+#         # print(len(X.columns), len(model.feature_names_))
+#         # print('Diff', set(X.columns) - set(model.feature_names_))
+#         # print('X.columns\n',X.columns)
+#         # print('model features names\n',model.feature_names_)
 
-        assert len(X.columns) == len(
-            model.feature_names_), f'len(X.columns)  != len(model.feature_names_) in predict {self.name}'
-        assert set(X.columns) == set(
-            model.feature_names_), 'features in model and in X not equal'
-        # assert list(X.columns) == list(model.feature_names_), f'features in model {self.name} and X not in same order'
-        X = X[model.feature_names_]
-        print('predict '+self.name)
-        # print(model.get_feature_importance(prettified=True)[:3])
+#         assert len(X.columns) == len(
+#             model.feature_names_), f'len(X.columns)  != len(model.feature_names_) in predict {self.name}'
+#         assert set(X.columns) == set(
+#             model.feature_names_), 'features in model and in X not equal'
+#         # assert list(X.columns) == list(model.feature_names_), f'features in model {self.name} and X not in same order'
+#         X = X[model.feature_names_]
+#         print('predict '+self.name)
+#         # print(model.get_feature_importance(prettified=True)[:3])
 
-        return model.predict_proba(X)[:, 1]
+#         return model.predict_proba(X)[:, 1]
 
 
 #%%
 # skapa modeller
 #           name, ant_hästar, proba, kelly, motst_ant, motst_diff,  ant_favoriter, only_clear, streck
-typ6 = Typ('typ6', True,       True, False,     0,          False,          0,            False,    True)
-typ1 = Typ('typ1', False,      True, False,     2,          True,           2,            True,     False)
-typ9 = Typ('typ9', True,       True, True,      2,          True,           2,            True,     True)
-typ16 = Typ('typ16', True,      True, True,      2,           True,           2,            False,    True)
+typ6 = tp.Typ('typ6', True,       True, False,     0,          False,          0,            False,    True)
+typ1 = tp.Typ('typ1', False,      True, False,     2,          True,           2,            True,     False)
+typ9 = tp.Typ('typ9', True,       True, True,      2,          True,           2,            True,     True)
+typ16= tp.Typ('typ16', True,      True, True,      2,          True,           2,            False,    True)
 
 typer = [typ6, typ1, typ9, typ16]  # load a file with pickl
 
 
-with open('modeller\\meta.model', 'rb') as f:
+with open('modeller\\meta_model.model', 'rb') as f:
     meta_model = pickle.load(f)
 
 #%%
@@ -286,19 +264,18 @@ def build_stack_df(X_, typer):
     stacked_data = X[['datum', 'avd', 'startnr', 'häst']].copy()
     for typ in typer:
         nr = typ.name[3:]
+        print('stack '+typ.name)
         stacked_data['proba'+nr] = typ.predict(X)
-        stacked_data['kelly' +
-                     nr] = kelly(stacked_data['proba'+nr], X[['streck']], None)
+        stacked_data['kelly'+nr] = kelly(stacked_data['proba'+nr], X[['streck']], None)
     return stacked_data
 
 
 def meta_predict(X_):
     # X_ innehåller även datum,startnr och avd
     extra = ['datum', 'avd', 'startnr', 'häst']
-    assert list(
-        X_.columns[:4]) == extra, 'meta_model måste ha datum, avd och startnr, häst för att kunna välja'
+    assert list(X_.columns[:4]) == extra, 'meta_model måste ha datum, avd och startnr, häst för att kunna välja'
     X = X_.copy()
-    with open('modeller\\meta.model', 'rb') as f:
+    with open('modeller\\meta_model.model', 'rb') as f:
         meta_model = pickle.load(f)
 
     # print(meta_model.predict_proba(X.iloc[:, -8:]))
@@ -308,49 +285,45 @@ def meta_predict(X_):
     return X[my_columns]
 
 
-def comp_cost(antal_rader):
-    cost = (antal_rader**2)/2
-    return antal_rader, cost
-
-def välj_rad(X_):
-
-    max_insats = 320
-    veckans_rad = X_.copy()
+def välj_rad(df_meta, max_insats=330):
+    veckans_rad = df_meta.copy()
     veckans_rad['välj'] = False
 
+    # first of all: select one horse per avd
     for avd in veckans_rad.avd.unique():
         max_pred = veckans_rad[veckans_rad.avd == avd]['meta_predict'].max()
         veckans_rad.loc[(veckans_rad.avd == avd) & (
             veckans_rad.meta_predict == max_pred), 'välj'] = True
     antal_rader = 1
     veckans_rad = veckans_rad.sort_values(by=['meta_predict'], ascending=False)
-
+    veckans_rad = veckans_rad.reset_index(drop=True)
     # 3. Använda ensam favorit för ett par avd? Kolla test-resultat
     # for each row in rad, välj=True if select_func(cost,avd) == True
-    cost = antal_rader*0.5
+    cost = compute_total_insats(veckans_rad[veckans_rad.välj])
+    
+    # now select the rest of the horses one by one sorted by meta_predict
     for i, row in veckans_rad.iterrows():
-        new_antal, new_cost = comp_cost(antal_rader+1)
-        # print(the_cost)
-        if new_cost > max_insats:
-            break
-
-        antal_rader = new_antal
-        cost = new_cost
+        # print('i',i)
         veckans_rad.loc[i, 'välj'] = True
-        # print(cost)
-    veckans_rad.sort_values(by=['välj', 'avd'], ascending=[
-                            False, True], inplace=True)
-
+        cost = compute_total_insats(veckans_rad[veckans_rad.välj])
+        # print('cost',cost)
+        if cost > max_insats:
+            veckans_rad.loc[i, 'välj'] = False
+            break
+        
+    print('cost', cost)
+    veckans_rad.sort_values(by=['välj', 'avd'], ascending=[False, True], inplace=True)
+    # display(veckans_rad[veckans_rad.välj])
     return veckans_rad
 
       
-# add new columns for proba and kelly      
-def stack_predictions(models, X_):      
-    X=X_.copy()
-    for model in models:
-        X['proba'+model.name] = model.predict(X)
-        X['kelly'+model.name] = kelly(X['proba'+model.name], X[['streck']], None)
-    return X
+# # add new columns for proba and kelly      
+# def stack_predictions(models, X_):      
+#     X=X_.copy()
+#     for model in models:
+#         X['proba'+model.name] = model.predict(X)
+#         X['kelly'+model.name] = kelly(X['proba'+model.name], X[['streck']], None)
+#     return X
 
 
         
@@ -370,13 +343,13 @@ if 'df' not in st.session_state:
     st.session_state['df'] = None
  
 with scraping:
-    def scrape():
+    def scrape(full=True):
         scraping.write('Starta web-scraping för ny data')
         with st.spinner('Ta det lugnt!'):
             st.image('winning_horse.png')  # ,use_column_width=True)
             
             #####################
-            df_scraped=v75_scraping()
+            df_scraped=v75_scraping(full)
             df_scraped.to_csv('sparad_scrape.csv', index=False)
             #########################
             
@@ -384,15 +357,20 @@ with scraping:
             
             print(df_scraped.datum.unique())
             df_stack = build_stack_df(df_scraped, typer)
+            df_stack.to_csv('sparad_stack.csv', index=False)
             df_meta = meta_predict(df_stack)
             df_meta.reset_index(drop=True, inplace=True)
             df = välj_rad(df_meta)
             st.session_state.df = df
             
-        st.write('Scraping klar') 
+        st.write(compute_total_insats(df[df.välj]) )
         
     if st.button('scrape'):
         scrape()
+        del st.session_state.datum  # säkra att datum är samma som i scraping
+        
+    if st.sidebar.button('reuse'):
+        scrape(False)
         del st.session_state.datum  # säkra att datum är samma som i scraping
         
 with v75:
@@ -409,6 +387,7 @@ with avd:
     if st.session_state.df is not None:
         use = avd.radio('Välj avdelning', ('Avd 1 och 2','Avd 3 och 4','Avd 5 och 6','Avd 7','exit'))
         avd.subheader(use)
+        st.write('TA BORT OUTLIERS')
         col1, col2 = st.columns(2)
         # print(df.iloc[0].häst)
         dfi=st.session_state.df
@@ -452,9 +431,11 @@ with avd:
 with sortera:   
     if st.sidebar.checkbox('se data'):
         dfr = st.session_state.df
-        sort=st.sidebar.radio('sortera på',['poäng','avd','insats'])
+        sort=st.sidebar.radio('sortera på',['Meta','kelly','avd'])
         if sort:
-            if sort=='insats':
-                st.write(dfr[['avd','häst','poäng','proba','insats','prob_order']].sort_values(by=['insats','proba'],ascending=[False,False]))
+            if sort=='kelly':
+                st.write(dfr[['avd','nr','häst','Meta','kelly']].sort_values(by=['kelly','avd'],ascending=[False,False]))
+            elif sort=='Meta':
+                st.write(dfr[['avd', 'nr', 'häst','Meta', 'kelly']].sort_values(by=['Meta','avd','nr'], ascending=[False, False,False]))
             else:
-                st.write(dfr[['avd','häst','poäng','proba','insats','prob_order']].sort_values(by=[sort,'proba'],ascending=[True,False]))  
+                st.write(dfr.sort_values(by=['avd', 'nr'], ascending=[True, True]))

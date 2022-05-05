@@ -22,6 +22,8 @@ from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.common.exceptions import TimeoutException
+from selenium.webdriver.chrome.options import Options
+
 
 import streamlit as st
 import fixa_mer_features as ff2
@@ -40,9 +42,24 @@ import time
 
 # %%
 
-def get_webdriver():
+def get_webdriver(headless=True):
+    # instance of Options class allows
+    # us to configure Headless Chrome
+    options = Options()
+
+    if headless:
+        # this parameter tells Chrome that
+        # it should be run without UI (Headless)
+        options.headless = True
+        user_agent = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/95.0.4638.54 Safari/537.36'
+        options.add_argument('user-agent={0}'.format(user_agent))
+        options.add_argument("--window-size=1920x1080")
+
+
+    # initializing webdriver for Chrome with our options
     driver = webdriver.Chrome(
-        executable_path='C:\\Users\peter\\Documents\\MyProjects\\gecko\\chromedriver.exe')
+        executable_path='C:\\Users\peter\\Documents\\MyProjects\\gecko\\chromedriver.exe', options=options)
+
     return driver
 
 
@@ -149,8 +166,7 @@ def do_scraping(driver_s, driver_r, history, datum):  # get data from web site
         start_tab = start_tab[1:]
     print('ant lopp', len(start_tab))
 
-    comb = driver_s.find_elements(By.CLASS_NAME,
-        'race-combined-info')  # alla bana,dist,start
+    comb = driver_s.find_elements(By.CLASS_NAME,'race-combined-info')  # alla bana,dist,start
     priselement = driver_s.find_elements(By.CLASS_NAME,
         'css-1lnkuf6-startlistraceinfodetails-styles--infoContainer')
     NOK, EUR = False, False
@@ -166,8 +182,10 @@ def do_scraping(driver_s, driver_r, history, datum):  # get data from web site
     priser = [p.text for p in priselement if 'Pris:' in p.text]
 
     if len(priser) == 0:
-        priser = [p.text for p in priselement if 'åriga' not in p.text and (
-            'EUR' in p.text or 'NOK' in p.text)]  # alla lopps priser
+        priser = [p.text for p in priselement 
+                  if 'åriga' not in p.text and 
+                  ('Tillägg' not in p.text) and 
+                  ('EUR' in p.text or 'NOK' in p.text)]  # alla lopps priser
     print('priser', priser)
     print('Ant priser', len(priser))
     # ett lopp (de häst-relaterade som inte kan bli 'missing' tar jag direkt på loppnivå)
@@ -184,7 +202,10 @@ def do_scraping(driver_s, driver_r, history, datum):  # get data from web site
             pris = priser[anr].split('-')[0].replace('.', '')  # NOK -> SEK
         else:
             pris = priser[anr].split('-')[0].split(' ')[1]
-
+            
+        pris=pris.replace(' ','')
+        pris=pris.replace('.','')
+        
         print('pris:', pris)
         names = avd.find_elements(By.CLASS_NAME,
             "horse-name")  # alla hästar/kön/åldet i loppet
@@ -231,11 +252,15 @@ def do_scraping(driver_s, driver_r, history, datum):  # get data from web site
                 rad.find_elements(By.CLASS_NAME,"horse-age")[0].text)
             vdict['kön'].append(
                 rad.find_elements(By.CLASS_NAME,"horse-sex")[0].text)
-            vdict['kr'].append(rad.find_elements(By.CLASS_NAME,
-                "earningsPerStart-col")[0].text)  # kr/start i lopp 1 utan rubrik
 
-            dist_sp = rad.find_elements(By.CLASS_NAME,
-                "postPositionAndDistance-col")  # dist och spår i lopp 1 utan rubrik
+            vdict['kr'].append(rad.find_elements(By.CLASS_NAME, "earningsPerStart-col")[0].text)  # kr/start i lopp 1 utan rubrik
+
+            dist_sp = rad.find_elements(By.CLASS_NAME,"postPositionAndDistance-col")  # dist och spår i lopp 1 utan rubrik
+            
+            assert len(dist_sp)>0, f'dist_sp ej len>0 len={len(dist_sp)} {dist_sp}'
+            # print('rad',rad)
+            
+            # print(dist_sp)
             vdict['dist'].append(dist_sp[0].text.split(':')[0])
             vdict['spår'].append(dist_sp[0].text.split(':')[1])
 
@@ -307,7 +332,9 @@ def anpassa(driver_s):
     time.sleep(1)
     print('klickade på', buts[0].text)
 
-    tics = driver_s.find_elements_by_class_name("css-1hngy38-Checkbox-styles--label")
+    # tics = driver_s.find_elements_by_class_name("css-1hngy38-Checkbox-styles--label")
+    WebDriverWait(driver_s, 10).until(EC.presence_of_element_located((By.CLASS_NAME, 'css-1hngy38-Checkbox-styles--label')))
+    tics = driver_s.find_elements(By.CLASS_NAME,"css-1hngy38-Checkbox-styles--label")
     driver_s.implicitly_wait(5)     # seconds
     # print('len tics',len(tics))
 
@@ -340,9 +367,30 @@ def anpassa(driver_s):
             # print('kr')
             flag5 = False
         elif flag6 and t.text == 'DISTANS OCH SPÅR':
+            # t.click()
+            if t.is_enabled():
+                print('distans och spår är enabled')
+
+            if t.is_displayed():
+                print('distans och spår är displayed')
+                
+            if t.is_selected():
+                print('distans och spår är redan valt')
+                flag6 = False
+            else:
+                print(t.text, 'ej selected ännu')
+
+            WebDriverWait(t, 10).until(EC.element_to_be_clickable(t))
             t.click()
-            # print('dist')
-            flag6 = False
+            if t.is_selected():
+                print(t.text+' är korrekt')
+                flag6 = False
+            else:
+                print(t.text+' är fel')
+                flag6 = True
+            
+            print('efter click distans och spår')
+
         elif flag7 and t.text == 'V-ODDS':
             # t.click()
             print('hoppar över voods click (verkar vara förifyllt')
@@ -356,11 +404,26 @@ def anpassa(driver_s):
             # print('kön')
             flag9 = False
 
+    print('Prova name '+'checkbox-ageAndSex')
+    chkbx = driver_s.find_elements(By.NAME, 'checkbox-ageAndSex')[0]
+    if chkbx.is_enabled():
+        print(chkbx.text +' är enabled')
+    if chkbx.is_displayed():
+        print(chkbx.text+' är displayed')
+    if chkbx.is_selected():
+        print(chkbx.text+' är korrekt valt')
+    else:
+        print(chkbx.text, ' ej selected ännu')
+        chkbx.click()
+    if chkbx.is_selected():
+        print(chkbx.text+' är korrekt')
+    
+    
     ## Tryck på Spara-knappen ##
     driver_s.implicitly_wait(5)     # seconds
     save_button = driver_s.find_elements(By.CLASS_NAME,
         "css-1fh4n7y-Button-styles--root-PrimaryButton-styles--root-StartlistDisplayOptionsDialog-styles--saveButton-PrimaryButton--PrimaryButton-StartlistDisplayOptionsDialog-styles--saveButton")
-    print('före click Spara')
+
     save_button[0].click()
     print('efter click Spara')
 
@@ -374,7 +437,7 @@ def anpassa(driver_s):
 # %%
 
 
-def v75_scraping(resultat=False, history=False, driver_s=None, driver_r=None):
+def v75_scraping(resultat=False, history=False, headless=True, driver_s=None, driver_r=None):
     ### Hela loopen med alla lopp i alla veckor i omg_df ###
     omg_df = pd.read_csv(
         'C:\\Users\\peter\\Documents\\MyProjects\\PyProj\\Trav\\spel\\omg_att_spela_link.csv')
@@ -382,12 +445,12 @@ def v75_scraping(resultat=False, history=False, driver_s=None, driver_r=None):
 
     if not driver_r:
         if resultat:
-            driver_r = get_webdriver()  # get web driver for results
+            driver_r = get_webdriver(headless)  # get web driver for results
         else:
             driver_r = None
 
     if not driver_s:
-        driver_s = get_webdriver()  # web driver för startlista
+        driver_s = get_webdriver(headless)  # web driver för startlista
 
     for enum, omg in enumerate(omg_df.Link.values):
         print(f'omgång {enum+1}:', omg)
@@ -439,3 +502,8 @@ def v75_scraping(resultat=False, history=False, driver_s=None, driver_r=None):
     df = städa_och_rensa(df, history)
 
     return df, strukna
+
+if __name__ == '__main__':
+    print('START GOING')
+    v75_scraping(resultat=True, history=True, headless=True)
+print('END')

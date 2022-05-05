@@ -219,7 +219,7 @@ def fixa_mer_features(df, hist=False):
         
    # pris
     if not is_numeric_dtype(df.pris):
-        df['pris'] = df.streck.astype('float')
+        df['pris'] = df.pris.astype('float')
     if df.pris.isna().sum() > 0:
         print(f'pris NaNs: {df.pris.isna().sum()}')
 
