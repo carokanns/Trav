@@ -505,5 +505,5 @@ def v75_scraping(resultat=False, history=False, headless=True, driver_s=None, dr
 
 if __name__ == '__main__':
     print('START GOING')
-    v75_scraping(resultat=True, history=True, headless=True)
+    v75_scraping(resultat=False, history=True, headless=True)
 print('END')

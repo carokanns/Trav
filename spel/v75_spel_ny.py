@@ -284,6 +284,20 @@ def meta_predict(X_):
 
     return X[my_columns]
 
+def ridge_predict(X_):
+    # X_ innehåller även datum,startnr och avd
+    extra = ['datum', 'avd', 'startnr', 'häst']
+    assert list(X_.columns[:4]) == extra, 'meta_model måste ha datum, avd och startnr, häst för att kunna välja'
+    X = X_.copy()
+    with open('modeller\\ridge_model.model', 'rb') as f:
+        ridge_model = pickle.load(f)
+
+    # print(meta_model.predict_proba(X.iloc[:, -8:]))
+    X['meta_predict'] = ridge_model._predict_proba_lr(X.iloc[:, -8:])[:, 1]
+    my_columns = extra + list(X.columns)[-9:]
+
+    return X[my_columns]
+
 
 def välj_rad(df_meta, max_insats=330):
     veckans_rad = df_meta.copy()
@@ -358,7 +372,11 @@ with scraping:
             print(df_scraped.datum.unique())
             df_stack = build_stack_df(df_scraped, typer)
             df_stack.to_csv('sparad_stack.csv', index=False)
-            df_meta = meta_predict(df_stack)
+            
+            # df_meta = meta_predict(df_stack)
+            # use ridge instead of meta_predict
+            df_meta = ridge_predict(df_stack)
+            
             df_meta.reset_index(drop=True, inplace=True)
             df = välj_rad(df_meta)
             st.session_state.df = df

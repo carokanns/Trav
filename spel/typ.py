@@ -15,7 +15,7 @@ def remove_features(df_, remove_mer=[]):
 
 # remove NaN for cat_features in X and return (X, cat_features)
 # ta bort alla features som inte används innan call
-def prepare_for_catboost(X_, features=[]):
+def prepare_for_catboost(X_, features=[],verbose=False):
     X = X_.copy()
     Xtemp = remove_features(X, remove_mer=['avd', 'datum'])
 
@@ -26,12 +26,14 @@ def prepare_for_catboost(X_, features=[]):
     cat_features = list(Xtemp.select_dtypes(include=['object']).columns)
 
     # check cat_features isna
-    print('Number of NaN in cat before:', X[cat_features].isna().sum()[
+    if verbose:
+        print('Number of NaN in cat before:', X[cat_features].isna().sum()[
           X[cat_features].isna().sum() > 0].sort_values(ascending=False).sum())
 
     # impute 'missing' for all NaN in cat_features
     X[cat_features] = X[cat_features].fillna('missing')
-    print('Number of NaN in cat after:', X[cat_features].isna().sum().sum())
+    if verbose:
+        print('Number of NaN in cat after:', X[cat_features].isna().sum().sum())
     return X, cat_features
 
 
@@ -110,24 +112,29 @@ class Typ():
         with open('modeller/'+self.name+'.model', 'wb') as f:
             pickle.dump(model, f)
 
-    def prepare_for_model(self, X_):
+    def prepare_for_model(self, X_,verbose=False):
         # X_ måste ha datum och avd
         X = X_.copy()
-        print(self.name, end=', ')
+        if verbose:
+            print(self.name, end=', ')
         if self.ant_hästar:
-            print('Lägg in ant_hästar', end=', ')
+            if verbose:
+                print('Lägg in ant_hästar', end=', ')
             X = lägg_in_antal_hästar(X)
         if self.motst_diff:
-            print('Lägg in diff motståndare', end=', ')
+            if verbose:
+                print('Lägg in diff motståndare', end=', ')
             X = lägg_in_diff_motståndare(X, self.motst_ant)
         elif self.motst_ant > 0:
-            print('Lägg in motståndare', end=', ')
+            if verbose:
+                print('Lägg in motståndare', end=', ')
             X = lägg_in_motståndare(X, self.motst_ant)
         # Behåll streck ända tills learn och predict (används för prioritera rader)
-        print()
+        if verbose:
+            print()
         return X
 
-    def learn(self, X_, y=None, depth=None, learning_rate=None, l2_leaf_reg=None, iterations=500, save=True, verbose=False):
+    def learn(self, X_, y=None, X_test=None, y_test=None, depth=None, learning_rate=None, l2_leaf_reg=None, iterations=1000, save=True, verbose=False):
         # X_ måste ha datum och avd
 
         cbc = CatBoostClassifier(
@@ -138,20 +145,30 @@ class Typ():
         if not self.streck:
             X.drop('streck', axis=1, inplace=True)
 
-        X, cat_features = prepare_for_catboost(X)
-
+        X, cat_features = prepare_for_catboost(X,verbose=verbose)
         X = remove_features(X, remove_mer=['datum', 'avd'])
         
         assert X[cat_features].isnull().sum().sum() == 0, 'there are NaN values in cat_features'
 
-        cbc.fit(X, y, cat_features, use_best_model=False)
+        if X_test is None or y_test is None:
+            cbc.fit(X, y, cat_features, use_best_model=False)
+        else:    
+            X_test = self.prepare_for_model(X_test,verbose=verbose)
+            if not self.streck:
+                X_test.drop('streck', axis=1, inplace=True)
 
-        print('best score', cbc.best_score_)
+            X_test, _ = prepare_for_catboost(X_test,verbose=verbose)
+            X_test = remove_features(X_test, remove_mer=['datum', 'avd'])
+            assert X.columns.tolist() == X_test.columns.tolist(), 'X and X_test have different columns'
+            eval_pool = Pool(X_test, y_test, cat_features=cat_features)
+            cbc.fit(X,y,cat_features=cat_features,eval_set=eval_pool, use_best_model=True,early_stopping_rounds=50)
+        if verbose:
+            print('best score', cbc.best_score_)
         if save:
             self.save_model(cbc)
         return cbc
 
-    def predict(self, X_):
+    def predict(self, X_,verbose=False):
         # X_ måste ha datum och avd
         X = self.prepare_for_model(X_)
         model = self.load_model()
@@ -170,7 +187,8 @@ class Typ():
             model.feature_names_), 'features in model and in X not equal'
         
         X = X[model.feature_names_]
-        print('predict '+self.name)
+        if verbose:
+            print('predict '+self.name)
         # print(model.get_feature_importance(prettified=True)[:3])
 
         return model.predict_proba(X)[:, 1]
