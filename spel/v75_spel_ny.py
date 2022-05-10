@@ -270,12 +270,12 @@ def build_stack_df(X_, typer):
     return stacked_data
 
 
-def meta_predict(X_):
+def meta_rf_predict(X_):
     # X_ innehåller även datum,startnr och avd
     extra = ['datum', 'avd', 'startnr', 'häst']
     assert list(X_.columns[:4]) == extra, 'meta_model måste ha datum, avd och startnr, häst för att kunna välja'
     X = X_.copy()
-    with open('modeller\\meta_model.model', 'rb') as f:
+    with open('modeller\\meta_rf_model.model', 'rb') as f:
         meta_model = pickle.load(f)
 
     # print(meta_model.predict_proba(X.iloc[:, -8:]))
@@ -284,16 +284,16 @@ def meta_predict(X_):
 
     return X[my_columns]
 
-def ridge_predict(X_):
+def meta_ridge_predict(X_):
     # X_ innehåller även datum,startnr och avd
     extra = ['datum', 'avd', 'startnr', 'häst']
     assert list(X_.columns[:4]) == extra, 'meta_model måste ha datum, avd och startnr, häst för att kunna välja'
     X = X_.copy()
-    with open('modeller\\ridge_model.model', 'rb') as f:
-        ridge_model = pickle.load(f)
+    with open('modeller\\meta_ridge_model.model', 'rb') as f:
+        meta_model = pickle.load(f)
 
     # print(meta_model.predict_proba(X.iloc[:, -8:]))
-    X['meta_predict'] = ridge_model._predict_proba_lr(X.iloc[:, -8:])[:, 1]
+    X['meta_predict'] = meta_model._predict_proba_lr(X.iloc[:, -8:])[:, 1]
     my_columns = extra + list(X.columns)[-9:]
 
     return X[my_columns]
@@ -375,7 +375,7 @@ with scraping:
             
             # df_meta = meta_predict(df_stack)
             # use ridge instead of meta_predict
-            df_meta = ridge_predict(df_stack)
+            df_meta = meta_ridge_predict(df_stack)
             
             df_meta.reset_index(drop=True, inplace=True)
             df = välj_rad(df_meta)

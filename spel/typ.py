@@ -2,7 +2,7 @@ import pandas as pd
 import numpy as np
 import pickle
 from catboost import CatBoostClassifier, Pool
-
+pref='../'
 
 def remove_features(df_, remove_mer=[]):
     df = df_.copy()
@@ -104,12 +104,12 @@ class Typ():
         self.only_clear = only_clear    # bool för att bara avvända klara favoriter
 
     def load_model(self):
-        with open('modeller/'+self.name+'.model', 'rb') as f:
+        with open(pref+'modeller/'+self.name+'.model', 'rb') as f:
             model = pickle.load(f)
         return model
 
     def save_model(self, model):
-        with open('modeller/'+self.name+'.model', 'wb') as f:
+        with open(pref+'modeller/'+self.name+'.model', 'wb') as f:
             pickle.dump(model, f)
 
     def prepare_for_model(self, X_,verbose=False):
