@@ -1,4 +1,0 @@
-Ta med antal hästar i loppet. Påverkar kanske inte internt inom loppet men när jag prioriterar hästar mellan loppen.
-Kolla upp andra encoding-metoder än catboost och/eller flaml's egen
-Ta med motståndarinfo, typ de tre bästa hästarna (efter antal streck) - betyder att hästar har ett id
-Kolla om högre insatser kan ge mer - Icke!

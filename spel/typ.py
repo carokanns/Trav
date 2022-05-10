@@ -2,7 +2,7 @@ import pandas as pd
 import numpy as np
 import pickle
 from catboost import CatBoostClassifier, Pool
-pref='../'
+pref='' #'../'
 
 def remove_features(df_, remove_mer=[]):
     df = df_.copy()
