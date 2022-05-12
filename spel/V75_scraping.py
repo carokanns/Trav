@@ -421,9 +421,8 @@ def anpassa(driver_s):
     
     ## Tryck på Spara-knappen ##
     driver_s.implicitly_wait(5)     # seconds
-    save_button = driver_s.find_elements(By.CLASS_NAME,
-        "css-1fh4n7y-Button-styles--root-PrimaryButton-styles--root-StartlistDisplayOptionsDialog-styles--saveButton-PrimaryButton--PrimaryButton-StartlistDisplayOptionsDialog-styles--saveButton")
-
+    save_button = driver_s.find_elements(By.CSS_SELECTOR, "[ class^='css-1ix']")
+     
     save_button[0].click()
     print('efter click Spara')
 
@@ -505,5 +504,5 @@ def v75_scraping(resultat=False, history=False, headless=True, driver_s=None, dr
 
 if __name__ == '__main__':
     print('START GOING')
-    v75_scraping(resultat=False, history=True, headless=True)
+    v75_scraping(resultat=True, history=True, headless=False)
 print('END')
