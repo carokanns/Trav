@@ -5,6 +5,8 @@ import numpy as np
 import pandas as pd
 from IPython.display import display
 from catboost import CatBoostClassifier, Pool
+import concurrent.futures
+import time
 
 pd.set_option('display.width', 200)
 pd.set_option('display.max_columns', 200)
@@ -16,7 +18,7 @@ from sklearn.ensemble import RandomForestRegressor
 sys.path.append('C:\\Users\\peter\\Documents\\MyProjects\\PyProj\\Trav\\spel\\modeller\\')
 import V75_scraping as vs
 import typ as tp
-import time
+
 import logging
 logging.basicConfig(filename='app.log', filemode='w',
                     format='%(name)s - %(message)s', level=logging.INFO)
@@ -37,6 +39,10 @@ def v75_scraping(full=True):
     if not full:
         # st.write("ANVÄNDER SPARAT")
         df = pd.read_csv('sparad_scrape.csv')
+        try:
+            df.drop(['plac'], axis=1, inplace=True)
+        except:
+            pass
     else:
         df, strukna = vs.v75_scraping(history=True, resultat=False, headless=True)
     
@@ -90,32 +96,23 @@ def check_avd(avd, temp):
 
 
 def compute_total_insats(df):
-    insats = 0
-    # group by avd
     summa = df.groupby('avd').avd.count().prod() / 2
     return summa
 
-# antal hästar per avdeling
-
-
+# feature med antal hästar per avdeling
 def lägg_in_antal_hästar(df_):
     df = df_.copy()
     df['ant_per_lopp'] = None
     df['ant_per_lopp'] = df.groupby(['datum', 'avd'])['avd'].transform('count')
     return df
 
-# mest streck per avdeling
-
-
+# räkna ut mest streck per avdeling
 def mest_streck(X_, i, datum, avd):
     X = X_.copy()
-    X.sort_values(by=['datum', 'avd', 'streck'], ascending=[
-                  True, True, False], inplace=True)
+    X.sort_values(by=['datum', 'avd', 'streck'], ascending=[True, True, False], inplace=True)
     return X.loc[(X.datum == datum) & (X.avd == avd), 'streck'].iloc[i]
 
 # n flest streck per avd som features
-
-
 def lägg_in_motståndare(X_, ant_motståndare):
     X = X_.copy()
 
@@ -245,7 +242,7 @@ def lägg_in_diff_motståndare(X_, motståndare):
 
 #%%
 # skapa modeller
-#           name, ant_hästar, proba, kelly, motst_ant, motst_diff,  ant_favoriter, only_clear, streck
+#             name,  ant_hästar, proba, kelly, motst_ant,   motst_diff,  ant_favoriter,  only_clear, streck
 typ6 = tp.Typ('typ6', True,       True, False,     0,          False,          0,            False,    True)
 typ1 = tp.Typ('typ1', False,      True, False,     2,          True,           2,            True,     False)
 typ9 = tp.Typ('typ9', True,       True, True,      2,          True,           2,            True,     True)
@@ -254,7 +251,7 @@ typ16= tp.Typ('typ16', True,      True, True,      2,          True,           2
 typer = [typ6, typ1, typ9, typ16]  # load a file with pickl
 
 
-with open('modeller\\meta_model.model', 'rb') as f:
+with open('modeller\\meta_ridge_model.model', 'rb') as f:
     meta_model = pickle.load(f)
 
 #%%
@@ -299,6 +296,24 @@ def meta_ridge_predict(X_):
     return X[my_columns]
 
 
+def mesta_diff_per_avd(X_):
+    sm = X_.copy()
+    # select the highest meta_predict per avd
+    sm['first'] = sm.groupby('avd')['meta_predict'].transform(lambda x: x.nlargest(2).reset_index(drop=True)[0])
+    sm['second'] = sm.groupby('avd')['meta_predict'].transform(lambda x: x.nlargest(2).reset_index(drop=True)[1])
+    
+    sm=sm.query("(first==meta_predict or second==meta_predict)")
+    sm['diff'] = sm['first'] - sm['second']
+    
+    sm.sort_values(by='diff', ascending=False, inplace=True)
+    sm.to_csv('mesta_diff_per_avd.csv')
+    
+    # drop one row per avd
+    sm = sm.drop_duplicates(subset='avd', keep='first')
+    sm.sort_values(by='diff', ascending=False, inplace=True)
+    
+    return sm
+
 def välj_rad(df_meta, max_insats=330):
     veckans_rad = df_meta.copy()
     veckans_rad['välj'] = False
@@ -306,17 +321,21 @@ def välj_rad(df_meta, max_insats=330):
     # first of all: select one horse per avd
     for avd in veckans_rad.avd.unique():
         max_pred = veckans_rad[veckans_rad.avd == avd]['meta_predict'].max()
-        veckans_rad.loc[(veckans_rad.avd == avd) & (
-            veckans_rad.meta_predict == max_pred), 'välj'] = True
-    antal_rader = 1
+        veckans_rad.loc[(veckans_rad.avd == avd) & (veckans_rad.meta_predict == max_pred), 'välj'] = True
+    
     veckans_rad = veckans_rad.sort_values(by=['meta_predict'], ascending=False)
     veckans_rad = veckans_rad.reset_index(drop=True)
-    # 3. Använda ensam favorit för ett par avd? Kolla test-resultat
-    # for each row in rad, välj=True if select_func(cost,avd) == True
+    
+    mest_diff = mesta_diff_per_avd(veckans_rad)
+    
     cost = compute_total_insats(veckans_rad[veckans_rad.välj])
     
     # now select the rest of the horses one by one sorted by meta_predict
     for i, row in veckans_rad.iterrows():
+        if row.avd == mest_diff.avd.iloc[0]: 
+            continue
+        if row.avd == mest_diff.avd.iloc[1]: 
+            continue
         # print('i',i)
         veckans_rad.loc[i, 'välj'] = True
         cost = compute_total_insats(veckans_rad[veckans_rad.välj])
@@ -356,6 +375,11 @@ models = [typ6, typ1, typ9, typ16]
 if 'df' not in st.session_state:
     st.session_state['df'] = None
  
+def foo(bar):
+    print(f'hello {bar}\n')
+    time.sleep(5)
+    return 'Done'
+
 with scraping:
     def scrape(full=True):
         scraping.write('Starta web-scraping för ny data')
@@ -363,12 +387,26 @@ with scraping:
             st.image('winning_horse.png')  # ,use_column_width=True)
             
             #####################
-            df_scraped=v75_scraping(full)
-            df_scraped.to_csv('sparad_scrape.csv', index=False)
-            #########################
+            # start v75_scraping as a thread
+            #####################
+            # start a progress bar
+            i=0.0
+            my_bar = st.progress(i)   
+            with concurrent.futures.ThreadPoolExecutor() as executor:
+                future = executor.submit(v75_scraping , full)
+                while future.running():
+                    # print('wait')
+                    time.sleep(1)
+                    i+=1/123
+                    if i<0.99:
+                        my_bar.progress(i)
+                        
+                df_scraped = future.result()
+
+                df_scraped.to_csv('sparad_scrape.csv', index=False)
             
             st.balloons()
-            
+            my_bar.empty()
             print(df_scraped.datum.unique())
             df_stack = build_stack_df(df_scraped, typer)
             df_stack.to_csv('sparad_stack.csv', index=False)
@@ -403,7 +441,7 @@ with v75:
     
 with avd:
     if st.session_state.df is not None:
-        use = avd.radio('Välj avdelning', ('Avd 1 och 2','Avd 3 och 4','Avd 5 och 6','Avd 7','exit'))
+        use = avd.radio('Välj avdelning', ('Avd 1 och 2','Avd 3 och 4','Avd 5 och 6','Avd 7','clear'))
         avd.subheader(use)
         st.write('TA BORT OUTLIERS')
         col1, col2 = st.columns(2)
@@ -441,7 +479,7 @@ with avd:
         elif use=='Avd 7':
             col1.table(dfi[(dfi.avd == 7) & dfi.välj].sort_values(by=['Meta'], ascending=False)[
                        ['nr', 'häst', 'Meta', 'kelly']])
-        elif use=='exit':
+        elif use=='clear':
             st.stop()    
         else:
             st.write('ej klart')

@@ -87,21 +87,21 @@ class Typ():
         assert (motst_diff == False and motst_ant == 0) or (motst_ant > 0)
         assert (ant_favoriter == 0 and only_clear ==
                 False) or (ant_favoriter > 0)
-        self.name = name                # string för filnamn mm
+        self.name = name                # string - för filnamn mm
 
-        # inkludera features eller ej
-        self.ant_hästar = ant_hästar    # int feature med antal hästar per avdelning
-        # int inkludera n features med bästa motståndare (streck)
-        self.motst_ant = motst_ant
-        self.motst_diff = motst_diff    # bool ovanstående med diff istf fasta värden
-        self.streck = streck            # bool inkludera feature med streck
+        # extra features att inkludera 
+        self.ant_hästar = ant_hästar    # int  - feature med antal hästar per avdelning
+        
+        self.motst_ant = motst_ant      # int  - inkludera n features med bästa motståndare (streck)
+        self.motst_diff = motst_diff    # bool - ovanstående med diff istf fasta värden
+        self.streck = streck            # bool - inkludera feature med streck
 
         # urval av rader
-        self.proba = proba              # bool för prioritering vid urval av rader
-        self.kelly = kelly              # bool för prioritering vid urval av rader
-        # int för hur många favoriter (avd med en häst) som ska användas
-        self.ant_favoriter = ant_favoriter
-        self.only_clear = only_clear    # bool för att bara avvända klara favoriter
+        self.proba = proba              # bool - för prioritering vid urval av rader
+        self.kelly = kelly              # bool - för prioritering vid urval av rader
+        
+        self.ant_favoriter = ant_favoriter # int  - för hur många favoriter (avd med en häst) som ska användas
+        self.only_clear = only_clear       # bool - för att bara avvända klara favoriter
 
     def load_model(self):
         with open(pref+'modeller/'+self.name+'.model', 'rb') as f:
@@ -180,9 +180,10 @@ class Typ():
 
         # all features in model
         X = remove_features(X, remove_mer=['datum', 'avd'])
-
+        print(f"X {'plac' in X.columns}")
+        print(f"m {'plac' in model.feature_names_}")
         assert len(X.columns) == len(
-            model.feature_names_), f'len(X.columns)  != len(model.feature_names_) in predict {self.name}'
+            model.feature_names_), f'{len(X.columns)}  != {len(model.feature_names_)} in predict {self.name}'
         assert set(X.columns) == set(
             model.feature_names_), 'features in model and in X not equal'
         
