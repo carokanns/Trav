@@ -267,8 +267,9 @@ def validate(ridge_model=None):
     stacked_meta_val['meta'] = predict_meta_ridge_model(stacked_meta_val, ridge_model=meta_model)[:,1]
     stacked_meta_val['y'] = y_val.values
     stacked_meta_val['avd'] = X_val.avd.values
-    
-    # tresh=0.2813
+    ##############################################################
+    #                          Meta model                        #
+    ##############################################################
     typ='meta'
     for tresh in np.arange(0.1,0.5,0.0001):
         cost=12*sum(stacked_meta_val[typ]>tresh)/len(stacked_meta_val)
@@ -279,8 +280,56 @@ def validate(ridge_model=None):
     confusion_matrix_graph(stacked_meta_val['y'], (stacked_meta_val[typ]>tresh).astype(int), f'{typ} treshold={tresh}')
     scores(stacked_meta_val['y'], (stacked_meta_val[typ]>tresh))
     st.write('spelade per lopp:',12*sum(stacked_meta_val[typ]>tresh)/len(stacked_meta_val))
-    
+   
+    ################################################################
+    #                         proba6                               #
+    ################################################################ 
     typ='proba6'
+    for tresh in np.arange(0.1,0.5,0.001):
+        cost=12*sum(stacked_meta_val[typ]>tresh)/len(stacked_meta_val)
+        if cost<2.5:
+            break
+        
+    tresh = round(tresh,4)    
+    # print(f'Treshold: {tresh}\n')
+    confusion_matrix_graph(stacked_meta_val['y'], (stacked_meta_val[typ]>tresh).astype(int), f'{typ} treshold={tresh}')
+    scores(stacked_meta_val['y'], (stacked_meta_val[typ]>tresh))
+    st.write('spelade per lopp:',12*sum(stacked_meta_val[typ]>tresh)/len(stacked_meta_val))
+    
+    ################################################################
+    #                         proba1                               #
+    ################################################################
+    typ='proba1'
+    for tresh in np.arange(0.1,0.5,0.001):
+        cost=12*sum(stacked_meta_val[typ]>tresh)/len(stacked_meta_val)
+        if cost<2.5:
+            break
+        
+    tresh = round(tresh,4)    
+    # print(f'Treshold: {tresh}\n')
+    confusion_matrix_graph(stacked_meta_val['y'], (stacked_meta_val[typ]>tresh).astype(int), f'{typ} treshold={tresh}')
+    scores(stacked_meta_val['y'], (stacked_meta_val[typ]>tresh))
+    st.write('spelade per lopp:',12*sum(stacked_meta_val[typ]>tresh)/len(stacked_meta_val))
+    
+    ################################################################
+    #                         proba9                               #
+    ################################################################
+    typ='proba9'
+    for tresh in np.arange(0.1,0.5,0.001):
+        cost=12*sum(stacked_meta_val[typ]>tresh)/len(stacked_meta_val)
+        if cost<2.5:
+            break
+        
+    tresh = round(tresh,4)    
+    # print(f'Treshold: {tresh}\n')
+    confusion_matrix_graph(stacked_meta_val['y'], (stacked_meta_val[typ]>tresh).astype(int), f'{typ} treshold={tresh}')
+    scores(stacked_meta_val['y'], (stacked_meta_val[typ]>tresh))
+    st.write('spelade per lopp:',12*sum(stacked_meta_val[typ]>tresh)/len(stacked_meta_val))
+    
+    ################################################################
+    #                         proba16                              #
+    ################################################################
+    typ='proba16'
     for tresh in np.arange(0.1,0.5,0.001):
         cost=12*sum(stacked_meta_val[typ]>tresh)/len(stacked_meta_val)
         if cost<2.5:

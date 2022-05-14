@@ -302,7 +302,7 @@ def mesta_diff_per_avd(X_):
     sm['first'] = sm.groupby('avd')['meta_predict'].transform(lambda x: x.nlargest(2).reset_index(drop=True)[0])
     sm['second'] = sm.groupby('avd')['meta_predict'].transform(lambda x: x.nlargest(2).reset_index(drop=True)[1])
     
-    sm=sm.query("(first==meta_predict or second==meta_predict)")
+    sm=sm.query("(first==meta_predict or second==meta_predict)").copy()
     sm['diff'] = sm['first'] - sm['second']
     
     sm.sort_values(by='diff', ascending=False, inplace=True)
@@ -338,13 +338,14 @@ def välj_rad(df_meta, max_insats=330):
             continue
         # print('i',i)
         veckans_rad.loc[i, 'välj'] = True
+        cost_before = cost
         cost = compute_total_insats(veckans_rad[veckans_rad.välj])
         # print('cost',cost)
         if cost > max_insats:
             veckans_rad.loc[i, 'välj'] = False
             break
         
-    print('cost', cost)
+    print('cost', cost_before)
     veckans_rad.sort_values(by=['välj', 'avd'], ascending=[False, True], inplace=True)
     # display(veckans_rad[veckans_rad.välj])
     return veckans_rad
@@ -374,11 +375,6 @@ models = [typ6, typ1, typ9, typ16]
 # define st.state
 if 'df' not in st.session_state:
     st.session_state['df'] = None
- 
-def foo(bar):
-    print(f'hello {bar}\n')
-    time.sleep(5)
-    return 'Done'
 
 with scraping:
     def scrape(full=True):
@@ -395,12 +391,11 @@ with scraping:
             with concurrent.futures.ThreadPoolExecutor() as executor:
                 future = executor.submit(v75_scraping , full)
                 while future.running():
-                    # print('wait')
                     time.sleep(1)
                     i+=1/123
                     if i<0.99:
                         my_bar.progress(i)
-                        
+                my_bar.progress(1.0)        
                 df_scraped = future.result()
 
                 df_scraped.to_csv('sparad_scrape.csv', index=False)

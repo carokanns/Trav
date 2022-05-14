@@ -180,8 +180,6 @@ class Typ():
 
         # all features in model
         X = remove_features(X, remove_mer=['datum', 'avd'])
-        print(f"X {'plac' in X.columns}")
-        print(f"m {'plac' in model.feature_names_}")
         assert len(X.columns) == len(
             model.feature_names_), f'{len(X.columns)}  != {len(model.feature_names_)} in predict {self.name}'
         assert set(X.columns) == set(
