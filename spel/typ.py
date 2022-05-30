@@ -2,7 +2,6 @@ import pandas as pd
 import numpy as np
 import pickle
 from catboost import CatBoostClassifier, Pool
-pref='' #'../'
 
 def remove_features(df_, remove_mer=[]):
     df = df_.copy()
@@ -83,7 +82,7 @@ def lägg_in_diff_motståndare(X_, motståndare):
     return X
 
 class Typ():
-    def __init__(self, name, ant_hästar, proba, kelly, motst_ant, motst_diff,  ant_favoriter, only_clear, streck):
+    def __init__(self, name, ant_hästar, proba, kelly, motst_ant, motst_diff,  ant_favoriter, only_clear, streck,pref=''):
         assert (motst_diff == False and motst_ant == 0) or (motst_ant > 0)
         assert (ant_favoriter == 0 and only_clear ==
                 False) or (ant_favoriter > 0)
@@ -102,14 +101,16 @@ class Typ():
         
         self.ant_favoriter = ant_favoriter # int  - för hur många favoriter (avd med en häst) som ska användas
         self.only_clear = only_clear       # bool - för att bara avvända klara favoriter
+        
+        self.pref = pref                # string - prefix för map/filnamn
 
     def load_model(self):
-        with open(pref+'modeller/'+self.name+'.model', 'rb') as f:
+        with open(self.pref+'modeller/'+self.name+'.model', 'rb') as f:
             model = pickle.load(f)
         return model
 
     def save_model(self, model):
-        with open(pref+'modeller/'+self.name+'.model', 'wb') as f:
+        with open(self.pref+'modeller/'+self.name+'.model', 'wb') as f:
             pickle.dump(model, f)
 
     def prepare_for_model(self, X_,verbose=False):

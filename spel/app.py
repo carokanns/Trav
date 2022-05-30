@@ -32,8 +32,8 @@ def remove_features(df_, remove_mer=[]):
             'h2_dat', 'h3_dat', 'h4_dat', 'h5_dat'], axis=1, inplace=True)
     if remove_mer:
         df.drop(remove_mer, axis=1, inplace=True)
-
     return df
+
 
 def v75_scraping(full=True):
     if not full:
@@ -251,8 +251,12 @@ typ16= tp.Typ('typ16', True,      True, True,      2,          True,           2
 typer = [typ6, typ1, typ9, typ16]  # load a file with pickl
 
 
-with open('modeller\\meta_ridge_model.model', 'rb') as f:
+# with open('modeller\\meta_ridge_model.model', 'rb') as f:
+#     meta_model = pickle.load(f)
+
+with open('modeller\\meta_lasso_model.model', 'rb') as f:
     meta_model = pickle.load(f)
+
 
 #%%
 # för stacking ta med alla hästar per typ och proba plus kelly
@@ -261,7 +265,7 @@ def build_stack_df(X_, typer):
     stacked_data = X[['datum', 'avd', 'startnr', 'häst']].copy()
     for typ in typer:
         nr = typ.name[3:]
-        print('stack '+typ.name)
+        # print('stack '+typ.name)
         stacked_data['proba'+nr] = typ.predict(X)
         stacked_data['kelly'+nr] = kelly(stacked_data['proba'+nr], X[['streck']], None)
     return stacked_data
@@ -291,6 +295,22 @@ def meta_ridge_predict(X_):
 
     # print(meta_model.predict_proba(X.iloc[:, -8:]))
     X['meta_predict'] = meta_model._predict_proba_lr(X.iloc[:, -8:])[:, 1]
+    my_columns = extra + list(X.columns)[-9:]
+
+    return X[my_columns]
+
+
+def meta_lasso_predict(X_):
+    # X_ innehåller även datum,startnr och avd
+    extra = ['datum', 'avd', 'startnr', 'häst']
+    assert list(
+        X_.columns[:4]) == extra, 'meta_model måste ha datum, avd och startnr, häst för att kunna välja'
+    X = X_.copy()
+    with open('modeller\\meta_lasso_model.model', 'rb') as f:
+        meta_model = pickle.load(f)
+
+    # print(meta_model.predict_proba(X.iloc[:, -8:]))
+    X['meta_predict'] = meta_model.predict(X.iloc[:, -8:])
     my_columns = extra + list(X.columns)[-9:]
 
     return X[my_columns]
@@ -345,7 +365,7 @@ def välj_rad(df_meta, max_insats=330):
             veckans_rad.loc[i, 'välj'] = False
             break
         
-    print('cost', cost_before)
+    # print('cost', cost_before)
     veckans_rad.sort_values(by=['välj', 'avd'], ascending=[False, True], inplace=True)
     # display(veckans_rad[veckans_rad.välj])
     return veckans_rad
@@ -372,12 +392,31 @@ sortera = st.container()
 
 models = [typ6, typ1, typ9, typ16]
 
+def use_meta(df_stack,meta):
+    if meta == 'rf':
+        df_meta = meta_rf_predict(df_stack)
+    elif meta=='lasso':
+        df_meta = meta_lasso_predict(df_stack)
+    elif meta=='ridge':
+        df_meta = meta_ridge_predict(df_stack)
+    else:
+        st.error(f'meta={meta} finns inte - avänder RandomForestClassifier')
+        df_meta = meta_rf_predict(df_stack)       
+    
+    df_meta.reset_index(drop=True, inplace=True)
+    df = välj_rad(df_meta)
+    st.session_state.df = df
+    st.experimental_rerun()
+    
+    
 # define st.state
 if 'df' not in st.session_state:
     st.session_state['df'] = None
+if 'meta' not in st.session_state: 
+    st.session_state['meta'] = 'rf'
 
 with scraping:
-    def scrape(full=True):
+    def scrape(full=True, meta='rf'):
         scraping.write('Starta web-scraping för ny data')
         with st.spinner('Ta det lugnt!'):
             st.image('winning_horse.png')  # ,use_column_width=True)
@@ -385,14 +424,13 @@ with scraping:
             #####################
             # start v75_scraping as a thread
             #####################
-            # start a progress bar
             i=0.0
             my_bar = st.progress(i)   
             with concurrent.futures.ThreadPoolExecutor() as executor:
                 future = executor.submit(v75_scraping , full)
                 while future.running():
                     time.sleep(1)
-                    i+=1/123
+                    i+=1/127
                     if i<0.99:
                         my_bar.progress(i)
                 my_bar.progress(1.0)        
@@ -402,26 +440,18 @@ with scraping:
             
             st.balloons()
             my_bar.empty()
-            print(df_scraped.datum.unique())
+            # print(df_scraped.datum.unique())
             df_stack = build_stack_df(df_scraped, typer)
             df_stack.to_csv('sparad_stack.csv', index=False)
+            use_meta(df_stack, meta)
             
-            # df_meta = meta_predict(df_stack)
-            # use ridge instead of meta_predict
-            df_meta = meta_ridge_predict(df_stack)
-            
-            df_meta.reset_index(drop=True, inplace=True)
-            df = välj_rad(df_meta)
-            st.session_state.df = df
-            
-        st.write(compute_total_insats(df[df.välj]) )
-        
+              
     if st.button('scrape'):
-        scrape()
+        scrape(meta=st.session_state['meta'])
         del st.session_state.datum  # säkra att datum är samma som i scraping
         
     if st.sidebar.button('reuse'):
-        scrape(False)
+        scrape(False, meta=st.session_state['meta'])
         del st.session_state.datum  # säkra att datum är samma som i scraping
         
 with v75:
@@ -455,7 +485,7 @@ with avd:
 
         # Inject CSS with Markdown
         st.markdown(hide_dataframe_row_index, unsafe_allow_html=True)
-
+        
         if use == 'Avd 1 och 2':
             col1.table(dfi[(dfi.avd == 1) & dfi.välj].sort_values(by=['Meta'],ascending=False)[
                        ['nr', 'häst', 'Meta', 'kelly']])
@@ -478,6 +508,8 @@ with avd:
             st.stop()    
         else:
             st.write('ej klart')
+            
+        st.write(compute_total_insats(dfi[dfi.välj]))
 
 with sortera:   
     if st.sidebar.checkbox('se data'):
@@ -489,4 +521,17 @@ with sortera:
             elif sort=='Meta':
                 st.write(dfr[['avd', 'nr', 'häst','Meta', 'kelly']].sort_values(by=['Meta','avd','nr'], ascending=[False, False,False]))
             else:
-                st.write(dfr.sort_values(by=['avd', 'nr'], ascending=[True, True]))
+                dfra  = dfr[['avd','nr','häst','proba6','proba9','proba1','proba16', 'kelly6','kelly9','kelly1','kelly16','Meta','välj','kelly']]
+                st.write(dfra.sort_values(by=['avd', 'nr'], ascending=[True, True]))
+                
+meta = st.sidebar.radio('välj meta_model',['rf','ridge','lasso'])      
+if meta != st.session_state.meta:
+    st.session_state.meta = meta
+
+    st.write('meta_model:', meta)
+    df_scraped = pd.read_csv('sparad_scrape.csv')
+    df_stack = build_stack_df(df_scraped, typer)
+    df_stack.to_csv('sparad_stack.csv', index=False)
+    use_meta(df_stack, meta)
+
+

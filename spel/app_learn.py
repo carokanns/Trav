@@ -1,15 +1,26 @@
-# moduler
+from category_encoders import TargetEncoder
+
+import matplotlib.pyplot as plt
+import seaborn as sns
+
+from sklearn.model_selection import TimeSeriesSplit
+from sklearn.metrics import accuracy_score, f1_score, roc_auc_score, confusion_matrix, mean_absolute_error
 import streamlit as st
 import sys
 import time
 import pandas as pd
 import numpy as np
-import pickle
-from catboost import CatBoostClassifier, Pool, cv
-from IPython.display import display
-pd.set_option('display.width', 200)
+
+pd.set_option('display.max_colwidth', None)
+pd.set_option('display.width', 260)
 pd.set_option('display.max_columns', 200)
-from sklearn.model_selection import TimeSeriesSplit
+pd.set_option('display.max_rows', 120)
+
+import pickle
+
+from IPython.display import display
+    
+import concurrent.futures
 
 sys.path.append(
     'C:\\Users\\peter\\Documents\\MyProjects\\PyProj\\Trav\\spel\\')
@@ -22,7 +33,19 @@ import typ as tp
 pref=''   # '../'
 
 ###################################################################################
-# %%
+#%%
+# skapa modeller
+#           name, ant_hästar, proba, kelly, motst_ant, motst_diff,  ant_favoriter, only_clear, streck
+typ6 = tp.Typ('typ6', True,       True, False,     0,  False,          0,            False,    True,  pref)
+typ1 = tp.Typ('typ1', False,      True, False,     2,  True,           2,            True,     False, pref)
+typ9 = tp.Typ('typ9', True,       True, True,      2,  True,           2,            True,     True,  pref)
+typ16 = tp.Typ('typ16', True,      True, True,      2, True,           2,            False,    True,  pref)
+
+typer = [typ6, typ1, typ9, typ16]  # load a file with pickl
+
+###################################################################################
+
+#%%
 ################################################
 #              Web scraping                    #
 ################################################
@@ -113,23 +136,23 @@ def kelly(proba, streck, odds):  # proba = prob winning, streck i % = streck
     return (o*proba - (1-proba))/o
 
 # TimeSeriesSplit learning models
-def TimeSeries_learning(df_ny_, typer, n_splits=5,meta_fraction=0.2,learn_models=True):
-    # learn models and produce the stacked data
-    # learn_models=True betyder att vi både gör en learning och skapar en stack
-    # learn_models=False betyder att vi bara skapar en stack
+def TimeSeries_learning(df_ny_, typer, n_splits=5,meta_fraction=0.2, meta='rf', save=True, learn_models=True):
+    """
+    Skapar en stack av X_test och y_test från alla typer. Används som input till meta_model.
+        - learn_models=True betyder att vi både gör en learning och skapar en stack
+        - learn_models=False betyder att vi bara skapar en stack och då har save ingen funktion
+    """
     
     df_all = pd.read_csv(pref+'all_data.csv')
         
     if df_ny_ is not None:
         df_ny = df_ny_.copy()
         df_all = concat_data(df_all.copy(), df_ny, save=True)
-        
-    print('sista datum',df_all.datum.iloc[-1])
     
     X, y, _, _ = förbered(df_all, meta_fraction=meta_fraction)
-    # print('X shape',X.shape,'y shape',y.shape)
-    # print('X_val shape',X_val.shape,'y_val shape',y_val.shape)
-
+    print('X shape',X.shape)
+    print('sista datum', X.datum.iloc[-1], 'resp', df_all.datum.iloc[-1])
+    
     ts = TimeSeriesSplit(n_splits=n_splits)
     stacked_data=pd.DataFrame(columns=['proba6', 'proba1', 'proba9', 'proba16', 'kelly6', 'kelly1', 'kelly9', 'kelly16','y'])
         
@@ -150,7 +173,7 @@ def TimeSeries_learning(df_ny_, typer, n_splits=5,meta_fraction=0.2,learn_models
             my_bar.progress(steps)
 
             if learn_models:
-                typ.learn(X_train, y_train, X_test, y_test)
+                cbc = typ.learn(X_train, y_train, X_test, y_test,save=save)
                 
             nr = typ.name[3:]
             this_proba=typ.predict(X_test)
@@ -159,13 +182,39 @@ def TimeSeries_learning(df_ny_, typer, n_splits=5,meta_fraction=0.2,learn_models
 
             this_kelly=kelly(this_proba, X_test[['streck']], None)
             temp_df['kelly' + nr] = this_kelly
+            
         stacked_data = pd.concat([stacked_data, temp_df],ignore_index=True)
         stacked_data.y = stacked_data.y.astype(int)
     my_bar.progress(1.0)
     my_bar.empty()
+    
+    # step 2: learn models on all of X - what iteration to use?
+    st.write('Full X learning')
+    my_bar = st.progress(0)
+    step = 1/(1+len(typer)) - 0.0000001
+    steps = 0.0
+
+    for typ in typer:
+        steps += step
+        my_bar.progress(steps)
+        if learn_models:
+            cbc = typ.learn(X, y, None, None, iterations=100, save=save)
+    my_bar.progress(1.0)
+    my_bar.empty()
+
+    # step 3: learn meta model
+    steps += step
+    my_bar.progress(steps)
+    meta_model = learn_meta_model(stacked_data.drop(['y'], axis=1), stacked_data['y'], alpha=0.001,
+                                  max_iter=55, n_estimators=360, max_depth=5, meta='rf', class_weight=None)
+
+    my_bar.progress(1.0)
+    my_bar.empty()
+
     return stacked_data    
 
 def skapa_stack_learning(X_, y, save=True):
+    # För validate dvs final learning borde köras först så att vi har nya modeller
     X=X_.copy()
     stacked_data = pd.DataFrame()
     for typ in typer:
@@ -173,55 +222,120 @@ def skapa_stack_learning(X_, y, save=True):
             stacked_data['proba'+nr] = typ.predict(X)
             stacked_data['kelly' + nr] = kelly(stacked_data['proba' + nr], X[['streck']], None)
 
-    print(stacked_data.columns)
+    # print(stacked_data.columns)
     assert len(stacked_data) == len(y), f'stacked_data {len(stacked_data)} and y {len(y)} should have same length'
     return stacked_data,y   # enbart stack-info
 
-##############################################################
-#                   RidgeClassifier (meta model)             #
-##############################################################
-def learn_meta_ridge_model(X, y,  class_weight='balanced', save=True):
+##### RidgeClassifier (meta model) #####
+def learn_meta_ridge_model(X, y, alpha=1, class_weight='balanced', save=True):
     from sklearn.linear_model import RidgeClassifier
-    
-    ridge_model = RidgeClassifier(class_weight=class_weight, random_state=2022)
-    ridge_model.fit(X,y)
+
+    ridge_model = RidgeClassifier(
+        alpha=alpha, class_weight=class_weight, random_state=2022)
+    ridge_model.fit(X, y)
     # pickle save stacking
     if save:
         with open(pref+'modeller/meta_ridge_model.model', 'wb') as f:
             pickle.dump(ridge_model, f)
-    
+
     return ridge_model
 
+##### RandomForestClassifier (meta model) #####
+def learn_meta_rf_model(X, y, n_estimators=100, max_depth=None, class_weight='balanced', save=True):
+    from sklearn.ensemble import RandomForestClassifier
+
+    rf_model = RandomForestClassifier(
+        n_estimators=n_estimators, max_depth=max_depth, n_jobs=6, class_weight=class_weight, random_state=2022)
+    rf_model.fit(X, y)
+    # pickle save stacking
+    if save:
+        with open(pref+'modeller/meta_rf_model.model', 'wb') as f:
+            pickle.dump(rf_model, f)
+
+    return rf_model
+
+##### LassoClassifier (meta model) #####
+def learn_meta_lasso_model(X, y, alpha=1, max_iter=1000,  save=True):
+    from sklearn.linear_model import Lasso
+
+    lasso_model = Lasso(alpha=alpha, max_iter=max_iter, random_state=2022)
+    lasso_model.fit(X, y)
+    # pickle save stacking
+    if save:
+        with open(pref+'modeller/meta_lasso_model.model', 'wb') as f:
+            pickle.dump(lasso_model, f)
+
+    return lasso_model
+
+
+def learn_meta_model(X, y,  meta='ridge', alpha=1, n_estimators=100, max_iter=1000, max_depth=None, class_weight='balanced', save=True):
+    if meta == 'ridge':
+        return learn_meta_ridge_model(X, y, alpha=alpha, class_weight=class_weight, save=save)
+    elif meta == 'rf':
+        return learn_meta_rf_model(X, y, n_estimators=n_estimators, max_depth=max_depth, class_weight=class_weight, save=save)
+    elif meta == 'lasso':
+        return learn_meta_lasso_model(X, y, alpha=alpha, max_iter=max_iter, save=save)
+    else:
+        assert False, f'{meta} is not a valid meta model'
+
+#%%
 ##############################################################
 #              learning steps for TimeSeries                 #
 ##############################################################
-def all_TS_learning(df_ny,typer, n_splits=5,learn_models=True):
-    placeholder = st.empty()
+# def all_TS_learning(df_ny,typer, n_splits=5,learn_models=True):
+#     placeholder = st.empty()
 
-    with st.empty():
+#     with st.empty():
         
-        # step 1: learn models and produce the stacked data
-        placeholder.info('Step 1: learn models and produce the stacked data')
-        stacked_data = TimeSeries_learning(df_ny,typer, n_splits=n_splits,learn_models=learn_models)
+#         # step 1: learn models and produce the stacked data
+#         placeholder.info('Step 1: learn models and produce the stacked data')
+#         stacked_data = TimeSeries_learning(df_ny, typer, n_splits=n_splits,learn_models=learn_models)
         
-        # step 2: learn meta model
-        placeholder.info('Step 2: learn meta model')
-        meta_model=learn_meta_ridge_model(stacked_data.drop(['y'], axis=1), stacked_data['y'], class_weight=None) # use RidgeClassifier
+#         # step 2: learn meta model
+#         placeholder.info('Step 2: learn meta model')
+#         meta_model=learn_meta_ridge_model(stacked_data.drop(['y'], axis=1), stacked_data['y'], class_weight=None) # use RidgeClassifier
     
-        st.success('✔️ Learning done')
-    placeholder.empty()
+#         st.success('✔️ Learning done')
+#     placeholder.empty()
     
 #%% 
 ##############################################################
 #                     VALIDATE                               #
 ##############################################################
 
-def predict_meta_ridge_model(X,ridge_model=None):
+def predict_meta_ridge_model(X, ridge_model=None):
     if ridge_model is None:
         with open(pref+'modeller/meta_ridge_model.model', 'rb') as f:
             ridge_model = pickle.load(f)
-            
+
     return ridge_model._predict_proba_lr(X)
+
+def predict_meta_rf_model(X, rf_model=None):
+    if rf_model is None:
+        with open(pref+'modeller/meta_rf_model.model', 'rb') as f:
+            rf_model = pickle.load(f)
+
+    return rf_model.predict_proba(X)
+
+def predict_meta_lasso_model(X, lasso_model=None):
+    if lasso_model is None:
+        with open(pref+'modeller/meta_lasso_model.model', 'rb') as f:
+            lasso_model = pickle.load(f)
+
+    return lasso_model.predict(X)
+
+def predict_meta_model(X, meta_model=None):
+    if meta_model == 'ridge':
+        return predict_meta_ridge_model(X)[:, 1]
+    elif meta_model == 'rf':
+        return predict_meta_rf_model(X)[:, 1]
+    elif meta_model == 'lasso':
+        return predict_meta_lasso_model(X)
+    elif meta_model == None:
+        assert False, 'ingen meta_model angiven'
+    else:
+        return meta_model.predict(X)
+
 
 def confusion_matrix_graph(y_true, y_pred, title='Confusion matrix'):
     # confusion matrix graph
@@ -244,103 +358,73 @@ def confusion_matrix_graph(y_true, y_pred, title='Confusion matrix'):
     st.write(fig)
     # st.write(plt.show())
     
-def scores(y_true, y_pred):    
-    # what is the AUC score?
-    from sklearn.metrics import roc_auc_score
-    st.write('AUC',roc_auc_score(y_true, y_pred),'  ')
-    # and the F1 score
-    from sklearn.metrics import f1_score
-    st.write('F1',f1_score(y_true, y_pred),'  ')
-    #accuracy
-    from sklearn.metrics import accuracy_score
-    st.write('Acc',accuracy_score(y_true, y_pred), '  ')
+# write the scores    
+def display_scores(y_true, y_pred):    
+    st.write('AUC',roc_auc_score(y_true, y_pred),'F1',f1_score(y_true, y_pred),'Acc',accuracy_score(y_true, y_pred),'MAE',mean_absolute_error(y_true, y_pred), '  ')
+
+
+def plot_confusion_matrix(y_true, y_pred, typ, fr=0.01, to=0.5, step=0.001):
+
+    #### Först:  hitta ett treshold som tippar ca 2.5 hästar per avd ####
+    for tresh in np.arange(fr, to, step):
+        cost = 12*sum(y_pred > tresh)/len(y_pred)
+        if cost < 2.5:
+            break
+    tresh = round(tresh, 4)
+    # print(f'Treshold: {tresh}\n')
+    y_pred = (y_pred > tresh).astype(int)
+    # confusion_matrix_graph(y_true, y_pred, f'{typ} treshold={tresh}')
+
+    #### Sedan: confusion matrix graph ####
+    title = f'{typ} treshold={tresh}'
+    cm = confusion_matrix(y_true=y_true, y_pred=y_pred)
+    fig, ax = plt.subplots()
+    sns.set(font_scale=2.0)
+    sns.heatmap(cm, annot=True, fmt=".2f", linewidths=.5,
+                square=True, cmap='Blues_r')
+
+    # increase font size
+    plt.rcParams['font.size'] = 20
+    plt.ylabel('True label')
+    plt.xlabel('Predicted label')
+    plt.title(title)
+    # plot fig
     
-def validate(ridge_model=None):
-    st.info('Only accurate directly after "Learn TimeSeries"')
+    st.write(fig)
+
+    #### print scores ####
+    display_scores(y_true, y_pred)
+    st.write(f'spelade per lopp: {12 * sum(y_pred)/len(y_pred)}' )
+
+    
+def validate(meta_model=None, drop=[]):
+    st.info('skall inte köras efter "Final Learning" - vi sparar modeller baserade på mindra data')
     df_all = pd.read_csv(pref+'all_data.csv')
     print('sista datum',df_all.datum.iloc[-1])
     
     _, _, X_val, y_val = förbered(df_all, meta_fraction=0.2)
     
-    #create the stack from validation data
+    # create the stack from validation data
     stacked_meta_val, y_val = skapa_stack_learning(X_val, y_val)
-    stacked_meta_val['meta'] = predict_meta_ridge_model(stacked_meta_val, ridge_model=meta_model)[:,1]
+    stacked_meta_val = stacked_meta_val.drop(drop, axis=1)
+    stacked_meta_val['meta'] = predict_meta_model(stacked_meta_val, meta_model=meta_model)
     stacked_meta_val['y'] = y_val.values
     stacked_meta_val['avd'] = X_val.avd.values
     ##############################################################
     #                          Meta model                        #
     ##############################################################
-    typ='meta'
-    for tresh in np.arange(0.1,0.5,0.0001):
-        cost=12*sum(stacked_meta_val[typ]>tresh)/len(stacked_meta_val)
-        if cost<2.5:
-            break
-    tresh=round(tresh,4)
-    # print(f'Treshold: {tresh}')
-    confusion_matrix_graph(stacked_meta_val['y'], (stacked_meta_val[typ]>tresh).astype(int), f'{typ} treshold={tresh}')
-    scores(stacked_meta_val['y'], (stacked_meta_val[typ]>tresh))
-    st.write('spelade per lopp:',12*sum(stacked_meta_val[typ]>tresh)/len(stacked_meta_val))
-   
-    ################################################################
-    #                         proba6                               #
-    ################################################################ 
-    typ='proba6'
-    for tresh in np.arange(0.1,0.5,0.001):
-        cost=12*sum(stacked_meta_val[typ]>tresh)/len(stacked_meta_val)
-        if cost<2.5:
-            break
-        
-    tresh = round(tresh,4)    
-    # print(f'Treshold: {tresh}\n')
-    confusion_matrix_graph(stacked_meta_val['y'], (stacked_meta_val[typ]>tresh).astype(int), f'{typ} treshold={tresh}')
-    scores(stacked_meta_val['y'], (stacked_meta_val[typ]>tresh))
-    st.write('spelade per lopp:',12*sum(stacked_meta_val[typ]>tresh)/len(stacked_meta_val))
+    y_true = stacked_meta_val['y']
+    y_pred = stacked_meta_val['meta']
+    plot_confusion_matrix(y_true, y_pred, 'meta', fr=0.05, to=0.8, step=0.0001) 
     
     ################################################################
-    #                         proba1                               #
+    #                         proba 6, 1, 9, 16                    #
     ################################################################
-    typ='proba1'
-    for tresh in np.arange(0.1,0.5,0.001):
-        cost=12*sum(stacked_meta_val[typ]>tresh)/len(stacked_meta_val)
-        if cost<2.5:
-            break
-        
-    tresh = round(tresh,4)    
-    # print(f'Treshold: {tresh}\n')
-    confusion_matrix_graph(stacked_meta_val['y'], (stacked_meta_val[typ]>tresh).astype(int), f'{typ} treshold={tresh}')
-    scores(stacked_meta_val['y'], (stacked_meta_val[typ]>tresh))
-    st.write('spelade per lopp:',12*sum(stacked_meta_val[typ]>tresh)/len(stacked_meta_val))
+    for typ in typer:
+        name = 'proba' + typ.name[3:]
+        y_pred = stacked_meta_val[name]
+        plot_confusion_matrix(y_true, y_pred, name)
     
-    ################################################################
-    #                         proba9                               #
-    ################################################################
-    typ='proba9'
-    for tresh in np.arange(0.1,0.5,0.001):
-        cost=12*sum(stacked_meta_val[typ]>tresh)/len(stacked_meta_val)
-        if cost<2.5:
-            break
-        
-    tresh = round(tresh,4)    
-    # print(f'Treshold: {tresh}\n')
-    confusion_matrix_graph(stacked_meta_val['y'], (stacked_meta_val[typ]>tresh).astype(int), f'{typ} treshold={tresh}')
-    scores(stacked_meta_val['y'], (stacked_meta_val[typ]>tresh))
-    st.write('spelade per lopp:',12*sum(stacked_meta_val[typ]>tresh)/len(stacked_meta_val))
-    
-    ################################################################
-    #                         proba16                              #
-    ################################################################
-    typ='proba16'
-    for tresh in np.arange(0.1,0.5,0.001):
-        cost=12*sum(stacked_meta_val[typ]>tresh)/len(stacked_meta_val)
-        if cost<2.5:
-            break
-        
-    tresh = round(tresh,4)    
-    # print(f'Treshold: {tresh}\n')
-    confusion_matrix_graph(stacked_meta_val['y'], (stacked_meta_val[typ]>tresh).astype(int), f'{typ} treshold={tresh}')
-    scores(stacked_meta_val['y'], (stacked_meta_val[typ]>tresh))
-    st.write('spelade per lopp:',12*sum(stacked_meta_val[typ]>tresh)/len(stacked_meta_val))
- 
 #%% 
 ##############################################################
 #            FINAL LEARNING steps                            #
@@ -352,29 +436,15 @@ def final_learning(typer, n_splits=5,learn_models=True):
         
         # step 1: learn models and produce the stacked data
         placeholder.info('Step 1: Final learn models and produce the stacked data')
-        stacked_data = TimeSeries_learning(None, typer, n_splits=n_splits,meta_fraction=0,learn_models=learn_models)
+        stacked_data = TimeSeries_learning(None, typer, n_splits=n_splits,meta_fraction=0, save=True, learn_models=learn_models)
         
         # step 2: learn meta model
         placeholder.info('Step 2: Final learn meta model')
-        meta_model=learn_meta_ridge_model(stacked_data.drop(['y'], axis=1), stacked_data['y'], class_weight=None) # use RidgeClassifier
+        meta_model = learn_meta_model(stacked_data.drop(['y'], axis=1), stacked_data['y'], alpha=0.001, max_iter=55, n_estimators=360, max_depth=5, meta='rf', class_weight=None)
     
         st.success('✔️ Final learning done')
     placeholder.empty()
  
-    
-#%%
-# skapa modeller
-#           name, ant_hästar, proba, kelly, motst_ant, motst_diff,  ant_favoriter, only_clear, streck
-typ6 = tp.Typ('typ6', True,       True, False,     0,          False,          0,            False,    True)
-typ1 = tp.Typ('typ1', False,      True, False,     2,          True,           2,            True,     False)
-typ9 = tp.Typ('typ9', True,       True, True,      2,          True,           2,            True,     True)
-typ16= tp.Typ('typ16', True,      True, True,      2,          True,           2,            False,    True)
-
-typer = [typ6, typ1, typ9, typ16]  # load a file with pickl
-
-
-with open('modeller\\meta_ridge_model.model', 'rb') as f:
-    meta_model = pickle.load(f)
 
 #%%
 #       
@@ -389,13 +459,26 @@ def scrape(full=True):
     scraping.write('Starta web-scraping för ny data')
     with st.spinner('Ta det lugnt!'):
         st.image('winning_horse.png')  # ,use_column_width=True)
-        
         #####################
-        df=v75_scraping()
-        df.to_csv('sparad_scrape.csv', index=False)
+        # start v75_scraping as a thread
+        #####################
+        i=0.0
+        my_bar = st.progress(i) 
+        with concurrent.futures.ThreadPoolExecutor() as executor:
+            future = executor.submit(v75_scraping )
+            while future.running():
+                time.sleep(1)
+                i+=1/123
+                if i<0.99:
+                    my_bar.progress(i)
+            my_bar.progress(1.0)        
+            df = future.result()
+
+            df.to_csv('sparad_scrape.csv', index=False)
         
         st.balloons()
-        
+        my_bar.empty()
+            
         st.session_state.df = df
 
 
@@ -436,11 +519,12 @@ with buttons:
 
     if st.session_state.df is not None:
         if st.sidebar.button('Learn TimeSeries'):
-            all_TS_learning(st.session_state.df,typer, n_splits=5,learn_models=True)
+            df = st.session_state.df
+            stacked_data = TimeSeries_learning(df, typer, n_splits=3, meta_fraction=0.2, meta='rf', save=True, learn_models=True)
     
     if st.session_state.df is not None:
         if st.sidebar.button('Validate'):
-            validate(st.session_state.df)      
+            validate(meta_model = 'rf')      
             
     if st.session_state.df is not None:
         if st.sidebar.button('Final learning'):
