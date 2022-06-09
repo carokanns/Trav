@@ -181,10 +181,11 @@ class Typ():
 
         # all features in model
         X = remove_features(X, remove_mer=['datum', 'avd'])
+        
+        the_diff= list(set(model.feature_names_) - set(X.columns.tolist())) + list(set(X.columns.tolist())- set(model.feature_names_) )  # the difference between them
         assert len(X.columns) == len(
-            model.feature_names_), f'{len(X.columns)}  != {len(model.feature_names_)} in predict {self.name}'
-        assert set(X.columns) == set(
-            model.feature_names_), 'features in model and in X not equal'
+            model.feature_names_), f'{len(X.columns)}  != {len(model.feature_names_)} {the_diff} in predict {self.name}'
+        assert set(X.columns) == set(model.feature_names_), f'features in model and in X not equal {the_diff} in predict {self.name}'
         
         X = X[model.feature_names_]
         if verbose:
@@ -192,3 +193,4 @@ class Typ():
         # print(model.get_feature_importance(prettified=True)[:3])
 
         return model.predict_proba(X)[:, 1]
+# the difference between two lists

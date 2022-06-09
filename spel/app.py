@@ -44,7 +44,8 @@ def v75_scraping(full=True):
         except:
             pass
     else:
-        df, strukna = vs.v75_scraping(history=True, resultat=False, headless=True)
+        print('start vs.v75_scraping')
+        df = vs.v75_scraping(resultat=False, history=True, headless=True)
     
     for f in ['häst','bana', 'kusk', 'h1_kusk', 'h2_kusk', 'h3_kusk', 'h4_kusk', 'h5_kusk', 'h1_bana', 'h2_bana', 'h3_bana', 'h4_bana', 'h5_bana']:
         df[f] = df[f].str.lower()
@@ -370,15 +371,6 @@ def välj_rad(df_meta, max_insats=330):
     # display(veckans_rad[veckans_rad.välj])
     return veckans_rad
 
-      
-# # add new columns for proba and kelly      
-# def stack_predictions(models, X_):      
-#     X=X_.copy()
-#     for model in models:
-#         X['proba'+model.name] = model.predict(X)
-#         X['kelly'+model.name] = kelly(X['proba'+model.name], X[['streck']], None)
-#     return X
-
 
         
 #%% [markdown]
@@ -424,13 +416,19 @@ with scraping:
             #####################
             # start v75_scraping as a thread
             #####################
+            
             i=0.0
+            seconds=0
+            placeholder = st.empty()
+
             my_bar = st.progress(i)   
             with concurrent.futures.ThreadPoolExecutor() as executor:
                 future = executor.submit(v75_scraping , full)
                 while future.running():
                     time.sleep(1)
-                    i+=1/127
+                    seconds+=1
+                    placeholder.write(f"⏳ {seconds} sekunder")
+                    i+=1/65
                     if i<0.99:
                         my_bar.progress(i)
                 my_bar.progress(1.0)        
@@ -440,6 +438,7 @@ with scraping:
             
             st.balloons()
             my_bar.empty()
+            placeholder.empty()
             # print(df_scraped.datum.unique())
             df_stack = build_stack_df(df_scraped, typer)
             df_stack.to_csv('sparad_stack.csv', index=False)

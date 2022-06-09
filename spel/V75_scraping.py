@@ -2,15 +2,16 @@
 from IPython import get_ipython
 
 # %% [markdown]
+
+# FÖRSÖK ATT GÖRA DEN SNABBARE MED THREADING
 # # Gör scraping av en eller flera omgångar och returnerar en DataFrame
 # - Körs med v75_scraping(resultat=False,history=True)
 # - Parametrar: resultat=True/False, history=True/False
-# - Input: omg_att_spela_link.csv() med en eler flera omgångar/veckor
+# - Input: omg_att_spela_link.csv() med en eler flera omgångar/datum
 
 # %%
 #!apt install chromium-chromedriver
 # get_ipython().system('pip install selenium')
-
 
 # %%
 import pandas as pd
@@ -24,24 +25,15 @@ from selenium.webdriver.support import expected_conditions as EC
 from selenium.common.exceptions import TimeoutException
 from selenium.webdriver.chrome.options import Options
 
+import sys
+sys.path.append(
+    'C:\\Users\\peter\\Documents\\MyProjects\\PyProj\\Trav\\spel\\')
 
 import streamlit as st
 import fixa_mer_features as ff2
 import time
 
-# %% [markdown]
-# # Load all the links with races
-
 # %%
-# import logging
-# logging.basicConfig(filename='app.log', filemode='w',
-#                     format='%(name)s - %(message)s', level=logging.INFO)
-
-# %% [markdown]
-## Start getting all the data
-
-# %%
-
 def get_webdriver(headless=True):
     # instance of Options class allows
     # us to configure Headless Chrome
@@ -62,7 +54,6 @@ def get_webdriver(headless=True):
 
     return driver
 
-
 # %%
 def städa_och_rensa(df, history):
     före = len(df)
@@ -73,8 +64,7 @@ def städa_och_rensa(df, history):
               'hästar i städa_och_rensa. Från', före, 'till', efter)
     return df
 
-
-# %%
+# %% utdelning
 def scrape_utdelning(the_driver):
     # gammal lösn: utdelningar = the_driver.find_elements_by_class_name("css-mxas0-Payouts-styles--amount")
 
@@ -112,7 +102,6 @@ def utdelning(driver_r, dat, bana):
     utdelning.reset_index(drop=True, inplace=True)
     utdelning.to_csv(utd_file, index=False)
 
-
 # %%
 # returnerar en lista av placeringar i startnr-ordning
 def inkludera_resultat(res_avd, anr):
@@ -134,7 +123,99 @@ def inkludera_resultat(res_avd, anr):
     return temp_df.plac.to_list()
 
 # %%
-def do_scraping(driver_s, driver_r, history, datum):  # get data from web site
+
+def en_rad(vdict, datum, bana, start, lopp_dist, avd, anr, r, rad, voddss, poddss, strecks, names, pris, history):
+    # print('called with',anr, 'and', vdict['avd'])
+
+    vdict['datum'].append(datum)
+    vdict['bana'].append(bana)
+    vdict['avd'].append(anr+1)
+    vdict['startnr'].append(r+1)
+    vdict['häst'].append(names[r].text)
+    vdict['start'].append(start)
+    vdict['lopp_dist'].append(lopp_dist)
+    vdict['pris'].append(pris)
+    vdict['vodds'].append(voddss[r].text)  # vodds i lopp 1 utan rubrik
+    vdict['podds'].append(poddss[r].text)  # podds i lopp 1 utan rubrik
+    # streck i lopp 1  utan rubrik
+    vdict['streck'].append(strecks[r].text)
+    # kusk måste tas på hästnivå (pga att driver-col finns också i hist)
+    vdict['kusk'].append(
+        rad.find_elements(By.CLASS_NAME, "driver-col")[0].text)
+    vdict['ålder'].append(
+        rad.find_elements(By.CLASS_NAME, "horse-age")[0].text)
+    vdict['kön'].append(
+        rad.find_elements(By.CLASS_NAME, "horse-sex")[0].text)
+
+    vdict['kr'].append(rad.find_elements(
+        By.CLASS_NAME, "earningsPerStart-col")[0].text)  # kr/start i lopp 1 utan rubrik
+
+    # dist och spår i lopp 1 utan rubrik
+    dist_sp = rad.find_elements(
+        By.CLASS_NAME, "postPositionAndDistance-col")
+
+    assert len(
+        dist_sp) > 0, f'dist_sp ej len>0 len={len(dist_sp)} {dist_sp}'
+    # print('rad',rad)
+
+    # print(dist_sp)
+    vdict['dist'].append(dist_sp[0].text.split(':')[0])
+    vdict['spår'].append(dist_sp[0].text.split(':')[1])
+
+    if history:
+        ## history från startlistan ##
+        hist = avd.find_elements(By.CLASS_NAME,
+                                    "start-info-panel")  # all history för loppet
+
+        h_dates = hist[r].find_elements(By.CLASS_NAME, 'date-col')[1:]
+        h_kuskar = hist[r].find_elements(By.CLASS_NAME,
+                                            'driver-col')[1:]
+        h_banor = hist[r].find_elements(By.CLASS_NAME, 'track-col')[1:]
+        h_plac = hist[r].find_elements(By.CLASS_NAME,
+                                        'place-col')[1:]  # obs varannan rad (10 rader)
+        h_plac = h_plac[::2]   # ta ut varannat värde
+
+        h_dist = hist[r].find_elements(By.CLASS_NAME,
+                                        'distance-col')[1:]
+        h_spår = hist[r].find_elements(By.CLASS_NAME,
+                                        'position-col')[1:]
+        h_kmtid = hist[r].find_elements(
+            By.CLASS_NAME, 'kmTime-col')[1:]
+        h_odds = hist[r].find_elements(By.CLASS_NAME, 'odds-col')[1:]
+        h_pris = hist[r].find_elements(By.CLASS_NAME,
+                                        'firstPrize-col')[1:]
+
+        for h, d in enumerate(h_dates):
+            fld = 'h'+str(h+1)+'_'
+            dtext = d.text
+            vdict[fld+'dat'].append(dtext)
+            vdict[fld+'bana'].append(h_banor[h].text)
+            vdict[fld+'kusk'].append(h_kuskar[h].text)
+            vdict[fld+'plac'].append(h_plac[h].text)
+            vdict[fld+'dist'].append(h_dist[h].text)
+            vdict[fld+'spår'].append(h_spår[h].text)
+            vdict[fld+'kmtid'].append(h_kmtid[h].text)
+            vdict[fld+'odds'].append(h_odds[h].text)
+            vdict[fld+'pris'].append(h_pris[h].text)
+        if len(h_dates) < 5:
+            # Duplicera hist_4
+            fld = 'h'+str(5)+'_'
+            h = 3
+            vdict[fld+'dat'].append(dtext)
+            vdict[fld+'bana'].append(h_banor[h].text)
+            vdict[fld+'kusk'].append(h_kuskar[h].text)
+            vdict[fld+'plac'].append(h_plac[h].text)
+            vdict[fld+'dist'].append(h_dist[h].text)
+            vdict[fld+'spår'].append(h_spår[h].text)
+            vdict[fld+'kmtid'].append(h_kmtid[h].text)
+            vdict[fld+'odds'].append(h_odds[h].text)
+            vdict[fld+'pris'].append(h_pris[h].text)
+            
+    # print('leaving with',anr, 'and',vdict['avd'])     
+    return vdict
+
+
+def do_scraping(driver_s, driver_r, avdelningar, history, datum):  # get data from web site
     # logging.basicConfig(filename='app.log', filemode='w',
     #                     format='%(name)s - %(message)s', level=logging.INFO)
 
@@ -151,8 +232,7 @@ def do_scraping(driver_s, driver_r, history, datum):  # get data from web site
              'h5_dat': [], 'h5_bana': [], 'h5_kusk': [], 'h5_plac': [], 'h5_dist': [], 'h5_spår': [], 'h5_odds': [], 'h5_pris': [], 'h5_kmtid': [],
              })
 
-    start_time = time.perf_counter()
-
+ 
     if driver_r:
         result_tab = driver_r.find_elements(By.CLASS_NAME,
             'game-table')[:]  # alla lopp med resultatordning
@@ -160,8 +240,7 @@ def do_scraping(driver_s, driver_r, history, datum):  # get data from web site
             result_tab = result_tab[1:]
         print('ant resultat', len(result_tab))
 
-    start_tab = driver_s.find_elements(By.CLASS_NAME,
-        'game-table')[:]  # alla lopp med startlistor
+    start_tab = driver_s.find_elements(By.CLASS_NAME, 'game-table')[:]  # alla lopp med startlistor
     if len(start_tab) == 8:
         start_tab = start_tab[1:]
     print('ant lopp', len(start_tab))
@@ -186,10 +265,14 @@ def do_scraping(driver_s, driver_r, history, datum):  # get data from web site
                   if 'åriga' not in p.text and 
                   ('Tillägg' not in p.text) and 
                   ('EUR' in p.text or 'NOK' in p.text)]  # alla lopps priser
-    print('priser', priser)
+    # print('priser', priser)
     print('Ant priser', len(priser))
+    
     # ett lopp (de häst-relaterade som inte kan bli 'missing' tar jag direkt på loppnivå)
     for anr, avd in enumerate(start_tab):
+        if anr+1 not in avdelningar:
+            continue
+        print('avd', anr+1)
         # logging.warning(datum+' avd: '+str(avd))
 
         bana = comb[anr].text.split('\n')[0]
@@ -206,7 +289,7 @@ def do_scraping(driver_s, driver_r, history, datum):  # get data from web site
         pris=pris.replace(' ','')
         pris=pris.replace('.','')
         
-        print('pris:', pris)
+        # print('pris:', pris)
         names = avd.find_elements(By.CLASS_NAME,
             "horse-name")  # alla hästar/kön/åldet i loppet
         voddss = avd.find_elements(By.CLASS_NAME,
@@ -217,8 +300,7 @@ def do_scraping(driver_s, driver_r, history, datum):  # get data from web site
             "startlist__row")  # alla rader i loppet
         strecks = avd.find_elements(By.CLASS_NAME,
             "betDistribution-col")[1:]  # streck i loppet  utan rubrik
-        print('ant names,vodds,podds,rader,streck', len(
-            names), len(voddss), len(poddss), len(strecks))
+        # print('ant names,vodds,podds,rader,streck', len(names), len(voddss), len(poddss), len(strecks))
         if driver_r:
             # resultat från resultatsidan
             res_avd = result_tab[anr]
@@ -227,100 +309,30 @@ def do_scraping(driver_s, driver_r, history, datum):  # get data from web site
             # res_startnr = res_avd.find_elements(By.CLASS_NAME,"css-1jc4209-horseview-styles--startNumber")[1:]
             vdict['plac'] += places    # konkatenera listorna
 
-        print('AVD', anr+1, bana, lopp_dist, start, end=' ')
+        # print('AVD', anr+1, bana, lopp_dist, start, end=' ')
+    
+        # from concurrent.futures import ThreadPoolExecutor 
+        # from concurrent.futures import as_completed
+        
+        # vdicts=[]
+        # with ThreadPoolExecutor() as e:
 
         for r, rad in enumerate(rader):
-            # en häst
-            # logging.warning(r)
-
-            vdict['datum'].append(datum)
-            vdict['bana'].append(bana)
-            vdict['avd'].append(anr+1)
-            vdict['startnr'].append(r+1)
-            vdict['häst'].append(names[r].text)
-            vdict['start'].append(start)
-            vdict['lopp_dist'].append(lopp_dist)
-            vdict['pris'].append(pris)
-            vdict['vodds'].append(voddss[r].text)  # vodds i lopp 1 utan rubrik
-            vdict['podds'].append(poddss[r].text)  # podds i lopp 1 utan rubrik
-            # streck i lopp 1  utan rubrik
-            vdict['streck'].append(strecks[r].text)
-            # kusk måste tas på hästnivå (pga att driver-col finns också i hist)
-            vdict['kusk'].append(
-                rad.find_elements(By.CLASS_NAME,"driver-col")[0].text)
-            vdict['ålder'].append(
-                rad.find_elements(By.CLASS_NAME,"horse-age")[0].text)
-            vdict['kön'].append(
-                rad.find_elements(By.CLASS_NAME,"horse-sex")[0].text)
-
-            vdict['kr'].append(rad.find_elements(By.CLASS_NAME, "earningsPerStart-col")[0].text)  # kr/start i lopp 1 utan rubrik
-
-            dist_sp = rad.find_elements(By.CLASS_NAME,"postPositionAndDistance-col")  # dist och spår i lopp 1 utan rubrik
-            
-            assert len(dist_sp)>0, f'dist_sp ej len>0 len={len(dist_sp)} {dist_sp}'
-            # print('rad',rad)
-            
-            # print(dist_sp)
-            vdict['dist'].append(dist_sp[0].text.split(':')[0])
-            vdict['spår'].append(dist_sp[0].text.split(':')[1])
-
-            if history:
-                ## history från startlistan ##
-                hist = avd.find_elements(By.CLASS_NAME,
-                    "start-info-panel")  # all history för loppet
-
-                h_dates = hist[r].find_elements(By.CLASS_NAME,'date-col')[1:]
-                h_kuskar = hist[r].find_elements(By.CLASS_NAME,
-                    'driver-col')[1:]
-                h_banor = hist[r].find_elements(By.CLASS_NAME,'track-col')[1:]
-                h_plac = hist[r].find_elements(By.CLASS_NAME,
-                    'place-col')[1:]  # obs varannan rad (10 rader)
-                h_plac = h_plac[::2]   # ta ut varannat värde
-
-                h_dist = hist[r].find_elements(By.CLASS_NAME,
-                    'distance-col')[1:]
-                h_spår = hist[r].find_elements(By.CLASS_NAME,
-                    'position-col')[1:]
-                h_kmtid = hist[r].find_elements(By.CLASS_NAME,'kmTime-col')[1:]
-                h_odds = hist[r].find_elements(By.CLASS_NAME,'odds-col')[1:]
-                h_pris = hist[r].find_elements(By.CLASS_NAME,
-                    'firstPrize-col')[1:]
-
-                for h, d in enumerate(h_dates):
-                    fld = 'h'+str(h+1)+'_'
-                    dtext = d.text
-                    vdict[fld+'dat'].append(dtext)
-                    vdict[fld+'bana'].append(h_banor[h].text)
-                    vdict[fld+'kusk'].append(h_kuskar[h].text)
-                    vdict[fld+'plac'].append(h_plac[h].text)
-                    vdict[fld+'dist'].append(h_dist[h].text)
-                    vdict[fld+'spår'].append(h_spår[h].text)
-                    vdict[fld+'kmtid'].append(h_kmtid[h].text)
-                    vdict[fld+'odds'].append(h_odds[h].text)
-                    vdict[fld+'pris'].append(h_pris[h].text)
-                if len(h_dates) < 5:
-                    # Duplicera hist_4
-                    fld = 'h'+str(5)+'_'
-                    h = 3
-                    vdict[fld+'dat'].append(dtext)
-                    vdict[fld+'bana'].append(h_banor[h].text)
-                    vdict[fld+'kusk'].append(h_kuskar[h].text)
-                    vdict[fld+'plac'].append(h_plac[h].text)
-                    vdict[fld+'dist'].append(h_dist[h].text)
-                    vdict[fld+'spår'].append(h_spår[h].text)
-                    vdict[fld+'kmtid'].append(h_kmtid[h].text)
-                    vdict[fld+'odds'].append(h_odds[h].text)
-                    vdict[fld+'pris'].append(h_pris[h].text)
-
+            vdict = en_rad(vdict, datum, bana, start, lopp_dist, avd, anr, r, rad, voddss, poddss, strecks, names, pris, history)
             print('.', end='')
-        print()
-
-    print('\ndet tog', round(time.perf_counter() - start_time, 3), 'sekunder')
-
+            
+            # print(f'anr={anr+1} r={r+1}')
+            # v = [e.submit(en_rad, vdict, datum, bana, start,lopp_dist, avd, anr, r, rad, voddss, poddss, strecks, names, pris, history)
+            
+            
+        # vdict=v[0].result()
+        # print(vdict)
+    print()    
+    
+    
     return vdict, bana
 
-# %%
-
+# %% popup för vilken info som ska visas
 def anpassa(driver_s):
     sl = driver_s.find_elements(By.CLASS_NAME, "startlist")
     # print('sl all text\n', sl[0].text)
@@ -329,7 +341,9 @@ def anpassa(driver_s):
         By.CLASS_NAME, "css-eugx3a-startlistoptionsview-styles--configButton-Button--buttonComponent")
 
     buts[0].click()
+    
     time.sleep(1)
+    
     print('klickade på', buts[0].text)
 
     # tics = driver_s.find_elements_by_class_name("css-1hngy38-Checkbox-styles--label")
@@ -368,32 +382,33 @@ def anpassa(driver_s):
             flag5 = False
         elif flag6 and t.text == 'DISTANS OCH SPÅR':
             # t.click()
-            if t.is_enabled():
-                print('distans och spår är enabled')
+            # if t.is_enabled():
+            #     print('distans och spår är enabled')
 
-            if t.is_displayed():
-                print('distans och spår är displayed')
+            # if t.is_displayed():
+            #     print('distans och spår är displayed')
                 
             if t.is_selected():
                 print('distans och spår är redan valt')
                 flag6 = False
             else:
-                print(t.text, 'ej selected ännu')
+                # print(t.text, 'ej selected ännu')
+                pass
 
             WebDriverWait(t, 10).until(EC.element_to_be_clickable(t))
             t.click()
             if t.is_selected():
-                print(t.text+' är korrekt')
+                # print(t.text+' är korrekt')
                 flag6 = False
             else:
-                print(t.text+' är fel')
+                # print(t.text+' är fel')
                 flag6 = True
             
-            print('efter click distans och spår')
+            # print('efter click distans och spår')
 
         elif flag7 and t.text == 'V-ODDS':
             # t.click()
-            print('hoppar över voods click (verkar vara förifyllt')
+            # print('hoppar över voods click (verkar vara förifyllt')
             flag7 = False
         elif flag8 and t.text == 'P-ODDS':
             t.click()
@@ -404,16 +419,19 @@ def anpassa(driver_s):
             # print('kön')
             flag9 = False
 
-    print('Prova name '+'checkbox-ageAndSex')
+    # print('Prova name '+'checkbox-ageAndSex')
     chkbx = driver_s.find_elements(By.NAME, 'checkbox-ageAndSex')[0]
     if chkbx.is_enabled():
-        print(chkbx.text +' är enabled')
+    #     print(chkbx.text +' är enabled')
+        pass
     if chkbx.is_displayed():
-        print(chkbx.text+' är displayed')
+    #     print(chkbx.text+' är displayed')
+        pass
     if chkbx.is_selected():
-        print(chkbx.text+' är korrekt valt')
+    #     print(chkbx.text+' är korrekt valt')
+        pass
     else:
-        print(chkbx.text, ' ej selected ännu')
+        # print(chkbx.text, ' ej selected ännu')
         chkbx.click()
     if chkbx.is_selected():
         print(chkbx.text+' är korrekt')
@@ -427,16 +445,31 @@ def anpassa(driver_s):
     print('efter click Spara')
 
 
-
-
-# %% [markdown]
-# ## Starta Här!
-# ### Öppnar v75 sidorna (startlist ev resultat) och samlar all info per avd/häst
-
-# %%
-
-
 def v75_scraping(resultat=False, history=False, headless=True, driver_s=None, driver_r=None):
+    pd.options.display.max_rows = 200
+    import concurrent.futures
+    start_time = time.perf_counter()
+
+    avd_lists = [[1], [2], [3], [4], [5], [6], [7]]
+    resultat = [resultat]*len(avd_lists)
+    history = [history]*len(avd_lists)
+    headless = [headless]*len(avd_lists)
+    driver_s = [driver_s]*len(avd_lists)
+    driver_r = [driver_r]*len(avd_lists)
+    
+    df = pd.DataFrame()
+    with concurrent.futures.ThreadPoolExecutor() as executor:
+        for temp_df in executor.map(v75_threads, resultat, history, headless, avd_lists, driver_s, driver_r):
+            df = pd.concat([df, temp_df])
+
+    df.sort_values(by=['datum', 'avd', 'startnr', ], inplace=True)
+    
+    print('\ndet tog', round(time.perf_counter() - start_time, 3), 'sekunder')
+    
+    return df
+
+#%%
+def v75_threads(resultat=False, history=False, headless=True, avdelningar=[1,2,3,4,5,6,7], driver_s=None, driver_r=None):
     ### Hela loopen med alla lopp i alla veckor i omg_df ###
     omg_df = pd.read_csv(
         'C:\\Users\\peter\\Documents\\MyProjects\\PyProj\\Trav\\spel\\omg_att_spela_link.csv')
@@ -464,8 +497,7 @@ def v75_scraping(resultat=False, history=False, headless=True, driver_s=None, dr
             driver_s.fullscreen_window()
             driver_s.implicitly_wait(5)     # seconds
 
-            driver_s.find_elements(By.CLASS_NAME,
-                "race-info-toggle")[1].click()  # prissummor mm
+            driver_s.find_elements(By.CLASS_NAME, "race-info-toggle")[1].click()  # prissummor mm
             driver_s.implicitly_wait(5)     # seconds
 
             anpassa(driver_s)
@@ -480,7 +512,7 @@ def v75_scraping(resultat=False, history=False, headless=True, driver_s=None, dr
                 driver_r.fullscreen_window()
 
         # scraping
-        komplett, bana = do_scraping(driver_s, driver_r, history, datum)
+        komplett, bana = do_scraping(driver_s, driver_r, avdelningar, history, datum)
         temp_df = pd.DataFrame(komplett)
         df = pd.concat([df, temp_df])
 
@@ -500,9 +532,27 @@ def v75_scraping(resultat=False, history=False, headless=True, driver_s=None, dr
 
     df = städa_och_rensa(df, history)
 
-    return df, strukna
+    return df
 
 if __name__ == '__main__':
+    pd.options.display.max_rows = 200
+    import concurrent.futures
+    start_time = time.perf_counter()
     print('START GOING')
-    v75_scraping(resultat=True, history=True, headless=False)
+    def start_scrape(avdelningar):
+        df = v75_threads(resultat=True, history=True, headless=True, avdelningar=avdelningar)
+        print('STOP GOING')
+        return df
+    
+    avd_lists=[[1],[2],[3],[4],[5],[6],[7]]
+    df=pd.DataFrame()    
+    with concurrent.futures.ThreadPoolExecutor() as executor:
+        for temp_df in executor.map(start_scrape,avd_lists):
+            df = pd.concat([df, temp_df])
+            
+    df.sort_values(by=['datum', 'avd', 'startnr', ], inplace=True)        
+    print(df)
+    print('\ndet tog', round(time.perf_counter() - start_time, 3), 'sekunder')
 print('END')
+
+# %%
