@@ -1,0 +1,1 @@
+{"params": {"solver": "lsqr", "normalize": false, "max_iter": null, "fit_intercept": true, "alpha": 2.0}, "AUC": 0.81834}

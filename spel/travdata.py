@@ -4,24 +4,22 @@
 """
 import pandas as pd
 import numpy as np
-import pickle
-
-pref='../'
-
 
 class v75():
     def __init__(self, filnamn='all_data.csv', pref=''):
         self.pref=pref
         self.filnamn = pref+filnamn
-        self.df = self.load_df()        # uppdateras enbart av ny data
+        print(self.filnamn)
+        self.df = self.load_df()   # uppdateras enbart av ny data
         self.work_df = self.df.copy()   # arbetskopia att köra all ML mot
+
         
     #################### Ta bort oanvändbara omgångar #######################################
     def _rensa_saknade_avd(self):
         """ Dessa omgångar saknar vissa avdelningar och kan inte användas """
         
         saknas = ['2015-08-15', '2016-08-13', '2017-08-12']
-        self.work_df = self.work_dfdf[~self.work_df.datum.isin(saknas)]
+        self.work_df = self.work_df[~self.work_df.datum.isin(saknas)]
     
     #################### Konkatenera in ny data ############################################
     def concat(self, ny_df, save=True):
@@ -42,6 +40,7 @@ class v75():
     
     #################### Load och save #####################################################
     def load_df(self):
+        print('Loading dataframe from the file:', self.filnamn)
         self.df = pd.read_csv(self.filnamn)
         return self.df
     
@@ -66,21 +65,29 @@ class v75():
         Returns:
             self.work_df: Färdig df att användas för ML
         """
-        
+        self.work_df = self.df.copy()
         # rensa omgångar som saknar avdelningar
-        self.rensa_saknade_avd()
+        self._rensa_saknade_avd()
         
         # ta bort nummer från travbana i history (i.e Åby-1 -> Åby, etc)
-        self.work_df['h1_bana'] = self.work_df.h1_bana.str.split('-').str[0]
-        self.work_df['h2_bana'] = self.work_df.h2_bana.str.split('-').str[0]
-        self.work_df['h3_bana'] = self.work_df.h3_bana.str.split('-').str[0]
-        self.work_df['h4_bana'] = self.work_df.h4_bana.str.split('-').str[0]
-        self.work_df['h5_bana'] = self.work_df.h5_bana.str.split('-').str[0]
+        self.work_df.loc[:,'h1_bana'] = self.work_df.h1_bana.str.split('-').str[0]
+        self.work_df.loc[:,'h2_bana'] = self.work_df.h2_bana.str.split('-').str[0]
+        self.work_df.loc[:, 'h3_bana'] = self.work_df.h3_bana.str.split('-').str[0]
+        self.work_df.loc[:, 'h4_bana'] = self.work_df.h4_bana.str.split('-').str[0]
+        self.work_df.loc[:, 'h5_bana'] = self.work_df.h5_bana.str.split('-').str[0]
 
         # lower case för häst, bana, kusk and hx_bana
         for f in ['häst', 'bana', 'kusk', 'h1_kusk', 'h2_kusk', 'h3_kusk', 'h4_kusk', 'h5_kusk', 'h1_bana', 'h2_bana', 'h3_bana', 'h4_bana', 'h5_bana']:
-            self.work_df[f] = self.work_df[f].str.lower()
+            self.work_df.loc[:, f] = self.work_df[f].str.lower()
 
         self._remove_features()
         
+        y = (self.work_df.plac==1) * 1
+        
+        return self.work_df.drop(['plac'], axis=1), y
+    
+    def get_df(self):
+        return self.df
+    
+    def get_work_df(self):  # returnerar arbetskopia
         return self.work_df

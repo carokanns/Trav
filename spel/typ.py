@@ -5,21 +5,27 @@ from catboost import CatBoostClassifier, Pool
 
 def remove_features(df_, remove_mer=[]):
     df = df_.copy()
-    df.drop(['startnr', 'vodds', 'podds', 'bins', 'h1_dat',
-            'h2_dat', 'h3_dat', 'h4_dat', 'h5_dat'], axis=1, inplace=True)
-    if remove_mer:
+    if 'vodds' in df.columns:
+        df.drop(['startnr', 'vodds', 'podds', 'bins', 'h1_dat',
+                'h2_dat', 'h3_dat', 'h4_dat', 'h5_dat'], axis=1, inplace=True)
+    if remove_mer and 'avd' in df.columns:
         df.drop(remove_mer, axis=1, inplace=True)
 
     return df
 
 # remove NaN for cat_features in X and return (X, cat_features)
 # ta bort alla features som inte används innan call
-def prepare_for_catboost(X_, features=[],verbose=False):
+def prepare_for_catboost(X_, features=[],remove=True, verbose=False):
     X = X_.copy()
-    Xtemp = remove_features(X, remove_mer=['avd', 'datum'])
+    
+    if remove:
+        Xtemp = remove_features(X, remove_mer=['avd', 'datum'])
+    else:
+        Xtemp = X.copy()    
 
     if len(features) > 0:
-      Xtemp = Xtemp[features]
+        Xtemp = Xtemp[features]
+        
     # get numerical features and cat_features
     num_features = list(Xtemp.select_dtypes(include=[np.number]).columns)
     cat_features = list(Xtemp.select_dtypes(include=['object']).columns)
@@ -65,8 +71,6 @@ def lägg_in_motståndare(X_, ant_motståndare):
     return X
 
 # som föregående men med diff istf faktiska värden
-
-
 def lägg_in_diff_motståndare(X_, motståndare):
     X = X_.copy()
 
@@ -134,14 +138,15 @@ class Typ():
         if verbose:
             print()
         return X
-
-    def learn(self, X_, y=None, X_test=None, y_test=None, depth=None, learning_rate=None, l2_leaf_reg=None, iterations=1000, save=True, verbose=False):
+    
+    def learn(self, X_, y=None, X_test=None, y_test=None, params={'depth':4} ,
+              iterations=1000, save=True, verbose=False):
         # X_ måste ha datum och avd
-
-        cbc = CatBoostClassifier(
-            iterations=iterations, depth=depth, learning_rate=learning_rate, l2_leaf_reg=l2_leaf_reg,
+        
+        cbc = CatBoostClassifier(**params,
+            iterations=iterations,
             loss_function='Logloss', eval_metric='AUC', verbose=verbose)
-
+        
         X = self.prepare_for_model(X_)
         if not self.streck:
             X.drop('streck', axis=1, inplace=True)
@@ -169,6 +174,7 @@ class Typ():
             self.save_model(cbc)
         return cbc
 
+
     def predict(self, X_,verbose=False):
         # X_ måste ha datum och avd
         X = self.prepare_for_model(X_)
@@ -183,8 +189,7 @@ class Typ():
         X = remove_features(X, remove_mer=['datum', 'avd'])
         
         the_diff= list(set(model.feature_names_) - set(X.columns.tolist())) + list(set(X.columns.tolist())- set(model.feature_names_) )  # the difference between them
-        assert len(X.columns) == len(
-            model.feature_names_), f'{len(X.columns)}  != {len(model.feature_names_)} {the_diff} in predict {self.name}'
+        assert len(X.columns) == len(model.feature_names_), f'{len(X.columns)}  != {len(model.feature_names_)} {the_diff} in predict {self.name}'
         assert set(X.columns) == set(model.feature_names_), f'features in model and in X not equal {the_diff} in predict {self.name}'
         
         X = X[model.feature_names_]

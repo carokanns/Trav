@@ -1,0 +1,1 @@
+{"params": {"weights": "distance", "p": 6, "n_neighbors": 2000, "metric": "manhattan", "leaf_size": 75, "algorithm": "auto"}, "AUC": 0.81673}

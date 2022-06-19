@@ -1,0 +1,1 @@
+{"params": {"n_estimators": 4000, "min_samples_split": 5, "max_depth": 4, "criterion": "gini"}, "AUC": 0.81669}

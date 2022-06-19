@@ -9,6 +9,7 @@ from sklearn.metrics import accuracy_score, f1_score, roc_auc_score, confusion_m
 import streamlit as st
 import sys
 import time
+import json
 import pandas as pd
 import numpy as np
 
@@ -40,9 +41,9 @@ pref=''   # '../'
 typ6 = tp.Typ('typ6', True,       True, False,     0,  False,          0,            False,    True,  pref)
 typ1 = tp.Typ('typ1', False,      True, False,     2,  True,           2,            True,     False, pref)
 typ9 = tp.Typ('typ9', True,       True, True,      2,  True,           2,            True,     True,  pref)
-typ16 = tp.Typ('typ16', True,      True, True,      2, True,           2,            False,    True,  pref)
+# typ16 = tp.Typ('typ16', True,      True, True,      2, True,           2,            False,    True,  pref)
 
-typer = [typ6, typ1, typ9, typ16]  # load a file with pickl
+typer = [typ6, typ1, typ9]  # load a file with pickl
 
 ###################################################################################
 
@@ -155,11 +156,17 @@ def TimeSeries_learning(df_ny_, typer, n_splits=5,meta_fraction=0.2, meta='rf', 
     st.info(f'sista datum {X.datum.iloc[-1]} resp  {df_all.datum.iloc[-1]}')
     
     ts = TimeSeriesSplit(n_splits=n_splits)
-    stacked_data=pd.DataFrame(columns=['proba6', 'proba1', 'proba9', 'proba16', 'kelly6', 'kelly1', 'kelly9', 'kelly16','y'])
+    # läs in meta_features
+    with open(pref+'META_FEATURES.txt', 'r',encoding='utf-8') as f:    
+        meta_features = f.read().splitlines()
+        
+    stacked_data=pd.DataFrame(columns=meta_features + ['y'])
     
     my_bar = st.progress(0)   
+
     step=1/(n_splits*len(typer))-0.0000001
     steps=0.0
+    # my_bar = st.progress(0)
     for enum,(train_index, test_index) in enumerate(ts.split(X,y)):
         print('shape of X', X.shape, 'shape of X_train', X.iloc[train_index].shape, 'shape of X_test', X.iloc[test_index].shape)
         X_train = X.iloc[train_index]
@@ -174,7 +181,11 @@ def TimeSeries_learning(df_ny_, typer, n_splits=5,meta_fraction=0.2, meta='rf', 
             my_bar.progress(steps)
             
             if learn_models:
-                cbc = typ.learn(X_train, y_train, X_test, y_test,save=save)
+                with open('optimera/params_'+typ.name+'.json', 'r') as f:
+                    params = json.load(f)
+
+                params = params['params']
+                cbc = typ.learn(X_train, y_train, X_test, y_test,params=params,iterations=100,save=save)
                 
             nr = typ.name[3:]
             this_proba=typ.predict(X_test)
@@ -186,6 +197,13 @@ def TimeSeries_learning(df_ny_, typer, n_splits=5,meta_fraction=0.2, meta='rf', 
         
         stacked_data = pd.concat([stacked_data, temp_df],ignore_index=True)
         stacked_data.y = stacked_data.y.astype(int)
+        
+    ###############################################################################    
+    #         Make sure that the meta features are in the right order             #
+    ###############################################################################
+   
+    stacked_data = stacked_data[meta_features+['y']]
+
     my_bar.progress(1.0)
     # my_bar.empty()
     
@@ -199,7 +217,11 @@ def TimeSeries_learning(df_ny_, typer, n_splits=5,meta_fraction=0.2, meta='rf', 
         steps += step
         my_bar2.progress(steps)
         if learn_models:
-            cbc = typ.learn(X, y, None, None, iterations=100, save=save)
+            with open('optimera/params_'+typ.name+'.json', 'r') as f:
+                params = json.load(f)
+                
+            params = params['params']   
+            cbc = typ.learn(X, y, None, None, iterations=100, params=params,save=save)
      
     my_bar2.progress(1.0)
     # my_bar.empty()
@@ -208,26 +230,29 @@ def TimeSeries_learning(df_ny_, typer, n_splits=5,meta_fraction=0.2, meta='rf', 
     steps += step
     my_bar2.progress(steps)
     
-    _,_,_ = learn_meta_models(stacked_data.drop(['y'], axis=1), stacked_data['y'], alpha=0.001,
+    _,_,_,_= learn_meta_models(stacked_data[meta_features], stacked_data['y'], alpha=0.001,
                               n_estimators=360,  max_iter=55, max_depth=5, class_weight=None)
 
     my_bar2.progress(1.0)
     # my_bar2.empty()
 
-    return stacked_data    
+    return stacked_data[meta_features + ['y']]
 
 def skapa_stack_learning(X_, y, save=True):
-    # För validate dvs final learning borde köras först så att vi har nya modeller
+    # För validate
     X=X_.copy()
-    stacked_data = pd.DataFrame()
+    with open(pref+'META_FEATURES.txt', 'r', encoding='utf-8') as f:
+        meta_features = f.read().splitlines()
+        
+    stacked_data = pd.DataFrame(columns=meta_features)
     for typ in typer:
             nr = typ.name[3:]
             stacked_data['proba'+nr] = typ.predict(X)
             stacked_data['kelly' + nr] = kelly(stacked_data['proba' + nr], X[['streck']], None)
 
-    # print(stacked_data.columns)
+    assert list(stacked_data.columns) == meta_features, f'columns in stacked_data is wrong {list(stacked_data.columns)}'
     assert len(stacked_data) == len(y), f'stacked_data {len(stacked_data)} and y {len(y)} should have same length'
-    return stacked_data,y   # enbart stack-info
+    return stacked_data[meta_features],y   # enbart stack-info
 
 ##### RidgeClassifier (meta model) #####
 def learn_meta_ridge_model(X, y, alpha=1, class_weight='balanced', save=True):
@@ -270,15 +295,30 @@ def learn_meta_lasso_model(X, y, alpha=1, max_iter=1000,  save=True):
 
     return lasso_model
 
+##### KNeighborsClassifier (meta model) #####
+def learn_meta_knn_model(X, y, n_jobs=6, save=True):
+    from sklearn.neighbors import KNeighborsClassifier
+
+    knn_model = KNeighborsClassifier(algorithm = 'auto', leaf_size = 1, metric = 'chebyshev', n_neighbors = 600, p = 1, weights = 'distance', n_jobs=n_jobs)
+    knn_model.fit(X, y)
+    # pickle save stacking
+    if save:
+        with open(pref+'modeller/meta_knn_model.model', 'wb') as f:
+            pickle.dump(knn_model, f)
+
+    return knn_model
+
 
 def learn_meta_models(X, y, alpha=1, n_estimators=100, max_iter=1000, max_depth=None, class_weight='balanced', save=True):
     """ all meta models will be fitted on X and y """
-    
+    with open(pref+'META_FEATURES.txt', 'r', encoding='utf-8') as f:
+        meta_features = f.read().splitlines()
+    assert meta_features == list(X.columns), f'X.columns {list(X.columns)} is not the same as meta_features {meta_features}'    
     RidgeClassifier =  learn_meta_ridge_model(X, y, alpha=alpha, class_weight=class_weight, save=save)
     RandomForestClassifier = learn_meta_rf_model(X, y, n_estimators=n_estimators, max_depth=max_depth, class_weight=class_weight, save=save)
     Lasso = learn_meta_lasso_model(X, y, alpha=alpha, max_iter=max_iter, save=save)
-    
-    return RidgeClassifier, RandomForestClassifier, Lasso
+    Knn   = learn_meta_knn_model(X, y, save=save)
+    return RidgeClassifier, RandomForestClassifier, Lasso, Knn
     
 #%% 
 ##############################################################
@@ -306,13 +346,27 @@ def predict_meta_lasso_model(X, lasso_model=None):
 
     return lasso_model.predict(X)
 
+def predict_meta_knn_model(X, knn_model=None):
+    if knn_model is None:
+        with open(pref+'modeller/meta_knn_model.model', 'rb') as f:
+            knn_model = pickle.load(f)
+
+    return knn_model.predict_proba(X)
+
 def predict_meta_model(X, meta_model=None):
+    
+    with open(pref+'META_FEATURES.txt', 'r', encoding='utf-8') as f:
+        meta_features = f.read().splitlines()
+    assert meta_features == list(X.columns), f'X.columns {list(X.columns)} is not the same as meta_features {meta_features}'
+
     if meta_model == 'ridge':
         return predict_meta_ridge_model(X)[:, 1]
     elif meta_model == 'rf':
         return predict_meta_rf_model(X)[:, 1]
     elif meta_model == 'lasso':
         return predict_meta_lasso_model(X)
+    elif meta_model == 'knn':
+        return predict_meta_knn_model(X)[:, 1]
     elif meta_model == None:
         assert False, 'ingen meta_model angiven'
     else:
@@ -348,6 +402,7 @@ def display_scores(y_true, y_pred, spelade):
 def plot_confusion_matrix(y_true, y_pred, typ, fr=0.05, to=0.3, step=0.001):
 
     #### Först:  hitta ett treshold som tippar ca 2.5 hästar per avd ####
+    tresh = 0
     for tresh in np.arange(fr, to, step):
         cost = 12*sum(y_pred > tresh)/len(y_pred)
         if cost < 2.5:
@@ -401,7 +456,13 @@ def validate(drop=[]):
     plot_confusion_matrix(y_true, y_pred_rf, 
                         'rf', fr=0.1, to=0.5, step=0.0001)
     placeholder.empty()
-    
+
+    st.write('\n')
+    placeholder = st.info('förbereder knn plot')
+    plot_confusion_matrix(y_true, predict_meta_model(stacked_meta_val, meta_model='knn'),
+                          'knn', fr=0.01, to=0.5, step=0.0001)
+    placeholder.empty()
+
     st.write('\n')
     placeholder = st.info('förbereder ridge plot')
     plot_confusion_matrix(y_true, predict_meta_model(stacked_meta_val, meta_model='ridge'), 
@@ -420,7 +481,7 @@ def validate(drop=[]):
     
     
     ################################################################
-    #                         proba 6, 1, 9, 16                    #
+    #                         proba 6, 1, 9, (16)                  #
     ################################################################
     st.write('\n')
     for typ in typer:
@@ -444,7 +505,7 @@ def final_learning(typer, n_splits=5,learn_models=True):
         
         # step 2: learn meta model
         placeholder.info('Step 2: Final learn meta model')
-        _, _, _ = learn_meta_models(stacked_data.drop(['y'], axis=1), stacked_data['y'], alpha=0.001, n_estimators=360, max_iter=55, max_depth=5, class_weight=None)
+        _, _, _, _= learn_meta_models(stacked_data.drop(['y'], axis=1), stacked_data['y'], alpha=0.001, n_estimators=360, max_iter=55, max_depth=5, class_weight=None)
     
         st.success('✔️ Final learning done')
  
@@ -490,7 +551,7 @@ def scrape(full=True):
         st.session_state.df = df
 
 
-models = [typ6, typ1, typ9, typ16]
+models = [typ6, typ1, typ9]
 
 
 ############################################
@@ -526,9 +587,10 @@ with buttons:
             st.error('Ingen data sparad')
 
     if st.session_state.df is not None:
-        if st.sidebar.button('Learn TimeSeries'):
+        if st.sidebar.button('Learn TimeSeries'):        
             df = st.session_state.df
             stacked_data = TimeSeries_learning(df, typer, n_splits=3, meta_fraction=0.2, meta='rf', save=True, learn_models=True)
+            st.success('✔️ TimeSeries learning done')
     
     if st.session_state.df is not None:
         if st.sidebar.button('Validate'):
