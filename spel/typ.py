@@ -1,6 +1,7 @@
 import pandas as pd
 import numpy as np
 import pickle
+import json
 from catboost import CatBoostClassifier, Pool
 
 def remove_features(df_, remove_mer=[]):
@@ -139,10 +140,18 @@ class Typ():
             print()
         return X
     
-    def learn(self, X_, y=None, X_test=None, y_test=None, params={'depth':4} ,
+    def learn(self, X_, y=None, X_test=None, y_test=None, params=None ,
               iterations=1000, save=True, verbose=False):
         # X_ måste ha datum och avd
         
+        if not params:
+            #read params from file
+            with open(self.pref+'optimera/params_'+self.name+'.json', 'rb') as f:
+                params = json.load(f)
+                params = exec(params['params'])
+        
+        iterations = params['iterations'] if 'iterations' in params else iterations
+        params.pop('iterations')  # remove iterations from params
         cbc = CatBoostClassifier(**params,
             iterations=iterations,
             loss_function='Logloss', eval_metric='AUC', verbose=verbose)

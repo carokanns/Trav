@@ -1,1 +1,1 @@
-{"params": {"selection": "cyclic", "normalize": true, "max_iter": 500, "fit_intercept": true, "alpha": 1.0}, "AUC": -0.07875}
+{"params": {"max_iter": 10000, "alpha": 4e-06}, "AUC": 0.189976}

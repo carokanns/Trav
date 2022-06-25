@@ -17,6 +17,7 @@ import streamlit as st
 import sys
 import pandas as pd
 import numpy as np
+import time
 
 pd.set_option('display.max_colwidth', None)
 pd.set_option('display.width', 260)
@@ -171,7 +172,7 @@ def prepare_for_meta(v75, name):
 
 
 #%%
-def gridsearch_meta(v75, meta_name, params, randomsearch=True):
+def gridsearch_meta(v75, meta_name, params, randomsearch=True, save=False):
     from sklearn.model_selection import RandomizedSearchCV
     from sklearn.neighbors import KNeighborsClassifier
     
@@ -189,8 +190,8 @@ def gridsearch_meta(v75, meta_name, params, randomsearch=True):
     elif meta_name == 'ridge':
         meta = RidgeClassifier(random_state=2022)
     elif meta_name == 'lasso':
+        scoring = None
         meta = Lasso(random_state=2022)
-        scoring='neg_mean_squared_error'
     elif meta_name == 'rf':
         meta = RandomForestClassifier(n_jobs=-1,random_state=2022)  
     else:   
@@ -203,15 +204,16 @@ def gridsearch_meta(v75, meta_name, params, randomsearch=True):
 
     # fitting the grid search
     res = grid.fit(X, y)
-    d = {'params': res.best_params_, 'AUC': round(res.best_score_,5)}
+    d = {'params': res.best_params_, 'AUC': round(res.best_score_,6)}
 
-    with open('optimera/params_'+meta_name+'.json', 'w') as f:
-        json.dump(d, f)
+    if save:
+        with open('optimera/params_'+meta_name+'.json', 'w') as f:
+            json.dump(d, f)
 
     return d
 
 # KNN as model
-def gridsearch_knn(v75, params, randomsearch=True):  
+def gridsearch_knn(v75, params, randomsearch=True, save=False):  
     from sklearn.model_selection import RandomizedSearchCV
     from sklearn.neighbors import KNeighborsClassifier
     # from sklearn.metrics import roc_auc_score, f1_score, accuracy_score, mean_absolute_error
@@ -226,15 +228,16 @@ def gridsearch_knn(v75, params, randomsearch=True):
     
     # fitting the grid search
     res = grid.fit(X, y)
-    d = {'params': res.best_params_, 'AUC': round(res.best_score_,4)}
+    d = {'params': res.best_params_, 'AUC': round(res.best_score_,5)}
 
-    with open('optimera/params_'+'knn_model'+'.json', 'w') as f:
-        json.dump(d, f)
-        
+    if save:
+        with open('optimera/params_'+'knn_model'+'.json', 'w') as f:
+            json.dump(d, f)
+            
     return d
 
     
-def gridsearch_typ(v75, typ, params):
+def gridsearch_typ(v75, typ, params, save=False):
     """ 
     Sätt upp en gridsearch för att optimera parametrar för typ
     presentera resultat
@@ -242,10 +245,12 @@ def gridsearch_typ(v75, typ, params):
     """
     res = create_grid_search(v75, typ, params, randomsearch=True)
     
-    d = {'params': res['params'], 'AUC': max(res['cv_results']['test-AUC-mean']), 'Logloss': min(res['cv_results']['test-Logloss-mean'])}
+    d = {'params': res['params'], 'AUC': round(max(res['cv_results']['test-AUC-mean']),5), 'Logloss': round(min(res['cv_results']['test-Logloss-mean']),5)}
 
-    with open('optimera/params_'+typ.name+'.json', 'w') as f:
-        json.dump(d, f)
+    if save:
+        with open('optimera/params_'+typ.name+'.json', 'w') as f:
+            json.dump(d, f)
+    
     return d
 
 def create_grid_search(v75, typ, params, randomsearch=False, verbose=False):
@@ -270,7 +275,7 @@ def create_grid_search(v75, typ, params, randomsearch=False, verbose=False):
     grid = eval(params)  # str -> dict
     
     if randomsearch:
-        st.info(f'Randomized search {grid}')
+        st.info(f'Randomized search')
         grid_search_result = model.randomized_search(grid,
                                            X=Pool(X, y, cat_features=cat_features),
                                            cv=tscv.split(X),
@@ -279,7 +284,7 @@ def create_grid_search(v75, typ, params, randomsearch=False, verbose=False):
                                            verbose=verbose,
                                            plot=True)
     else:
-        st.info(f'Grid search {grid}')
+        st.info(f'Grid search')
         grid_search_result = model.grid_search(grid,
                                             X=Pool(X, y, cat_features=cat_features),
                                             cv=tscv.split(X),
@@ -328,6 +333,7 @@ if st.session_state['loaded'] == False:
 def optimera_model(v75,typ):
     name= 'knn_model' if typ=='knn' else typ.name
     st.info(name)
+    start_time = time.time()
     try:
         with open('optimera/params_'+name+'.json', 'r') as f:
             params = json.load(f)
@@ -343,17 +349,27 @@ def optimera_model(v75,typ):
         st.info('params_'+name+'.json'+' not found')
         params={'params':{'depth':[4], 'parm2': [1,2,3]} , 'AUC': 0, 'Logloss': 999}
         
-    params = st.text_area(f'params att optimera för {name}', params['params'], height=110)
+    opt_params = st.text_area(f'params att optimera för {name}', params['params'], height=110)
     
     if st.button('run'):
         if typ=='knn':
-            result = gridsearch_knn(v75, params)
+            result = gridsearch_knn(v75, opt_params)
         else:
-            result = gridsearch_typ(v75,typ,params)
+            result = gridsearch_typ(v75,typ,opt_params)
         
         st.write(result)
-        st.success(
-            f'✔️ {name} optimering done {datetime.datetime.now().strftime("%H.%M.%S")}')
+
+        elapsed = round(time.time() - start_time)
+        minutes, seconds = divmod(elapsed, 60)
+
+        st.info(f'✔️ {name} optimering done in {minutes}:{seconds}')
+        
+        st.write(f'res {result["AUC"]} {result["Logloss"] if "Logloss" in result else ""}')
+        if result["AUC"] > params["AUC"]:
+            with open('optimera/params_'+name+'.json', 'w') as f:
+                json.dump(result, f)
+            st.success(f'✔️ {name} optimering saved')
+            
 
 
 def optimera_meta(v75, name):
@@ -372,17 +388,24 @@ def optimera_meta(v75, name):
         params = {'params': {'depth': [4], 'parm2': [
             1, 2, 3]}, 'AUC': 0, 'Logloss': 999}
 
-    params = st.text_area(f'params att optimera för {name}', params['params'], height=110)
+    opt_params = st.text_area(f'params att optimera för {name}', params['params'], height=110)
 
     if st.button('run'):
-    
-        result = gridsearch_meta(v75, name, params)
+        start_time = time.time()
+        result = gridsearch_meta(v75, name, opt_params)
 
         st.write(result)
+        
+        elapsed = round(time.time() - start_time)
+        minutes, seconds = divmod(elapsed, 60)
+        
+        st.info(f'✔️ {name} optimering done in {minutes}: {seconds}')
 
-        st.success(
-            f'✔️ {name} optimering done {datetime.datetime.now().strftime("%H.%M.%S")}')
-
+        st.write(f'res {result["AUC"]} {result["Logloss"] if "Logloss" in result else ""}')
+        if result["AUC"] > params["AUC"]:
+            with open('optimera/params_'+name+'.json', 'w') as f:
+                json.dump(result, f)
+            st.success(f'✔️ {name} optimering saved')
 
 with buttons:
     if st.sidebar.radio('Välj optimering:', ['model', 'meta', ]) == 'model':
@@ -401,7 +424,7 @@ with buttons:
             optimera_meta(st.session_state.v75,meta)
             # df = st.session_state.df
             # stacked_data = TimeSeries_learning(df, typer, n_splits=3, meta_fraction=0.2, meta='rf', save=True, learn_models=True)
-            st.success(f'✔️ {meta} optimering done')
+            # st.success(f'✔️ {meta} optimering done')
             # st.dataframe(load_data())
             
     st.sidebar.write('---')
