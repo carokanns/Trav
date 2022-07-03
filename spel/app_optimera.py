@@ -147,9 +147,9 @@ def plot_confusion_matrix(y_true, y_pred, typ, fr=0.05, to=0.3, step=0.001):
     display_scores(y_true, y_pred, f'spelade per lopp: {round(12 * sum(y_pred)/len(y_pred),4)}' )
 #%%
 def prepare_for_KNN(v75):  # as model
-    X, y = v75.förbered_data()
-    X.drop(['avd','datum','streck'], axis=1, inplace=True)
-    
+    df = v75.förbered_data()
+    X = df.drop(['avd','datum','streck'], axis=1).copy()
+    y = df['y'].copy()
     cat_features = list(X.select_dtypes(include=['object']).columns)
     num_features = list(X.select_dtypes(include=[np.number]).columns)
     
@@ -166,8 +166,8 @@ def prepare_for_KNN(v75):  # as model
 
 
 def prepare_for_meta(v75, name):
-    X,y = v75.förbered_data()
-    X,y = skapa_stack(X, y)
+    df = v75.förbered_data()
+    X,y = skapa_stack(df.drop(['y'],axis=1), df.y.copy())
     return X, y
 
 
@@ -184,7 +184,7 @@ def gridsearch_meta(v75, meta_name, params, randomsearch=True, save=False):
     
     print(meta_name)
     scoring='roc_auc'
-    params = eval(params)
+    params = None if len(params)==0 else eval(params)
     if meta_name == 'knn_meta':
         meta = KNeighborsClassifier(n_jobs=-1)
     elif meta_name == 'ridge':
@@ -254,10 +254,11 @@ def gridsearch_typ(v75, typ, params, save=False):
     return d
 
 def create_grid_search(v75, typ, params, randomsearch=False, verbose=False):
-    X,y=v75.förbered_data()
+    df=v75.förbered_data()
     
     # remove features
-    X = typ.prepare_for_model(X)
+    X = typ.prepare_for_model(df.drop(['y'],axis=1))
+    y = df.y.copy()
     if not typ.streck:
         X.drop('streck', axis=1, inplace=True)
 
