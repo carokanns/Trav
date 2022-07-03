@@ -395,7 +395,8 @@ def anpassa(driver_s):
                 # print(t.text, 'ej selected ännu')
                 pass
 
-            WebDriverWait(t, 10).until(EC.element_to_be_clickable(t))
+            # WebDriverWait(t, 10).until(EC.element_to_be_clickable(t), message='distans och spår gick inte att klicka på')
+            WebDriverWait(t,10)
             t.click()
             if t.is_selected():
                 # print(t.text+' är korrekt')

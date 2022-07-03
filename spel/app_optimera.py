@@ -97,7 +97,7 @@ def confusion_matrix_graph(y_true, y_pred, title='Confusion matrix'):
     import matplotlib.pyplot as plt
     fig, ax = plt.subplots()
     sns.set(font_scale=2.0)
-    sns.heatmap(cm, annot=True, fmt=".2f", linewidths=.5, square=True, cmap='Blues_r')
+    sns.heatmap(cm, annot=True, fmt=".2%", linewidths=.5, square=True, cmap='Blues_r')
     
     # plt.figure(figsize=(10,10))
     #increase font size
@@ -110,7 +110,7 @@ def confusion_matrix_graph(y_true, y_pred, title='Confusion matrix'):
     
 # write the scores    
 def display_scores(y_true, y_pred, spelade):    
-    st.write('AUC',roc_auc_score(y_true, y_pred),'F1',f1_score(y_true, y_pred),'Acc',accuracy_score(y_true, y_pred),'MAE',mean_absolute_error(y_true, y_pred), '\n', spelade)
+    st.write('AUC',round(roc_auc_score(y_true, y_pred),5),'F1',round(f1_score(y_true, y_pred),5),'Acc',round(accuracy_score(y_true, y_pred),5),'MAE',round(mean_absolute_error(y_true, y_pred),5), '\n', spelade)
 
 
 def plot_confusion_matrix(y_true, y_pred, typ, fr=0.05, to=0.3, step=0.001):

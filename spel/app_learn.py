@@ -282,7 +282,7 @@ def learn_meta_ridge_model(X, y, save=True):
 
 ##### RandomForestClassifier (meta model) #####
 def learn_meta_rf_model(X, y, save=True):
-    from sklearn.ensemble import RandomForestClassifier
+    
     with open(pref+'optimera/params_rf.json', 'r') as f:
         params = json.load(f)
         params=params['params']
@@ -339,12 +339,12 @@ def learn_meta_models(X, y, save=True):
         meta_features = f.read().splitlines()
     assert meta_features == list(X.columns), f'X.columns {list(X.columns)} is not the same as meta_features {meta_features}' 
        
-    RidgeClassifier =  learn_meta_ridge_model(X, y,save=save)
-    RandomForestClassifier = learn_meta_rf_model(X, y, save=save)
-    Lasso = learn_meta_lasso_model(X, y, save=save)
-    Knn   = learn_meta_knn_model(X, y, save=save)
+    Ridge_Classifier =  learn_meta_ridge_model(X, y,save=save)
+    RandomForest_Classifier = learn_meta_rf_model(X, y, save=save)
+    Lasso_model = learn_meta_lasso_model(X, y, save=save)
+    Knn_model   = learn_meta_knn_model(X, y, save=save)
     
-    return RidgeClassifier, RandomForestClassifier, Lasso, Knn
+    return Ridge_Classifier, RandomForest_Classifier, Lasso_model, Knn_model
     
 #%% 
 ##############################################################
@@ -400,51 +400,51 @@ def predict_meta_model(X, meta_model=None):
         return meta_model.predict(X)
 
 
-def confusion_matrix_graph(y_true, y_pred, title='Confusion matrix'):
-    # confusion matrix graph
-    from sklearn.metrics import confusion_matrix
-    cm = confusion_matrix(y_true=y_true, y_pred=y_pred)
-    # make a graph 
+# def confusion_matrix_graph(y_true, y_pred, title='Confusion matrix'):
+#     # confusion matrix graph
+#     from sklearn.metrics import confusion_matrix
+#     cm = confusion_matrix(y_true=y_true, y_pred=y_pred)
+#     # make a graph 
     
-    import seaborn as sns
-    import matplotlib.pyplot as plt
-    fig, ax = plt.subplots()
-    sns.set(font_scale=2.0)
-    sns.heatmap(cm, annot=True, fmt=".2f", linewidths=.5, square=True, cmap='Blues_r')
+#     import seaborn as sns
+#     import matplotlib.pyplot as plt
+#     fig, ax = plt.subplots()
+#     sns.set(font_scale=2.0)
+#     sns.heatmap(cm, annot=True, fmt=".2%", linewidths=.5, square=True, cmap='Blues_r')
     
-    # plt.figure(figsize=(10,10))
-    #increase font size
-    plt.rcParams['font.size'] = 20
-    plt.ylabel('True label')
-    plt.xlabel('Predicted label')
-    plt.title(title)
-    st.write(fig)
-    # st.write(plt.show())
+#     # plt.figure(figsize=(10,10))
+#     #increase font size
+#     plt.rcParams['font.size'] = 20
+#     plt.ylabel('True label')
+#     plt.xlabel('Predicted label')
+#     plt.title(title)
+#     st.write(fig)
+#     # st.write(plt.show())
     
 # write the scores    
 def display_scores(y_true, y_pred, spelade):    
-    st.write('AUC',roc_auc_score(y_true, y_pred),'F1',f1_score(y_true, y_pred),'Acc',accuracy_score(y_true, y_pred),'MAE',mean_absolute_error(y_true, y_pred), '\n', spelade)
+    st.write('AUC',round(roc_auc_score(y_true, y_pred),5),'F1',round(f1_score(y_true, y_pred),5),'Acc',round(accuracy_score(y_true, y_pred),5),'MAE',round(mean_absolute_error(y_true, y_pred),5), '\n', spelade)
 
 
 def plot_confusion_matrix(y_true, y_pred, typ, fr=0.05, to=0.3, step=0.001):
 
-    #### Först:  hitta ett treshold som tippar ca 2.5 hästar per avd ####
-    tresh = 0
-    for tresh in np.arange(fr, to, step):
-        cost = 12*sum(y_pred > tresh)/len(y_pred)
+    #### Först:  hitta ett threshold som tippar ca 2.5 hästar per avd ####
+    thresh = 0
+    for thresh in np.arange(fr, to, step):
+        cost = 12*sum(y_pred > thresh)/len(y_pred)
         if cost < 2.5:
             break
-    tresh = round(tresh, 4)
-    # print(f'Treshold: {tresh}\n')
-    y_pred = (y_pred > tresh).astype(int)
-    # confusion_matrix_graph(y_true, y_pred, f'{typ} treshold={tresh}')
+    thresh = round(thresh, 4)
+    # print(f'Threshold: {thresh}\n')
+    y_pred = (y_pred > thresh).astype(int)
+    # confusion_matrix_graph(y_true, y_pred, f'{typ} threshold={thresh}')
 
     #### Sedan: confusion matrix graph ####
-    title = f'{typ} treshold={tresh}'
-    cm = confusion_matrix(y_true=y_true, y_pred=y_pred)
+    title = f'{typ} threshold={thresh}'
+    cm = confusion_matrix(y_true=y_true, y_pred=y_pred,)
     fig, ax = plt.subplots()
     sns.set(font_scale=2.0)
-    sns.heatmap(cm, annot=True, fmt=".2f", linewidths=.5,
+    sns.heatmap(cm/np.sum(cm), annot=True, fmt=".2%", linewidths=.5,
                 square=True, cmap='Blues_r')
 
     # increase font size

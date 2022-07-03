@@ -47,7 +47,57 @@ class v75():
     def save_df(self):
         self.df.to_csv(self.filnamn, index=False)
         
-    #################### Features som inte används ###########################################
+    #################### Handle missing #####################################################    
+    def _handle_missing_num(self):
+        """ Fyll i saknade numeriska värden med 0 """
+        categoricals = self.work_df.select_dtypes(include=['object']).columns
+        # check if column y is in the dataframe
+        
+        assert 'y' in self.work_df.columns, 'y is not in the work_df'
+        numericals = self.work_df.drop('y', axis=1).select_dtypes(exclude=['object']).columns
+        self.work_df[numericals] = self.work_df[numericals].fillna(0)
+        
+    def _handle_missing_cat(self):
+        """ Fyll i saknade kategoriska värden med 'missing' """
+        categoricals = self.work_df.select_dtypes(include=['object']).columns
+        self.work_df[categoricals] = self.work_df[categoricals].fillna('missing')
+        # return self.work_df    
+        
+    #################### Handle high cardinality ############################################
+    def _handle_high_cardinality(self, column, threshold=0.75, max=10):
+        """ Reducera cardinality baserat på frekvens """
+        threshold_value=int(threshold*len(self.work_df[column].unique()))
+        
+        categories_list=[]
+        s=0
+        #Create a counter dictionary of the form unique_value: frequency
+        counts=self.work_df[column].value_counts()
+        # print(counts)
+        values = list(counts.index)
+
+        #Loop through the category name and its corresponding frequency after sorting the categories by descending order of frequency
+        for e,i in enumerate(counts):
+            if max and e >= max:
+                break
+            
+            #Add the frequency to the global sum
+            s+=i
+            #Append the category name to the list
+            categories_list.append(values[e])
+            #Check if the global sum has reached the threshold value, if so break the loop
+            if s>=threshold_value:
+                break
+        #Append the category Other to the list
+        categories_list.append('Other')
+
+        #Replace all instances not in our new categories by Other  
+        new_column=self.work_df[column].apply(lambda x: x if x in categories_list else 'Other')
+        self.work_df[column]=new_column
+
+        # return self.work_df
+        
+        
+    #################### Features som inte används ##########################################
     def _remove_features(self, remove=['startnr', 'vodds', 'podds', 'bins', 'h1_dat',
                 'h2_dat', 'h3_dat', 'h4_dat', 'h5_dat'],remove_mer=[]):
         """ rensa bort features som inte ska användas """
@@ -60,7 +110,7 @@ class v75():
 
         return self.work_df
 
-    def förbered_data(self):
+    def förbered_data(self, missing_num=True, missing_cat=True, cardinality_list=[]):
         """ En komplett förberedelse innan ML
         Returns:
             self.work_df: Färdig df att användas för ML
@@ -70,8 +120,8 @@ class v75():
         self._rensa_saknade_avd()
         
         # ta bort nummer från travbana i history (i.e Åby-1 -> Åby, etc)
-        self.work_df.loc[:,'h1_bana'] = self.work_df.h1_bana.str.split('-').str[0]
-        self.work_df.loc[:,'h2_bana'] = self.work_df.h2_bana.str.split('-').str[0]
+        self.work_df.loc[:, 'h1_bana'] = self.work_df.h1_bana.str.split('-').str[0]
+        self.work_df.loc[:, 'h2_bana'] = self.work_df.h2_bana.str.split('-').str[0]
         self.work_df.loc[:, 'h3_bana'] = self.work_df.h3_bana.str.split('-').str[0]
         self.work_df.loc[:, 'h4_bana'] = self.work_df.h4_bana.str.split('-').str[0]
         self.work_df.loc[:, 'h5_bana'] = self.work_df.h5_bana.str.split('-').str[0]
@@ -82,9 +132,34 @@ class v75():
 
         self._remove_features()
         
-        y = (self.work_df.plac==1) * 1
+        self.work_df['y'] = (self.work_df.plac==1) * 1
+        self.work_df = self.work_df.drop(['plac'], axis=1)
+
+        if missing_cat:
+            self._handle_missing_cat()
+            
+        if missing_num:
+            self._handle_missing_num()    
+            
+        if cardinality_list:
+            for col in cardinality_list:
+                assert col in self.work_df.columns, f'{col} is not in work_df'
+                self._handle_high_cardinality(col)
+            
+        return self.work_df
+    
+    def train_test_split(self, train_size=0.8):
+        """ Splits data into train and test set """
+        datumar = self.work_df.datum.unique()
+        train_datum = datumar[:int(train_size*len(datumar))]
+        test_datum = datumar[int(train_size*len(datumar)):]
         
-        return self.work_df.drop(['plac'], axis=1), y
+        train = self.work_df[self.work_df.datum.isin(train_datum)].copy()
+        test = self.work_df[self.work_df.datum.isin(test_datum)].copy()
+        # rename plac in test and train to y
+        train = train.rename(columns={'plac':'y'})
+        test = test.rename(columns={'plac':'y'}, inplace=False)
+        return train, test
     
     def get_df(self):
         return self.df

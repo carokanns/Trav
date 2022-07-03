@@ -7,10 +7,12 @@ from IPython.display import display
 from catboost import CatBoostClassifier, Pool
 import concurrent.futures
 import time
-
+import sklearn
+print(sklearn.__version__)
 pd.set_option('display.width', 200)
 pd.set_option('display.max_columns', 200)
 import streamlit as st
+
 import sys
 import pickle
 from sklearn.ensemble import RandomForestRegressor
@@ -367,7 +369,7 @@ def mesta_diff_per_avd(X_):
     
     return sm
 
-def välj_rad(df_meta, max_insats=330):
+def välj_rad(df_meta, max_insats=300):
     veckans_rad = df_meta.copy()
     veckans_rad['välj'] = False
 
@@ -394,8 +396,8 @@ def välj_rad(df_meta, max_insats=330):
         cost_before = cost
         cost = compute_total_insats(veckans_rad[veckans_rad.välj])
         # print('cost',cost)
-        if cost > max_insats:
-            veckans_rad.loc[i, 'välj'] = False
+        if cost >= max_insats:
+            # veckans_rad.loc[i, 'välj'] = False
             break
         
     # print('cost', cost_before)
@@ -571,5 +573,3 @@ if meta != st.session_state.meta:
     df_stack = build_stack_df(df_scraped, typer)
     df_stack.to_csv('sparad_stack.csv', index=False)
     use_meta(df_stack, meta)
-
-
