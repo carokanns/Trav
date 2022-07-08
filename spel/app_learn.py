@@ -553,7 +553,7 @@ def scrape(full=True):
             my_bar.progress(1.0)        
             df = future.result()
 
-            df.to_csv('sparad_scrape.csv', index=False)
+            df.to_csv('sparad_scrape_learn.csv', index=False)
         
         st.balloons()
         my_bar.empty()
@@ -599,7 +599,7 @@ with buttons:
     if st.sidebar.button('load data'):
         del st.session_state.datum  # säkra att datum är samma som i scraping
         try:
-            df=pd.read_csv('sparad_scrape.csv')
+            df=pd.read_csv('sparad_scrape_learn.csv')
             st.session_state.df=df
             st.write(f'loaded data with datum {df.datum.iloc[0]}')
         except:

@@ -40,7 +40,7 @@ def remove_features(df_, remove_mer=[]):
 def v75_scraping(full=True):
     if not full:
         # st.write("ANVÄNDER SPARAT")
-        df = pd.read_csv('sparad_scrape.csv')
+        df = pd.read_csv('sparad_scrape_spela.csv')
         try:
             df.drop(['plac'], axis=1, inplace=True)
         except:
@@ -359,25 +359,23 @@ def mesta_diff_per_avd(X_):
     
     sm=sm.query("(first==meta_predict or second==meta_predict)").copy()
     sm['diff'] = sm['first'] - sm['second']
-    
-    sm.sort_values(by='diff', ascending=False, inplace=True)
-    sm.to_csv('mesta_diff_per_avd.csv')
-    
-    # drop one row per avd
+        
+    # drop duplicates per avd 
     sm = sm.drop_duplicates(subset='avd', keep='first')
-    sm.sort_values(by='diff', ascending=False, inplace=True)
     
+    sm.sort_values(by='diff', ascending=False, inplace=True)
+    # sm.to_csv('mesta_diff_per_avd.csv')
     return sm
 
-def välj_rad(df_meta, max_insats=300):
-    veckans_rad = df_meta.copy()
-    veckans_rad['välj'] = False
+def välj_rad(df_meta_predict, max_insats=301):
+    veckans_rad = df_meta_predict.copy()
+    veckans_rad['välj'] = False   # inga rader valda ännu
 
     # first of all: select one horse per avd
     for avd in veckans_rad.avd.unique():
         max_pred = veckans_rad[veckans_rad.avd == avd]['meta_predict'].max()
         veckans_rad.loc[(veckans_rad.avd == avd) & (veckans_rad.meta_predict == max_pred), 'välj'] = True
-    
+    # veckans_rad.query("välj==True").to_csv('veckans_basrad.csv')
     veckans_rad = veckans_rad.sort_values(by=['meta_predict'], ascending=False)
     veckans_rad = veckans_rad.reset_index(drop=True)
     
@@ -396,7 +394,7 @@ def välj_rad(df_meta, max_insats=300):
         cost_before = cost
         cost = compute_total_insats(veckans_rad[veckans_rad.välj])
         # print('cost',cost)
-        if cost >= max_insats:
+        if cost > max_insats:
             # veckans_rad.loc[i, 'välj'] = False
             break
         
@@ -470,7 +468,7 @@ with scraping:
                 my_bar.progress(1.0)        
                 df_scraped = future.result()
 
-                df_scraped.to_csv('sparad_scrape.csv', index=False)
+                df_scraped.to_csv('sparad_scrape_spela.csv', index=False)
             
             st.balloons()
             my_bar.empty()
@@ -564,7 +562,7 @@ if meta != st.session_state.meta:
     st.session_state.meta = meta
 
     st.write('meta_model:', meta)
-    df_scraped = pd.read_csv('sparad_scrape.csv')
+    df_scraped = pd.read_csv('sparad_scrape_spela.csv')
     try:
         df_scraped.drop(['plac'], axis=1, inplace=True)
         st.info('this file is not up to date - a scrape is needed')
