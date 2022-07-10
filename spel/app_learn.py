@@ -398,32 +398,11 @@ def predict_meta_model(X, meta_model=None):
         assert False, 'ingen meta_model angiven'
     else:
         return meta_model.predict(X)
-
-
-# def confusion_matrix_graph(y_true, y_pred, title='Confusion matrix'):
-#     # confusion matrix graph
-#     from sklearn.metrics import confusion_matrix
-#     cm = confusion_matrix(y_true=y_true, y_pred=y_pred)
-#     # make a graph 
-    
-#     import seaborn as sns
-#     import matplotlib.pyplot as plt
-#     fig, ax = plt.subplots()
-#     sns.set(font_scale=2.0)
-#     sns.heatmap(cm, annot=True, fmt=".2%", linewidths=.5, square=True, cmap='Blues_r')
-    
-#     # plt.figure(figsize=(10,10))
-#     #increase font size
-#     plt.rcParams['font.size'] = 20
-#     plt.ylabel('True label')
-#     plt.xlabel('Predicted label')
-#     plt.title(title)
-#     st.write(fig)
-#     # st.write(plt.show())
     
 # write the scores    
 def display_scores(y_true, y_pred, spelade):    
     st.write('AUC',round(roc_auc_score(y_true, y_pred),5),'F1',round(f1_score(y_true, y_pred),5),'Acc',round(accuracy_score(y_true, y_pred),5),'MAE',round(mean_absolute_error(y_true, y_pred),5), '\n', spelade)
+    return roc_auc_score(y_true, y_pred)
 
 
 def plot_confusion_matrix(y_true, y_pred, typ, fr=0.05, to=0.3, step=0.001):
@@ -456,9 +435,20 @@ def plot_confusion_matrix(y_true, y_pred, typ, fr=0.05, to=0.3, step=0.001):
     
     st.write(fig)
     
-    #### print scores ####
-    display_scores(y_true, y_pred, f'spelade per lopp: {round(12 * sum(y_pred)/len(y_pred),4)}' )
+    # read dict from disk
+    try:
+        with open(pref+'modeller/meta_scores.pkl', 'rb') as f:
+            meta_scores = pickle.load(f)
+    except:
+        st.write('No meta_scores.pkl found')
+        meta_scores = {'knn': 0, 'lasso': 0, 'rf': 0, 'ridge': 0}  
 
+    #### print scores ####
+    typ_AUC = display_scores(y_true, y_pred, f'spelade per lopp: {round(12 * sum(y_pred)/len(y_pred),4)}' )
+    meta_scores[typ] = float(typ_AUC)
+    #### save dict to disk ####
+    with open(pref+'modeller/meta_scores.pkl', 'wb') as f:
+        pickle.dump(meta_scores, f)
     
 def validate(drop=[],fraction=None):
     st.info('skall endast  köras efter "Learn for Validation"')
@@ -480,7 +470,7 @@ def validate(drop=[],fraction=None):
     
     st.info('förbereder rf plot')
     plot_confusion_matrix(y_true, y_pred_rf, 
-                        'rf', fr=0.1, to=0.5, step=0.0001)
+                        'rf', fr=0.01, to=0.55, step=0.0001)
 
     st.write('\n')
     st.info('förbereder knn plot')
@@ -625,6 +615,4 @@ with buttons:
         if st.sidebar.button('Clear'):
             st.empty()
             
-
-   
     

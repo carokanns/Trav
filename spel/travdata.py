@@ -1,16 +1,17 @@
 """_summary_
     En class för att hantera all_data.csv
-    Skall standardisera förberedelser inför ML-körningar 
+    Standardiserar förberedelser inför ML-körningar 
 """
 import pandas as pd
 import numpy as np
 
 class v75():
     def __init__(self, filnamn='all_data.csv', pref=''):
+        """ init - två dataset skapas, df (originalet) och work_df (arbetskopian) """
         self.pref=pref
         self.filnamn = pref+filnamn
         print(self.filnamn)
-        self.df = self.load_df()   # uppdateras enbart av ny data
+        self.df = self.load_df()        # kan uppdateras enbart med concat av ny data
         self.work_df = self.df.copy()   # arbetskopia att köra all ML mot
 
         
@@ -40,11 +41,13 @@ class v75():
     
     #################### Load och save #####################################################
     def load_df(self):
+        """ ladda in all_data.csv """
         print('Loading dataframe from the file:', self.filnamn)
         self.df = pd.read_csv(self.filnamn)
         return self.df
     
     def save_df(self):
+        """ sparar df (ej working_df) till all_data.csv """
         self.df.to_csv(self.filnamn, index=False)
         
     #################### Handle missing #####################################################    
@@ -149,7 +152,7 @@ class v75():
         return self.work_df
     
     def train_test_split(self, train_size=0.8):
-        """ Splits data into train and test set """
+        """ Splits data into train and test set based on train_size """
         datumar = self.work_df.datum.unique()
         train_datum = datumar[:int(train_size*len(datumar))]
         test_datum = datumar[int(train_size*len(datumar)):]
@@ -162,7 +165,9 @@ class v75():
         return train, test
     
     def get_df(self):
+        """ returnerar df (original)"""
         return self.df
     
-    def get_work_df(self):  # returnerar arbetskopia
+    def get_work_df(self):  
+        """ returnerar arbetskopian """
         return self.work_df

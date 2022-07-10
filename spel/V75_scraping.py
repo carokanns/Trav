@@ -554,6 +554,7 @@ if __name__ == '__main__':
     df.sort_values(by=['datum', 'avd', 'startnr', ], inplace=True)        
     print(df)
     print('\ndet tog', round(time.perf_counter() - start_time, 3), 'sekunder')
-print('END')
+import datetime    
+print('END', datetime.datetime.now().strftime("%H.%M.%S"))
 
 # %%

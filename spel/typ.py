@@ -72,14 +72,14 @@ def lägg_in_motståndare(X_, ant_motståndare):
     return X
 
 # som föregående men med diff istf faktiska värden
-def lägg_in_diff_motståndare(X_, motståndare):
+def lägg_in_diff_motståndare(X_, ant_motståndare):
     X = X_.copy()
 
     # set X['motståndare1'] to largest streck in every avd
     grouped = X.groupby(['datum', 'avd'])['streck']
     X['diff1'] = grouped.transform(max) - X.streck
 
-    for i in range(2, motståndare+1):
+    for i in range(2, ant_motståndare+1):
         # set X['motståndare'+str(i)] to ith largest streck in every avd
         X['diff' +
             str(i)] = grouped.transform(lambda x: x.nlargest(i).min()) - X.streck
