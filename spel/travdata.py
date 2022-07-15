@@ -113,7 +113,7 @@ class v75():
 
         return self.work_df
 
-    def förbered_data(self, missing_num=True, missing_cat=True, cardinality_list=[]):
+    def förbered_data(self, missing_num=True, missing_cat=True, cardinality_list=[], remove_mer=[]):
         """ En komplett förberedelse innan ML
         Returns:
             self.work_df: Färdig df att användas för ML
@@ -133,7 +133,7 @@ class v75():
         for f in ['häst', 'bana', 'kusk', 'h1_kusk', 'h2_kusk', 'h3_kusk', 'h4_kusk', 'h5_kusk', 'h1_bana', 'h2_bana', 'h3_bana', 'h4_bana', 'h5_bana']:
             self.work_df.loc[:, f] = self.work_df[f].str.lower()
 
-        self._remove_features()
+        self._remove_features(remove_mer=remove_mer)
         
         self.work_df['y'] = (self.work_df.plac==1) * 1
         self.work_df = self.work_df.drop(['plac'], axis=1)
