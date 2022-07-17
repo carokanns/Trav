@@ -1,0 +1,1 @@
+{"params": {"weights": "uniform", "p": 2, "n_neighbors": 40, "metric": "manhattan", "leaf_size": 35, "algorithm": "brute"}, "AUC": 0.6433}
