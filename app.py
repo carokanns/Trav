@@ -339,6 +339,18 @@ scraping = st.container()
 avd = st.container()
 sortera = st.container()
 
+if 'datum' in st.session_state:
+    datum = st.sidebar.date_input('Välj datum')
+    datum = datum.strftime('%Y-%m-%d')
+
+    if datum != st.session_state['datum']:
+        st.session_state['datum'] = datum
+        datum="https://www.atg.se/spel/"+datum+"/V75/"
+        omg_df = pd.DataFrame([datum],columns=['Link'])
+        omg_df.to_csv('omg_att_spela_link.csv', index=False)
+    
+
+
 models = [typ6, typ1, typ9]   # typ16 och typ9 är samma förutom hur man väljer rader
 
 def use_meta(df_stack,meta):
