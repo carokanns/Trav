@@ -171,3 +171,46 @@ class v75():
     def get_work_df(self):  
         """ returnerar arbetskopian """
         return self.work_df
+    
+########################################################################### 
+################################ TEST #####################################
+    #  a - ✔️ plats(streck)/ant_hästar_i_avd (antal startande hästar i avd)
+    #  b - ❌ pris / tot_pris_i_avd - funkar ju inte. Alla har samma pris per avd!
+    #  c - ✔️ kr / tot_kr_i_avd - ersätt kr 
+    #  d - ✔️ Avstånd till ettan (streck. Kanske proba för meta_model?) 
+    #  e - ✔️ hx_bana samma som bana 
+    #  f - ✔️ hx_kusk samma som kusk 
+    
+    def test_lägg_till_kolumner(self):
+        """
+        Gör tester med nya kolumner b-f ovan
+        Körs typiskt efter förbered_data()
+        """
+        
+        ##### kr/total_kr_avd ******
+        sum_kr = self.work_df.groupby(['datum', 'avd']).kr.transform(lambda x: x.sum())
+        self.work_df['rel_kr'] = self.work_df.kr/sum_kr
+        self.work_df.drop(['kr'], axis=1, inplace=True)
+        
+        ##### avst till ettan (streck) ******
+        self.work_df['max_streck'] = self.work_df.groupby(['datum', 'avd']).streck.transform(lambda x: x.max())
+        self.work_df['streck_avst'] = self.work_df.max_streck - self.work_df.streck
+        self.work_df.drop(['max_streck'], axis=1, inplace=True)
+        
+        ##### ranking per avd / ant_startande ******
+        rank_per_avd = self.work_df.groupby(['datum', 'avd'])['streck'].rank(ascending=False, method='dense')
+        count_per_avd = self.work_df.groupby(['datum', 'avd']).streck.transform(lambda x: x.count())
+        self.work_df['rel_rank'] = rank_per_avd/count_per_avd
+        
+        ##### hx samma bana (h1-h3)
+        self.work_df['h1_samma_bana'] = self.work_df.bana == self.work_df.h1_bana
+        self.work_df['h2_samma_bana'] = self.work_df.bana == self.work_df.h2_bana
+        self.work_df['h3_samma_bana'] = self.work_df.bana == self.work_df.h3_bana
+
+        ##### hx samma kusk (h1-h3)
+        self.work_df['h1_samma_kusk'] = self.work_df.kusk == self.work_df.h1_kusk
+        self.work_df['h2_samma_kusk'] = self.work_df.kusk == self.work_df.h2_kusk
+        self.work_df['h3_samma_kusk'] = self.work_df.kusk == self.work_df.h3_kusk
+
+        return self.work_df
+

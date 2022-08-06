@@ -1,0 +1,19 @@
+spel/version 3/catboost_info/**
+spel/sparad_scrape.csv
+spel/__pycache__/V75_scraping.cpython-38.pyc
+spel/sparad_scrape.csv
+spel/catboost_info/**
+spel/catboost_info/*.*
+spel/catboost_info/*.tsv
+spel/catboost_info/*.tfevents
+spel/catboost_info/catboost_training.json
+spel/.tmp.drivedownload/**
+spel/.tmp.drivedownload/*
+spel/.tmp.drivedownload/*.*
+spel/v75_tester/flaml.log
+spel/.tmp.driveupload/*
+spel/sparad_scrape.csv
+spel/flaml.log
+spel/v75_tester/try_gluon/agModels-predictClass/*.*
+spel/v75_tester/*.*
+spel/v75_tester

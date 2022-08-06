@@ -98,13 +98,13 @@ class Typ():
         
         self.motst_ant = motst_ant      # int  - inkludera n features med bästa motståndare (streck)
         self.motst_diff = motst_diff    # bool - ovanstående med diff istf fasta värden
-        self.streck = streck            # bool - inkludera feature med streck
+        self.streck = streck            # bool - inkludera streck som feature
 
         # urval av rader
         self.proba = proba              # bool - för prioritering vid urval av rader
         self.kelly = kelly              # bool - för prioritering vid urval av rader
         
-        self.ant_favoriter = ant_favoriter # int  - för hur många favoriter (avd med en häst) som ska användas
+        self.ant_favoriter = ant_favoriter # int  - för hur många favoriter (avd där endast en häst spelas) som ska användas
         self.only_clear = only_clear       # bool - för att bara avvända klara favoriter
         
         self.pref = pref                # string - prefix för map/filnamn
