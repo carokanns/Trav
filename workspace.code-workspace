@@ -6,7 +6,7 @@
 	],
 	"settings": {
 		"projectManager.git.baseFolders": [
-			"C:\\\\Users\\\\peter\\\\Documents\\\\MyProjects\\\\PyProj\\\\Trav\\\\Trav\\\\spel"
+			"C:\\Users\\peter\\Documents\\MyProjects\\PyProj\\Trav\\Trav"
 		],
 		"jupyter.jupyterServerType": "local",
 		"editor.acceptSuggestionOnEnter": "on"
