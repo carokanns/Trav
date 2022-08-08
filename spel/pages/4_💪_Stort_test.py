@@ -326,6 +326,58 @@ def ta_fram_rad(veckans_rad_, spik_strategi,kelly_strategi, max_cost=300, min_av
     # return veckans_rad, cost
     return plocka_en_efter_en(veckans_rad, spikad_avd, kelly_strategi, max_cost)
       
+def rätta_rad(df, datum, df_utdelning ):
+    """
+    Räkna ut antal 5:or, 6:or resp. 7:or
+    Hämta ev utdelning
+    Spara datum, resultat, utdelning och rad-kostnad
+    """
+    sjuor, sexor, femmor, utdelning = 0,0,0,0
+    
+    min_tabell = df[['y', 'avd', 'häst', 'rel_rank', 'välj']].copy()
+    min_tabell.sort_values(by=['avd', 'y'], ascending=False,inplace=True)
+
+    # 1. om jag har max 7 rätt
+    if min_tabell.query('välj==True and y==1').y.sum() == 7:
+        sjuor=1
+        sexor = (min_tabell.groupby('avd').välj.sum()).sum()-7
+        # antal femmor
+        ant1 = min_tabell.query('avd==1 and välj==True').välj.sum()-1
+        ant2 = min_tabell.query('avd==2 and välj==True').välj.sum()-1
+        ant3 = min_tabell.query('avd==3 and välj==True').välj.sum()-1
+        ant4 = min_tabell.query('avd==4 and välj==True').välj.sum()-1
+        ant5 = min_tabell.query('avd==5 and välj==True').välj.sum()-1
+        ant6 = min_tabell.query('avd==6 and välj==True').välj.sum()-1
+        ant7 = min_tabell.query('avd==7 and välj==True').välj.sum()-1
+        femmor = ant1*ant2+ant1*ant2+ant1*ant3+ant1*ant4+ant1*ant5+ant1*ant6+ant1*ant7 +\
+                ant2*ant3+ant2*ant4+ant2*ant5+ant2*ant6+ant2*ant7 + \
+                ant3*ant4+ant3*ant5+ant3*ant6+ant3*ant7 + \
+                ant4*ant5+ant4*ant6+ant4*ant7 + \
+                ant5*ant6+ant5*ant7 + \
+                ant6*ant7
+
+    # 2. om jag har max 6 rätt
+    if min_tabell.query('välj==True and y==1').y.sum() == 6:
+        avd_fel = min_tabell.loc[((min_tabell.välj==False) & (min_tabell.y==1)),'avd'].values[0]
+        print(min_tabell.query('avd== @avd_fel').välj.sum())
+        sexor = min_tabell.query('avd==@avd_fel').välj.sum()
+        # antal femmor
+        femmor_fel, femmor_rätt = 0,0
+        for avd in range(1,8):
+            if avd == avd_fel:
+                femmor_fel += min_tabell.loc[min_tabell.avd==avd_fel].välj.sum()
+                
+            femmor_rätt += min_tabell.query('avd==@avd and välj==True').välj.sum()-1
+        print(f'femmor_rätt = {femmor_rätt} femmor_fel = {femmor_fel}')    
+        femmor = femmor_fel * femmor_rätt
+
+    # 3. om jag har max 5 rätt
+    if min_tabell.query('välj==True and y==1').y.sum() == 5:
+        avd_fel = min_tabell.loc[((min_tabell.välj==False) & (min_tabell.y==1)),'avd'].values
+        femmor = min_tabell.loc[min_tabell.avd==avd_fel[0]].välj.sum() * min_tabell.loc[min_tabell.avd==avd_fel[1]].välj.sum()
+    
+    return sjuor, sexor, femmor, beräkna_utdelning(datum, sjuor,sexor,femmor, df_utdelning)
+
 
 def main():
     ## Skapa v75-instans
@@ -387,14 +439,14 @@ def main():
     veckans_rad['proba'] = test1.predict(X_curr)
     veckans_rad['kelly'] = kelly(veckans_rad.proba, veckans_rad[['streck']], None)
 
-    # 2. ta fram rad för datum, rätta och spara
+    # ta fram rad för datum, rätta och spara
     # inkluderar spik_strategi,kelly_strategi,
     veckans_rad, kostnad = ta_fram_rad(veckans_rad, '2b', '1', min_avst=0.3)
 
     sjuor, sexor, femmor, utdelning = rätta_rad(veckans_rad, datum, df_utdelning)
-    print('kostnad',kostnad, 'utdelning', utdelning)
+    # print('kostnad',kostnad, 'utdelning', utdelning)
 
-    df_resultat.loc[datum] = [sjuor+1, sexor, femmor,   kostnad,  utdelning,  utdelning-kostnad]
+    df_resultat.loc[datum] = [sjuor, sexor, femmor,   kostnad,  utdelning,  utdelning-kostnad]
 
     display("SPARA RESLUTAT - DESIGNA DF_RESULTAT SÅ ATT PLOT BLIR ENKELT")
     # 3. plotta
@@ -406,89 +458,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-##########################################################################################
-##########################################################################################
-###########   Flytta upp avsnitt efetr avsnitt nedan                            ##########
-##########################################################################################
-##########################################################################################
- 
-
-def rätta_rad(df, datum, df_utdelning ):
-    """
-    Räkna ut antal 5:or, 6:or resp. 7:or
-    Hämta ev utdelning
-    Spara datum, resultat, utdelning och rad-kostnad
-    """
-    sjuor, sexor, femmor, utdelning = 0,0,0,0
-    
-    min_tabell = df[['y', 'avd', 'häst', 'rel_rank', 'välj']].copy()
-    min_tabell.sort_values(by=['avd', 'y'], ascending=False,inplace=True)
-
-    # 1. om jag har max 7 rätt
-    if min_tabell.query('välj==True and y==1').y.sum() == 7:
-        sjuor=1
-        sexor = (min_tabell.groupby('avd').välj.sum()).sum()-7
-        # antal femmor
-        ant1 = min_tabell.query('avd==1 and välj==True').välj.sum()-1
-        ant2 = min_tabell.query('avd==2 and välj==True').välj.sum()-1
-        ant3 = min_tabell.query('avd==3 and välj==True').välj.sum()-1
-        ant4 = min_tabell.query('avd==4 and välj==True').välj.sum()-1
-        ant5 = min_tabell.query('avd==5 and välj==True').välj.sum()-1
-        ant6 = min_tabell.query('avd==6 and välj==True').välj.sum()-1
-        ant7 = min_tabell.query('avd==7 and välj==True').välj.sum()-1
-        femmor = ant1*ant2+ant1*ant2+ant1*ant3+ant1*ant4+ant1*ant5+ant1*ant6+ant1*ant7 +\
-                ant2*ant3+ant2*ant4+ant2*ant5+ant2*ant6+ant2*ant7 + \
-                ant3*ant4+ant3*ant5+ant3*ant6+ant3*ant7 + \
-                ant4*ant5+ant4*ant6+ant4*ant7 + \
-                ant5*ant6+ant5*ant7 + \
-                ant6*ant7
-
-    # 2. jag har max 6 rätt
-    if min_tabell.query('välj==True and y==1').y.sum() == 6:
-        avd_fel = min_tabell.loc[((min_tabell.välj==False) & (min_tabell.y==1)),'avd'].values[0]
-        print(min_tabell.query('avd== @avd_fel').välj.sum())
-        sexor = min_tabell.query('avd==@avd_fel').välj.sum()
-        # antal femmor
-        femmor_fel, femmor_rätt = 0,0
-        for avd in range(1,8):
-            if avd == avd_fel:
-                femmor_fel += min_tabell.loc[min_tabell.avd==avd_fel].välj.sum()
-                
-            femmor_rätt += min_tabell.query('avd==@avd and välj==True').välj.sum()-1
-        print(f'femmor_rätt = {femmor_rätt} femmor_fel = {femmor_fel}')    
-        femmor = femmor_fel * femmor_rätt
-
-    # 3. jag har max 5 rätt
-    if min_tabell.query('välj==True and y==1').y.sum() == 5:
-        avd_fel = min_tabell.loc[((min_tabell.välj==False) & (min_tabell.y==1)),'avd'].values
-        femmor = min_tabell.loc[min_tabell.avd==avd_fel[0]].välj.sum() * min_tabell.loc[min_tabell.avd==avd_fel[1]].välj.sum()
-    
-    # 4. utdelning 
-
-    return sjuor, sexor, femmor, beräkna_utdelning(datum, sjuor,sexor,femmor, df_utdelning)
-
-###############################################################################
-#      main logic
-#-------------- skapa test-modeller
-
-#------------- starta upp - returnerar startdatum
-
-#------------------------------------------------
-df_resultat = pd.DataFrame(columns = ['datum', 't1_7', 't1_6', 't1_5', 't1_kostn', 't1_utd', 't1_vinst' ])
-df_resultat.set_index('datum',drop=True, inplace=True)
-
-# 1. learn fram till datum
-#### 1a. skapa train och test dataframes samt aktuell omgång som vi predictar - returnerar df_train, df_test, df_curr
-
-#------------- Learn test-modeller-------------------------------------------
-#------------- predict och skapa Kelly ----------------------------------------
-
-# 2. ta fram rad för datum, rätta och spara
-# inkluderar spik_strategi,kelly_strategi,
-display("SPARA RESLUTAT - DESIGNA DF_RESULTAT SÅ ATT PLOT BLIR ENKELT")
-# 3. plotta
-
-    # loopa över olika setup
-
-# 4. startdatum+1
-# 5. gå till 1
