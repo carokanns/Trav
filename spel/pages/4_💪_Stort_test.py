@@ -1,4 +1,5 @@
 
+from curses.panel import update_panels
 import streamlit as st
 import numpy as np
 import pandas as pd
@@ -118,72 +119,6 @@ def compute_total_insats(veckans_rad):
     summa = veckans_rad.groupby('avd').avd.count().prod() / 2
     return summa
 
-
-def ta_fram_rad(df_, model, spik_strategi,kelly_strategi, max_cost=300, min_avst=30):
-    """ Denna funktion tar fram en rad för typ-modeller (ej meta-modell)
-    df nnehåller _en omgång_
-    _spik_strategi_: None - inget, '1a' - forcera 1 spik, '2a' - forcera 2 spikar, '1b' - 1 spik endast om klar favorit, '2b' - spikar för endast klara favoriter 
-    _kelly_strategi_: None - ingen kelly, 1 - kelly varannan gång om positiv
-    """
-
-    veckans_rad = df_.copy()
-    veckans_rad['välj'] = False   # inga rader valda ännu
-    veckans_rad['spik'] = False   # inga spikar valda ännu
-    
-    # a) ta ut en häst i varje avd - markera valda i df
-    for avd in veckans_rad.avd.unique():
-        # max av proba i veckans_rad 
-        max_proba = veckans_rad[veckans_rad.avd == avd]['proba'].max()
-        veckans_rad.loc[(veckans_rad.avd == avd) & (veckans_rad.proba == max_proba), 'välj'] = True
-    
-    # b) leta 1-2 spikar om så begärs - markera valda i df
-    if spik_strategi:
-        assert spik_strategi in ['1a','1b','2a','2b'], "spik_strategi måste ha något av värdena i listn"
-        # Hitta spik-kandidater
-        spik2 = veckans_rad.nlargest(2,'proba').index[1] 
-        if spik_strategi[0] in ['1','2']:
-            spik1 = veckans_rad.nlargest(1,'proba').index[0] 
-            if spik_strategi[1] =='b' and veckans_rad.iloc[spik1].streck_avst > min_avst:
-                veckans_rad.iloc[spik1].spik = True
-                veckans_rad.iloc[spik1].välj = True
-            elif spik_strategi == 'a':
-                veckans_rad.iloc[spik1].spik = True
-                veckans_rad.iloc[spik1].välj = True
-                
-        if spik_strategi[0] == '2':
-            spik2 = veckans_rad.nlargest(2,'proba').index[1] 
-            if spik_strategi[1] =='b' and veckans_rad.iloc[spik2].streck_avst > min_avst:
-                veckans_rad.iloc[spik2].spik = True
-                veckans_rad.iloc[spik2].välj = True
-            elif spik_strategi == 'a':
-                veckans_rad.iloc[spik2].spik = True
-                veckans_rad.iloc[spik2].välj = True
-                
-    # c) sortera upp i proba-ordning. Om kelly skapa en sortering efter kelly-ordning
-    veckans_rad = veckans_rad.sort_values(by=['proba'], ascending=False)
-    veckans_rad = veckans_rad.reset_index(drop=True)
-    if kelly_strategi == '1':
-        veckans_kelly = veckans_rad.sort_values(by=['kelly'], ascending=False)
-        veckans_kelly = veckans_kelly.reset_index(drop=True)
-    
-    cost = 0.5 # 1 rad
-    while cost < max_cost:
-        # d) plocka en och en - först proba sedan ev positiv kelly markera som valda i df
-        veckans_rad.loc[veckans_rad.query("välj==False").nlargest(1,'proba').index,'välj'] = True
-        # e) avbryt vid 300:-
-        cost = compute_total_insats(veckans_rad)
-        if  cost >= max_cost:
-            break
-        if kelly_strategi == '1' and veckans_rad.query("välj==False and kelly > 0").shape[0] > 0:
-            veckans_rad.loc[veckans_rad.query("välj==False and kelly > 0").nlargest(1,'kelly').index,'välj'] = True    
-        cost = compute_total_insats(veckans_rad)
-        
-    return veckans_rad, cost
-
-def beräkna_utdelning(df_):
-    
-    return 0
-
 def rätta_rad(df, datum, df_utdelning ):
     """
     Räkna ut antal 5:or, 6:or resp. 7:or
@@ -248,6 +183,8 @@ def starta_upp(df):
     df_resultat.set_index('datum',drop=True, inplace=True)
     
     return startdatum, df_resultat
+    
+
 def skapa_data_för_datum(df_, datum):   
     df = df_.copy()
     X = df.query(f'datum < @datum')
@@ -261,6 +198,135 @@ def skapa_data_för_datum(df_, datum):
     X_curr = X_curr.drop(['y'], axis=1)
     return X, y, X_test, y_test, X_curr, y_curr
     
+    from sklearn.ensemble import RandomForestRegressor as rf
+
+def kelly(proba, streck, odds):  # proba = prob winning, streck i % = streck
+    # läs in streck_to_odds.pkl
+    import pickle
+    with open(pref+'rf_streck_odds.pkl', 'rb') as f:
+        rf = pickle.load(f)
+        
+    if odds is None:
+        o = rf.predict(streck.copy())
+    else:
+        o = rf.predict(streck.copy())
+
+    # for each values > 40 in odds set to 1
+    o[o > 40] = 1
+    return (o*proba - (1-proba))/o
+
+def compute_total_insats(veckans_rad):
+    summa = veckans_rad.groupby('avd').avd.count().prod() / 2
+    return summa
+
+def beräkna_utdelning(datum, sjuor, sexor, femmor, df_utdelning):
+    min_utdelning = df_utdelning.loc[df_utdelning.datum==datum,['7rätt', '6rätt','5rätt']]
+    
+    return (min_utdelning['7rätt'] * sjuor + min_utdelning['6rätt'] * sexor + min_utdelning['5rätt'] * femmor).values[0]
+
+
+def varje_avd_minst_en_häst(veckans_rad ):
+    # ta ut en häst i varje avd - markera valda i df
+    for avd in veckans_rad.avd.unique():
+        # max av proba i veckans_rad 
+        max_proba = veckans_rad[veckans_rad.avd == avd]['proba'].max()
+        veckans_rad.loc[(veckans_rad.avd == avd) & (veckans_rad.proba == max_proba), 'välj'] = True
+    return veckans_rad
+
+def hitta_spikar(veckans_rad, spikad_avd, spik_strategi, min_avst):
+    print('spik_strategi', spik_strategi)
+    assert spik_strategi in ['1a','1b','2a','2b'], "spik_strategi måste ha något av värdena i listn"
+    # Hitta spik-kandidater
+    if spik_strategi[0] in ['1','2']:
+        spik1 = veckans_rad.nlargest(1,'proba').index[0]   # largest in dataset
+        avd = veckans_rad.loc[spik1,'avd']
+        no2 = veckans_rad.query("avd==@avd").nlargest(2, 'proba').index[1]  # second in avd
+        print(f'hösta proba={veckans_rad.loc[spik1, "proba"]} i avd={avd}; no2 i avd={avd} är {veckans_rad.loc[no2,"proba"]}')
+        avstånd = veckans_rad.loc[spik1, 'proba'] - veckans_rad.loc[no2, 'proba']
+        print('avst', avstånd)
+        if (spik_strategi[1] == 'b') and (avstånd > min_avst):
+            print('strategi', spik_strategi[1], 'valde spik i avd',avd)
+            # add avd to a list
+            spikad_avd.append(avd)
+            
+            veckans_rad.loc[spik1,'spik'] = True
+            veckans_rad.loc[spik1, 'välj'] = True
+        elif spik_strategi[1] == 'a':
+            print('strategi',spik_strategi[1], 'valde spik i avd',avd)
+            spikad_avd.append(avd)
+            veckans_rad.loc[spik1,['spik']]= True
+            veckans_rad.loc[spik1, 'välj']= True
+            
+    if spik_strategi[0] == '2':
+        spik2 = veckans_rad.nlargest(2,'proba').index[1] # second in dataset
+        avd = veckans_rad.loc[spik2, 'avd']
+        no2 = veckans_rad.query("avd==@avd").nlargest(2, 'proba').index[1]  # second in avd
+        print(f'näst högsta proba={veckans_rad.loc[spik2, "proba"]} i avd={avd}; no2 i avd={avd} är {veckans_rad.loc[no2,"proba"]}')
+        avstånd = veckans_rad.loc[spik2, 'proba'] - veckans_rad.loc[no2, 'proba']
+        print('avst',avstånd)
+        if (spik_strategi[1] =='b') and (avstånd > min_avst):
+            print('strategi', spik_strategi[1], 'valde spik i avd', avd)    
+            spikad_avd.append(avd)
+            veckans_rad.loc[spik2, 'spik'] = True
+            veckans_rad.loc[spik2, 'välj'] = True
+        elif spik_strategi[1] == 'a':
+            print('strategi', spik_strategi[1], 'i avd',avd)
+            spikad_avd.append(avd)
+            veckans_rad.loc[spik2,'spik'] = True
+            veckans_rad.loc[spik2,'välj'] = True
+    return veckans_rad, spikad_avd
+
+def plocka_en_efter_en(veckans_rad, spikad_avd, kelly_strategi, max_cost=300):
+    cost = 0.5 # 1 rad
+    while cost < max_cost:
+        # d) plocka en och en - först proba sedan ev positiv kelly markera som valda i df
+        curr_index = veckans_rad.query("välj==False and avd not in @spikad_avd").nlargest(1,'proba').index
+        veckans_rad.loc[curr_index,'välj'] = True
+        # e) avbryt vid 300:-
+        cost = compute_total_insats(veckans_rad.query("välj==True"))
+        if  cost > max_cost:
+            veckans_rad.loc[curr_index, 'välj'] = False  # ta tillbaks den sist spelade
+            break
+        if kelly_strategi == '1' and veckans_rad.query("välj==False and avd not in @spikad_avd and kelly > 0").shape[0] > 0:
+            curr_index = veckans_rad.query("välj==False and avd not in @spikad_avd and kelly > 0").nlargest(1,'kelly').index
+            cost = compute_total_insats(veckans_rad.query("välj==True"))
+            veckans_rad.loc[curr_index, 'välj'] = True
+            if  cost > max_cost:
+                veckans_rad.loc[curr_index, 'välj'] = False  # ta tillbaks den sist spelade
+                break
+    cost = compute_total_insats(veckans_rad.query("välj==True"))
+    
+    return veckans_rad, cost
+    
+def ta_fram_rad(veckans_rad_, spik_strategi,kelly_strategi, max_cost=300, min_avst=0.25):
+    """ Denna funktion tar fram en rad för typ-modeller (ej meta-modell)
+    df nnehåller _en omgång_
+    _spik_strategi_: None - inget, '1a' - forcera 1 spik, '2a' - forcera 2 spikar, '1b' - 1 spik endast om klar favorit, '2b' - spikar för endast klara favoriter 
+    _kelly_strategi_: None - ingen kelly, 1 - kelly varannan gång om positiv
+    """
+    veckans_rad = veckans_rad_.copy()
+    veckans_rad['välj'] = False   # inga rader valda ännu
+    veckans_rad['spik'] = False   # inga spikar valda ännu
+    
+    veckans_rad = varje_avd_minst_en_häst(veckans_rad )
+    
+    # b) leta 1-2 spikar om så begärs - markera valda i df
+    spikad_avd = []
+    if spik_strategi:
+        veckans_rad, spikad_avd = hitta_spikar(veckans_rad, spikad_avd, spik_strategi, min_avst)
+        
+    # c) sortera upp i proba-ordning. Om kelly skapa en sortering efter kelly-ordning
+    veckans_rad = veckans_rad.sort_values(by=['proba'], ascending=False)
+    veckans_rad = veckans_rad.reset_index(drop=True)
+    if kelly_strategi == '1':
+        veckans_kelly = veckans_rad.sort_values(by=['kelly'], ascending=False)
+        veckans_kelly = veckans_kelly.reset_index(drop=True)
+    
+    ## plocka en efter en tills kostnaden är för stor
+    # return veckans_rad, cost
+    return plocka_en_efter_en(veckans_rad, spikad_avd, kelly_strategi, max_cost)
+      
+
 def main():
     ## Skapa v75-instans
     v75 = td.v75(pref=pref)
@@ -293,7 +359,6 @@ def main():
     # genererara alla kolumner som vi sedan selekterar från
     # Namnge modeller efter konfig samt selektering tex typ_abcdef235
     
-    ## TESTA DETTA I IPYNB 
     #-------------- skapa test-modeller
     #              name,   ant_hästar  proba,  kelly,  motst_ant,   motst_diff,  ant_favoriter,  only_clear, streck, pref
     test1 = tp.Typ('test1',  True,    True,     False,       0,          False,          0,        False,    True)
@@ -341,125 +406,12 @@ def main():
 
 if __name__ == "__main__":
     main()
-
 ##########################################################################################
 ##########################################################################################
 ###########   Flytta upp avsnitt efetr avsnitt nedan                            ##########
 ##########################################################################################
 ##########################################################################################
-from sklearn.ensemble import RandomForestRegressor as rf
-
-def kelly(proba, streck, odds):  # proba = prob winning, streck i % = streck
-    # läs in streck_to_odds.pkl
-    import pickle
-    with open(pref+'rf_streck_odds.pkl', 'rb') as f:
-        rf = pickle.load(f)
-        
-    if odds is None:
-        o = rf.predict(streck.copy())
-    else:
-        o = rf.predict(streck.copy())
-
-    # for each values > 40 in odds set to 1
-    o[o > 40] = 1
-    return (o*proba - (1-proba))/o
-
-def compute_total_insats(veckans_rad):
-    summa = veckans_rad.groupby('avd').avd.count().prod() / 2
-    return summa
-
-def beräkna_utdelning(datum, sjuor, sexor, femmor, df_utdelning):
-    min_utdelning = df_utdelning.loc[df_utdelning.datum==datum,['7rätt', '6rätt','5rätt']]
-    
-    return (min_utdelning['7rätt'] * sjuor + min_utdelning['6rätt'] * sexor + min_utdelning['5rätt'] * femmor).values[0]
-
-def ta_fram_rad(veckans_rad_, spik_strategi,kelly_strategi, max_cost=300, min_avst=0.25):
-    """ Denna funktion tar fram en rad för typ-modeller (ej meta-modell)
-    df nnehåller _en omgång_
-    _spik_strategi_: None - inget, '1a' - forcera 1 spik, '2a' - forcera 2 spikar, '1b' - 1 spik endast om klar favorit, '2b' - spikar för endast klara favoriter 
-    _kelly_strategi_: None - ingen kelly, 1 - kelly varannan gång om positiv
-    """
-
-    veckans_rad = veckans_rad_.copy()
-    veckans_rad['välj'] = False   # inga rader valda ännu
-    veckans_rad['spik'] = False   # inga spikar valda ännu
-    # a) ta ut en häst i varje avd - markera valda i df
-    
-    for avd in veckans_rad.avd.unique():
-        # max av proba i veckans_rad 
-        max_proba = veckans_rad[veckans_rad.avd == avd]['proba'].max()
-        veckans_rad.loc[(veckans_rad.avd == avd) & (veckans_rad.proba == max_proba), 'välj'] = True
-    
-    # b) leta 1-2 spikar om så begärs - markera valda i df
-    spikad_avd = []
-    if spik_strategi:
-        print('spik_strategi', spik_strategi)
-        assert spik_strategi in ['1a','1b','2a','2b'], "spik_strategi måste ha något av värdena i listn"
-        # Hitta spik-kandidater
-        if spik_strategi[0] in ['1','2']:
-            spik1 = veckans_rad.nlargest(1,'proba').index[0]   # largest in dataset
-            avd = veckans_rad.loc[spik1,'avd']
-            no2 = veckans_rad.query("avd==@avd").nlargest(2, 'proba').index[1]  # second in avd
-            print(f'hösta proba={veckans_rad.loc[spik1, "proba"]} i avd={avd}; no2 i avd={avd} är {veckans_rad.loc[no2,"proba"]}')
-            avstånd = veckans_rad.loc[spik1, 'proba'] - veckans_rad.loc[no2, 'proba']
-            print('avst', avstånd)
-            if (spik_strategi[1] == 'b') and (avstånd > min_avst):
-                print('strategi', spik_strategi[1], 'valde spik i avd',avd)
-                # add avd to a list
-                spikad_avd.append(avd)
-                
-                veckans_rad.loc[spik1,'spik'] = True
-                veckans_rad.loc[spik1, 'välj'] = True
-            elif spik_strategi[1] == 'a':
-                print('strategi',spik_strategi[1], 'valde spik i avd',avd)
-                spikad_avd.append(avd)
-                veckans_rad.loc[spik1,['spik']]= True
-                veckans_rad.loc[spik1, 'välj']= True
-                
-        if spik_strategi[0] == '2':
-            spik2 = veckans_rad.nlargest(2,'proba').index[1] # second in dataset
-            avd = veckans_rad.loc[spik2, 'avd']
-            no2 = veckans_rad.query("avd==@avd").nlargest(2, 'proba').index[1]  # second in avd
-            print(f'näst högsta proba={veckans_rad.loc[spik2, "proba"]} i avd={avd}; no2 i avd={avd} är {veckans_rad.loc[no2,"proba"]}')
-            avstånd = veckans_rad.loc[spik2, 'proba'] - veckans_rad.loc[no2, 'proba']
-            print('avst',avstånd)
-            if (spik_strategi[1] =='b') and (avstånd > min_avst):
-                print('strategi', spik_strategi[1], 'valde spik i avd', avd)    
-                spikad_avd.append(avd)
-                veckans_rad.loc[spik2, 'spik'] = True
-                veckans_rad.loc[spik2, 'välj'] = True
-            elif spik_strategi[1] == 'a':
-                print('strategi', spik_strategi[1], 'i avd',avd)
-                spikad_avd.append(avd)
-                veckans_rad.loc[spik2,'spik'] = True
-                veckans_rad.loc[spik2,'välj'] = True
-                
-    # c) sortera upp i proba-ordning. Om kelly skapa en sortering efter kelly-ordning
-    veckans_rad = veckans_rad.sort_values(by=['proba'], ascending=False)
-    veckans_rad = veckans_rad.reset_index(drop=True)
-    if kelly_strategi == '1':
-        veckans_kelly = veckans_rad.sort_values(by=['kelly'], ascending=False)
-        veckans_kelly = veckans_kelly.reset_index(drop=True)
-    
-    cost = 0.5 # 1 rad
-    while cost < max_cost:
-        # d) plocka en och en - först proba sedan ev positiv kelly markera som valda i df
-        curr_index = veckans_rad.query("välj==False and avd not in @spikad_avd").nlargest(1,'proba').index
-        veckans_rad.loc[curr_index,'välj'] = True
-        # e) avbryt vid 300:-
-        cost = compute_total_insats(veckans_rad.query("välj==True"))
-        if  cost > max_cost:
-            veckans_rad.loc[curr_index, 'välj'] = False  # ta tillbaks den sist spelade
-            break
-        if kelly_strategi == '1' and veckans_rad.query("välj==False and avd not in @spikad_avd and kelly > 0").shape[0] > 0:
-            curr_index = veckans_rad.query("välj==False and avd not in @spikad_avd and kelly > 0").nlargest(1,'kelly').index
-            cost = compute_total_insats(veckans_rad.query("välj==True"))
-            veckans_rad.loc[curr_index, 'välj'] = True
-            if  cost > max_cost:
-                veckans_rad.loc[curr_index, 'välj'] = False  # ta tillbaks den sist spelade
-                break
-    cost = compute_total_insats(veckans_rad.query("välj==True"))
-    return veckans_rad, cost
+ 
 
 def rätta_rad(df, datum, df_utdelning ):
     """
@@ -512,7 +464,7 @@ def rätta_rad(df, datum, df_utdelning ):
         femmor = min_tabell.loc[min_tabell.avd==avd_fel[0]].välj.sum() * min_tabell.loc[min_tabell.avd==avd_fel[1]].välj.sum()
     
     # 4. utdelning 
-    
+
     return sjuor, sexor, femmor, beräkna_utdelning(datum, sjuor,sexor,femmor, df_utdelning)
 
 ###############################################################################
