@@ -176,12 +176,12 @@ def rätta_rad(df, datum, df_utdelning ):
 def starta_upp(df):
     curr_datix = len(df.datum.unique()) - 200      # ca 3 å3 tillbaks
     startdatum = df.datum.unique()[curr_datix]   # ca 3 år tillbaks
-    
+    print('startdatum', startdatum)
     ### init resutat-tabell
     df_resultat = pd.DataFrame(columns = ['datum', 't1_7', 't1_6', 't1_5', 't1_kostn', 't1_utd', 't1_vinst' ])
     df_resultat.set_index('datum',drop=True, inplace=True)
     
-    return startdatum, df_resultat
+    return curr_datix, df.datum.unique(), df_resultat
     
 
 def skapa_data_för_datum(df_, datum):   
@@ -418,41 +418,55 @@ def main():
     
     df_utdelning = pd.read_csv('utdelning.csv')
     
-    datum, df_resultat = starta_upp(df)
-    
-    # 1. learn fram till datum
-    #### 1a. skapa train och test dataframes samt aktuell omgång som vi predictar - returnerar df_train, df_test, df_curr
-    print(f'learn fram till {datum}')
-    X,y,X_test,y_test, X_curr, y_curr  = skapa_data_för_datum(df, datum)
-    veckans_rad = X_curr[['datum','avd','häst','bana','kusk','streck','streck_avst','rel_rank']]
-    veckans_rad['y'] = y_curr
+    curr_datum_ix, datumar, df_resultat = starta_upp(df)
+    placeholderdat = st.empty()
+    placeholder1 = st.empty()
+    placeholder2 = st.empty()
+    for i in range(100):
+        datum = datumar[curr_datum_ix]
+        placeholderdat.empty()
+        placeholderdat.write(f'{datum}')
+        # 1. learn fram till datum
+        #### 1a. skapa train och test dataframes samt aktuell omgång som vi predictar - returnerar df_train, df_test, df_curr
+        print(f'learn fram till {datum}')
+        X,y,X_test,y_test, X_curr, y_curr  = skapa_data_för_datum(df, datum)
+        veckans_rad = X_curr[['datum','avd','häst','bana','kusk','streck','streck_avst','rel_rank']]
+        veckans_rad['y'] = y_curr
 
-    #------------- Learn test-modeller-------------------------------------------
-    params = {"depth": 2, "l2_leaf_reg": 3,"iterations": 500, "learning_rate": 0.008}
-    model1 = test1.learn(X, y, X_test=X_test, y_test=y_test,save=True, params=params)
-    print(X.shape)
-    print(X_curr.shape)
-    
-    #------------- predict och skapa Kelly ----------------------------------------
-    veckans_rad['proba'] = test1.predict(X_curr)
-    veckans_rad['kelly'] = kelly(veckans_rad.proba, veckans_rad[['streck']], None)
+        #------------- Learn test-modeller-------------------------------------------
+        params = {"depth": 2, "l2_leaf_reg": 3,"iterations": 500, "learning_rate": 0.008}
+        model1 = test1.learn(X, y, X_test=X_test, y_test=y_test,save=True, params=params)
+        print(X.shape)
+        print(X_curr.shape)
+        
+        #------------- predict och skapa Kelly ----------------------------------------
+        veckans_rad['proba'] = test1.predict(X_curr)
+        veckans_rad['kelly'] = kelly(veckans_rad.proba.copy(), veckans_rad[['streck']].copy(), None)
 
-    # ta fram rad för datum, rätta och spara
-    # inkluderar spik_strategi,kelly_strategi,
-    veckans_rad, kostnad = ta_fram_rad(veckans_rad, '2b', '1', min_avst=0.3)
+        # ta fram rad för datum, rätta och spara
+        # inkluderar spik_strategi,kelly_strategi,
+        veckans_rad, kostnad = ta_fram_rad(veckans_rad, '2b', '1', min_avst=0.3)
 
-    sjuor, sexor, femmor, utdelning = rätta_rad(veckans_rad, datum, df_utdelning)
-    # print('kostnad',kostnad, 'utdelning', utdelning)
+        sjuor, sexor, femmor, utdelning = rätta_rad(veckans_rad, datum, df_utdelning)
+        # print('kostnad',kostnad, 'utdelning', utdelning)
 
-    df_resultat.loc[datum] = [sjuor, sexor, femmor,   kostnad,  utdelning,  utdelning-kostnad]
-    df_resultat.to_csv('backtest_resultat.csv')
-    display("SPARA RESLUTAT - DESIGNA DF_RESULTAT SÅ ATT PLOT BLIR ENKELT")
-    # 3. plotta
+        df_resultat.loc[datum] = [sjuor, sexor, femmor,   kostnad,  utdelning, df_resultat.t1_vinst.sum() + utdelning-kostnad ]
+        
+        df_resultat.to_csv('backtest_resultat.csv', index=False)
+        
+        # 3. plotta
+        placeholder1.empty()
+        placeholder2.empty()
+        # df_resultat.loc['2019-08-01'] = [0, 0, 8,300,200, -100]
+        # df_resultat.loc['2019-08-08'] = [0, 0, 0,300,0, -400]
+        # df_resultat.loc['2019-08-15'] = [0, 1, 2,300,600, -100]
+        # df_resultat.loc['2019-08-22'] = [1, 2, 8,300,1000, 900] 
+        placeholder1.line_chart(df_resultat['t1_vinst'], width=0, height=0, use_container_width=True)
+        placeholder2.line_chart(df_resultat['t1_7'], width=0, height=0, use_container_width=True)
+        # st.write(df_resultat.plot(kind='line',  y='t1_vinst', rot=45, legend=True, figsize=(20,10)))
 
-        # loopa över olika setup
-
-    # 4. startdatum+1
-    # 5. gå till 1
+        curr_datum_ix += 1 
+        
 
 if __name__ == "__main__":
     main()
