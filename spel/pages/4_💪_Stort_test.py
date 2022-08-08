@@ -1,5 +1,4 @@
-
-from curses.panel import update_panels
+# from curses.panel import update_panels
 import streamlit as st
 import numpy as np
 import pandas as pd
@@ -15,7 +14,7 @@ pd.set_option('display.max_columns', 200)
 pd.set_option('display.max_rows', 120)
 
 
-pref=''   # '../'
+pref='../'
 
 import pickle
 
@@ -203,7 +202,7 @@ def skapa_data_för_datum(df_, datum):
 def kelly(proba, streck, odds):  # proba = prob winning, streck i % = streck
     # läs in streck_to_odds.pkl
     import pickle
-    with open(pref+'rf_streck_odds.pkl', 'rb') as f:
+    with open('rf_streck_odds.pkl', 'rb') as f:
         rf = pickle.load(f)
         
     if odds is None:
@@ -381,7 +380,7 @@ def rätta_rad(df, datum, df_utdelning ):
 
 def main():
     ## Skapa v75-instans
-    v75 = td.v75(pref=pref)
+    v75 = td.v75(pref='')
     ## Hämta data från v75
     _ = v75.förbered_data( missing_num=False)  # num hanteras av catboost
     df = v75.test_lägg_till_kolumner()
@@ -413,13 +412,12 @@ def main():
     
     #-------------- skapa test-modeller
     #              name,   ant_hästar  proba,  kelly,  motst_ant,   motst_diff,  ant_favoriter,  only_clear, streck, pref
-    test1 = tp.Typ('test1',  True,    True,     False,       0,          False,          0,        False,    True)
-    
+    test1 = tp.Typ('test1',  True,    True,     False,       0,  False,          0,        False,    True, pref='')
+
     st.dataframe(df[["streck_avst",'rel_kr','streck',"rel_rank","h1_samma_bana","h2_samma_bana","h3_samma_bana","h1_samma_kusk","h2_samma_kusk","h3_samma_kusk"]])
     
-    df_utdelning = pd.read_csv(pref+'/utdelning.csv')
-    test1 = tp.Typ('test1',  True,    True,     False,       0,  False,          0,        False,    True, pref=pref)
-
+    df_utdelning = pd.read_csv('utdelning.csv')
+    
     datum, df_resultat = starta_upp(df)
     
     # 1. learn fram till datum
@@ -447,7 +445,7 @@ def main():
     # print('kostnad',kostnad, 'utdelning', utdelning)
 
     df_resultat.loc[datum] = [sjuor, sexor, femmor,   kostnad,  utdelning,  utdelning-kostnad]
-
+    df_resultat.to_csv('backtest_resultat.csv')
     display("SPARA RESLUTAT - DESIGNA DF_RESULTAT SÅ ATT PLOT BLIR ENKELT")
     # 3. plotta
 
