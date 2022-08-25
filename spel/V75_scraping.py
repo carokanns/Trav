@@ -198,19 +198,24 @@ def en_rad(vdict, datum, bana, start, lopp_dist, avd, anr, r, rad, voddss, podds
             vdict[fld+'odds'].append(h_odds[h].text)
             vdict[fld+'pris'].append(h_pris[h].text)
         if len(h_dates) < 5:
-            # Duplicera hist_4
-            fld = 'h'+str(5)+'_'
-            h = 3
-            vdict[fld+'dat'].append(dtext)
-            vdict[fld+'bana'].append(h_banor[h].text)
-            vdict[fld+'kusk'].append(h_kuskar[h].text)
-            vdict[fld+'plac'].append(h_plac[h].text)
-            vdict[fld+'dist'].append(h_dist[h].text)
-            vdict[fld+'spår'].append(h_spår[h].text)
-            vdict[fld+'kmtid'].append(h_kmtid[h].text)
-            vdict[fld+'odds'].append(h_odds[h].text)
-            vdict[fld+'pris'].append(h_pris[h].text)
-            
+            # Duplicera hist_x
+            ln=len(h_dates)
+            print('*********************************************')
+            print(names[r].text)
+            print('len h_dates', len(h_dates))
+            print('h_banor', h_banor[len(h_banor)-1].text)
+            for h in range(ln, 5):
+                fld = 'h'+str(h+1)+'_'
+                vdict[fld+'dat'].append(dtext)
+                vdict[fld+'bana'].append(h_banor[ln-1].text)
+                vdict[fld+'kusk'].append(h_kuskar[ln-1].text)
+                vdict[fld+'plac'].append(h_plac[ln-1].text)
+                vdict[fld+'dist'].append(h_dist[ln-1].text)
+                vdict[fld+'spår'].append(h_spår[ln-1].text)
+                vdict[fld+'kmtid'].append(h_kmtid[ln-1].text)
+                vdict[fld+'odds'].append(h_odds[ln-1].text)
+                vdict[fld+'pris'].append(h_pris[ln-1].text)    
+                        
     # print('leaving with',anr, 'and',vdict['avd'])     
     return vdict
 

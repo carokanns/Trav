@@ -162,10 +162,10 @@ def TimeSeries_learning(df_ny_, typer, n_splits=5,meta_fraction=None, save=True,
     validation_text = ""
 
     if X_val is not None:
-        validation_text = f', Validation: _{X_val.datum.iloc[0]} - _{X_val.datum.iloc[-1]}'
+        validation_text = f', Validation: _{X_val.datum.iloc[0]} - -{X_val.datum.iloc[-1]}'
         
     st.info(
-        f'Train: _{X.datum.iloc[0]} - _{X.datum.iloc[-1]}{validation_text}')
+        f'Train: {X.datum.iloc[0]} --{X.datum.iloc[-1]}{validation_text}')
     
     ts = TimeSeriesSplit(n_splits=n_splits)
     # läs in meta_features
@@ -410,17 +410,39 @@ def display_scores(y_true, y_pred, spelade):
     st.write('AUC',round(roc_auc_score(y_true, y_pred),5),'F1',round(f1_score(y_true, y_pred),5),'Acc',round(accuracy_score(y_true, y_pred),5),'MAE',round(mean_absolute_error(y_true, y_pred),5), '\n', spelade)
     return roc_auc_score(y_true, y_pred)
 
+def find_threshold(y_pred,fr, to,margin):
+    """ hitta threshold som ger 2.5 spelade per avdelning """
+    thresh = 0
+    cnt=0
+    # make a binary search
+    while cnt < 1000:
+        thresh = (fr + to) / 2 
+        antal_spelade_per_avd = 12 * sum(y_pred > thresh)/len(y_pred)
+        if (antal_spelade_per_avd > (2.5 - margin)) and (antal_spelade_per_avd < (2.5 + margin)):
+            break
+        
+        if antal_spelade_per_avd > 2.5:
+            fr = thresh-0.00001
+        else:
+            to = thresh+0.00001
+        cnt += 1
+        
+    print('ant',cnt, 'thresh',round(thresh,4))
+    if cnt >= 1000:
+        print('threshold not found', 'fr',round(fr,6), 'to',round(to,6))
+        
+    return thresh
 
-def plot_confusion_matrix(y_true, y_pred, typ, fr=0.05, to=0.3, step=0.001):
+def plot_confusion_matrix(y_true, y_pred, typ, fr=0.0, to=0.9, margin=0.001):
 
     #### Först:  hitta ett threshold som tippar ca 2.5 hästar per avd ####
-    thresh = 0
-    for thresh in np.arange(fr, to, step):
-        cost = 12*sum(y_pred > thresh)/len(y_pred)
-        if cost < 2.5:
-            break
-    thresh = round(thresh, 4)
-    # print(f'Threshold: {thresh}\n')
+    # thresh = 0
+    # for thresh in np.arange(fr, to, step):
+    #     cost = 12*sum(y_pred > thresh)/len(y_pred)
+    #     if cost < 2.5:
+    #         break
+    thresh = round(find_threshold(y_pred,fr,to,margin), 4)
+    print(f'Threshold: {thresh}\n')
     y_pred = (y_pred > thresh).astype(int)
     # confusion_matrix_graph(y_true, y_pred, f'{typ} threshold={thresh}')
 
@@ -461,7 +483,7 @@ def validate(drop=[],fraction=None):
     df_all = pd.read_csv(pref+'all_data.csv')
     
     _, _, X_val, y_val = förbered(df_all, meta_fraction=fraction)
-    st.info(f'Validerar på:  {X_val.datum.iloc[0]} - {X_val.datum.iloc[-1]}')
+    st.info(f'Validerar på:  {X_val.datum.iloc[0]} - -{X_val.datum.iloc[-1]}')
     
     # create the stack from validation data
     stacked_val, y_val = skapa_stack_learning(X_val, y_val)
@@ -472,27 +494,28 @@ def validate(drop=[],fraction=None):
     ##############################################################
     
     y_true = y_val.values
-    y_pred_rf = predict_meta_model(stacked_val, meta_model='rf')  # default
-    
+    y_pred_rf = predict_meta_model(stacked_val, meta_model='rf') 
+    st.write(y_pred_rf)
+    y_pred_rf.to_csv('y_pred_rf.csv')
     st.info('förbereder rf plot')
     plot_confusion_matrix(y_true, y_pred_rf, 
-                        'rf', fr=0.01, to=0.55, step=0.0001)
+                        'rf', fr=0.0, to=1.0, margin=0.01)
 
     st.write('\n')
     st.info('förbereder knn plot')
     plot_confusion_matrix(y_true, predict_meta_model(stacked_val, meta_model='knn'),
-                          'knn', fr=0.01, to=0.5, step=0.0001)
+                          'knn', fr=0.0, to=0.9)
 
     st.write('\n')
     st.info('förbereder ridge plot')
     plot_confusion_matrix(y_true, predict_meta_model(stacked_val, meta_model='ridge'), 
-                        'ridge', fr=0.2, to=0.5, step=0.0001)
+                        'ridge', fr=0.0, to=0.9)
     # placeholder.empty()
     
     st.write('\n')
     st.info('förbereder lasso plot')
     plot_confusion_matrix(y_true, predict_meta_model(stacked_val, meta_model='lasso'),
-                        'lasso', fr=0.02, to=0.5, step=0.0001)
+                        'lasso', fr=0.0, to=0.9)
     # placeholder.empty()
     
     stacked_val['meta'] = y_pred_rf # default
@@ -508,7 +531,7 @@ def validate(drop=[],fraction=None):
         st.write('\n')
         name = 'proba' + typ.name[3:]
         y_pred = stacked_val[name]
-        plot_confusion_matrix(y_true, y_pred, name, fr=0.05, to=0.5, step=0.0001)
+        plot_confusion_matrix(y_true, y_pred, name, fr=0.0, to=0.9)
     
 #%% 
 ##############################################################
@@ -609,7 +632,7 @@ with buttons:
         except:
             st.error("Fel i web scraping. Kolla att resultat finns för datum och internet är tillgängligt")
     
-    if st.sidebar.button('load data'):
+    if st.sidebar.button('reuse scrape'):
         # del st.session_state.datum  # säkra att datum är samma som i scraping
         try:
             df=pd.read_csv('sparad_scrape_learn.csv')
