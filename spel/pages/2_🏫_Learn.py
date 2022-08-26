@@ -75,7 +75,6 @@ def remove_features(df_, remove_mer=[]):
 
     return df
 
-
 ###############################################
 #              LEARNING                       #
 ###############################################
@@ -297,6 +296,12 @@ def learn_meta_rf_model(X, y, save=True):
     rf_model = RandomForestClassifier(**params, n_jobs=6, random_state=2022)
     rf_model.fit(X, y)
     
+    ######################### for testing ###############################
+    rf_train = X.copy(deep=True)
+    rf_train['y'] = y
+    rf_train.to_csv(pref+'rf_train.csv', index=False)
+    #########################              ###############################
+    
     if save:
         with open(pref+'modeller/meta_rf_model.model', 'wb') as f:
             pickle.dump(rf_model, f)
@@ -394,12 +399,19 @@ def predict_meta_model(X, meta_model=None):
     if meta_model == 'ridge':
         return predict_meta_ridge_model(X)[:, 1]
     elif meta_model == 'rf':
-        return predict_meta_rf_model(X)[:, 1]
+        X.to_csv(pref+'rf_validate.csv', index=False)
+        y_pred = predict_meta_rf_model(X)
+        # write y_pred to file for testing
+        # first make y_pred a dataframe
+        rf_y_pred = pd.DataFrame(y_pred, columns=['0', '1'])
+        rf_y_pred.to_csv(pref+'rf_y_pred.csv', index=False)
+        return y_pred[:, 1]
     elif meta_model == 'lasso':
         pred = predict_meta_lasso_model(X)
         return pred
     elif meta_model == 'knn':
-        return predict_meta_knn_model(X)[:, 1]
+        y_pred = predict_meta_knn_model(X)
+        return y_pred[:, 1]
     elif meta_model == None:
         assert False, 'ingen meta_model angiven'
     else:
@@ -495,8 +507,13 @@ def validate(drop=[],fraction=None):
     
     y_true = y_val.values
     y_pred_rf = predict_meta_model(stacked_val, meta_model='rf') 
-    st.write(y_pred_rf)
-    y_pred_rf.to_csv('y_pred_rf.csv')
+    
+    ############## write y_true to file for testing ##############
+    # first make y_true a dataframe
+    rf_y_true = pd.DataFrame(y_true, columns=['y'])
+    rf_y_true.to_csv(pref+'rf_y_true.csv', index=False)
+    ##############################################################
+    
     st.info('förbereder rf plot')
     plot_confusion_matrix(y_true, y_pred_rf, 
                         'rf', fr=0.0, to=1.0, margin=0.01)
