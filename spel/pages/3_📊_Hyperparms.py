@@ -172,7 +172,7 @@ def prepare_for_meta(v75, name):
 
 
 #%%
-def gridsearch_meta(v75, meta_name, params, randomsearch=True, save=False):
+def gridsearch_meta(v75, meta_name, params, folds=5,randomsearch=True, save=False):
     from sklearn.model_selection import RandomizedSearchCV
     from sklearn.neighbors import KNeighborsClassifier
     
@@ -197,7 +197,7 @@ def gridsearch_meta(v75, meta_name, params, randomsearch=True, save=False):
     else:   
         assert False, f'{meta_name} is not a valid meta-model'
             
-    tscv = TimeSeriesSplit(n_splits=5)
+    tscv = TimeSeriesSplit(n_splits=folds)
     
     grid = RandomizedSearchCV(meta, params, cv=tscv.split(X), scoring=scoring,
                               return_train_score=False, refit=True, verbose=5, n_jobs=4)
@@ -213,14 +213,14 @@ def gridsearch_meta(v75, meta_name, params, randomsearch=True, save=False):
     return d
 
 # KNN as model
-def gridsearch_knn(v75, params, randomsearch=True, save=False):  
+def gridsearch_knn(v75, params, folds=5,randomsearch=True, save=False):  
     from sklearn.model_selection import RandomizedSearchCV
     from sklearn.neighbors import KNeighborsClassifier
     # from sklearn.metrics import roc_auc_score, f1_score, accuracy_score, mean_absolute_error
     X,y = prepare_for_KNN(v75)
     
     knn = KNeighborsClassifier(n_jobs=4)
-    tscv = TimeSeriesSplit(n_splits=5)
+    tscv = TimeSeriesSplit(n_splits=folds)
 
     grid_params = eval(params)  # str -> dict
     grid = RandomizedSearchCV(knn, grid_params, cv=tscv.split(X), scoring='roc_auc', 
@@ -331,7 +331,7 @@ if st.session_state['loaded'] == False:
 # control flow with buttons               #
 ###########################################
 
-def optimera_model(v75,typ):
+def optimera_model(v75,typ,folds):
     name= 'knn_model' if typ=='knn' else typ.name
     st.info(name)
     start_time = time.time()
@@ -354,9 +354,9 @@ def optimera_model(v75,typ):
     
     if st.button('run'):
         if typ=='knn':
-            result = gridsearch_knn(v75, opt_params)
+            result = gridsearch_knn(v75, opt_params,folds=folds)
         else:
-            result = gridsearch_typ(v75,typ,opt_params)
+            result = gridsearch_typ(v75,typ,opt_params,folds=folds)
         
         st.write(result)
 
@@ -373,7 +373,7 @@ def optimera_model(v75,typ):
             
 
 
-def optimera_meta(v75, name):
+def optimera_meta(v75, name,folds=5):
     try:
         with open('optimera/params_'+name+'.json', 'r') as f:
             params = json.load(f)
@@ -393,7 +393,7 @@ def optimera_meta(v75, name):
 
     if st.button('run'):
         start_time = time.time()
-        result = gridsearch_meta(v75, name, opt_params)
+        result = gridsearch_meta(v75, name, opt_params,folds=folds)
 
         st.write(result)
         
@@ -409,20 +409,22 @@ def optimera_meta(v75, name):
             st.success(f'✔️ {name} optimering saved')
 
 with buttons:
+    folds = st.sidebar.number_input('Folds', 3, 15, 5)
+    st.session_state['folds'] = folds
     if st.sidebar.radio('Välj optimering:', ['model', 'meta-model', ]) == 'model':
         st.sidebar.write('---')
         opt = st.sidebar.radio('Optimera model parms', ['typ6', 'typ1', 'typ9', 'knn model'])
         if opt=='knn model':
-            optimera_model(st.session_state.v75, 'knn')
+            optimera_model(st.session_state.v75, 'knn',folds)
         for typ in typer:
             if opt == typ.name:
-                optimera_model(st.session_state.v75,typ)
+                optimera_model(st.session_state.v75,typ,folds=folds)
                 break
     else:        
         st.sidebar.write('---')
         meta = st.sidebar.radio('Optimera meta parms', ['rf', 'ridge', 'lasso', 'knn_meta'])
         if st.session_state.meta:
-            optimera_meta(st.session_state.v75,meta)
+            optimera_meta(st.session_state.v75,meta,folds=folds)
             # df = st.session_state.df
             # stacked_data = TimeSeries_learning(df, typer, n_splits=3, meta_fraction=0.2, meta='rf', save=True, learn_models=True)
             # st.success(f'✔️ {meta} optimering done')
