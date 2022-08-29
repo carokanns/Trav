@@ -60,21 +60,21 @@ TimeSequence 3 folders maybe....
 - Repeat för varje meta-modell
 
 """
-""" ## Presentation av resultat"""
+# """ ## Presentation av resultat"""
 
-"Exempel på hur df_resultat skall se ut - alla värden ackumuleras" 
+# "Exempel på hur df_resultat skall se ut - alla värden ackumuleras" 
 
-df_resultat = pd.DataFrame({'datum': ['2021-01-01','2021-01-08','2021-01-15', '2021-01-22'],'typ1_pris':[0,300,300,350],'typ6_pris':[0,50,50,400]})
-df_resultat.set_index('datum', inplace=True)
-# the last row as a list of values
-curr=list(df_resultat.iloc[-1,:])
-# add a new row 
-df_resultat.loc['2021-01-29'] = [curr[0]+0,curr[1]+0]
-df_resultat
-"motsvarande kan göras för antal 7:or, 6:or and 5:or"
+# df_resultat = pd.DataFrame({'datum': ['2021-01-01','2021-01-08','2021-01-15', '2021-01-22'],'typ1_pris':[0,300,300,350],'typ6_pris':[0,50,50,400]})
+# df_resultat.set_index('datum', inplace=True)
+# # the last row as a list of values
+# curr=list(df_resultat.iloc[-1,:])
+# # add a new row 
+# df_resultat.loc['2021-01-29'] = [curr[0]+0,curr[1]+0]
+# df_resultat
+# "motsvarande kan göras för antal 7:or, 6:or and 5:or"
 
-"Grafen"
-st.line_chart(df_resultat, width=0, height=0, use_container_width=True)
+# "Grafen"
+# st.line_chart(df_resultat, width=0, height=0, use_container_width=True)
 
 #############################################################################
 def välj_rad_orginal(df_meta_predict, max_insats=300):
@@ -178,10 +178,15 @@ def starta_upp(df):
     startdatum = df.datum.unique()[curr_datix]     # ca 3 år tillbaks
     print('startdatum', startdatum)
     ### init resutat-tabell
-    df_resultat = pd.DataFrame(columns = ['datum', 't1_7', 't1_6', 't1_5', 't1_kostn', 't1_utd', 't1_vinst' ])
+    df_resultat = pd.DataFrame(columns = ['datum',  't1_7', 't1_6', 't1_5', 't1_kostn', 't1_utd', 't1_vinst',
+                                                    't2_7', 't2_6', 't2_5', 't2_kostn', 't2_utd', 't2_vinst',
+                                                    't3_7', 't3_6', 't3_5', 't3_kostn', 't3_utd', 't3_vinst'])
     
     df_resultat.set_index('datum',drop=True, inplace=True)
-    df_resultat.loc[startdatum] = [0, 0, 0, 0, 0, 0]
+    # print(df_resultat.head(0))
+    df_resultat.loc[startdatum] = [0, 0, 0, 0, 0, 0, \
+                                   0, 0, 0, 0, 0, 0, \
+                                   0, 0, 0, 0, 0, 0]
     
     return curr_datix, df.datum.unique(), df_resultat
     
@@ -239,38 +244,37 @@ def hitta_spikar(veckans_rad, spikad_avd, spik_strategi, min_avst):
     assert spik_strategi in ['1a','1b','2a','2b'], "spik_strategi måste ha något av värdena i listn"
     # Hitta spik-kandidater
     if spik_strategi[0] in ['1','2']:
-        spik1 = veckans_rad.nlargest(1,'proba').index[0]   # largest in dataset
-        avd = veckans_rad.loc[spik1,'avd']
-        no2 = veckans_rad.query("avd==@avd").nlargest(2, 'proba').index[1]  # second in avd
-        print(f'hösta proba={veckans_rad.loc[spik1, "proba"]} i avd={avd}; no2 i avd={avd} är {veckans_rad.loc[no2,"proba"]}')
-        avstånd = veckans_rad.loc[spik1, 'proba'] - veckans_rad.loc[no2, 'proba']
+        ix_spik1 = veckans_rad.nlargest(1,'proba').index[0]   # ix for largest in dataset
+        avd = veckans_rad.loc[ix_spik1,'avd']                 # avd med högsta proba totalt
+        no2 = veckans_rad.query("avd==@avd").nlargest(2, 'proba').index[1]  # second i avd ovan
+        print(f'hösta proba totalt={veckans_rad.loc[ix_spik1, "proba"]} finns i avd={avd}; no2 i avd={avd} är {veckans_rad.loc[no2,"proba"]}')
+        avstånd = veckans_rad.loc[ix_spik1, 'proba'] - veckans_rad.loc[no2, 'proba']
         print('avst', avstånd)
-        if (spik_strategi[1] == 'b') and (avstånd > min_avst):
+        if (spik_strategi[1] == 'b') and (avstånd > min_avst):  # spik 1 om stort avst
             print('strategi', spik_strategi[1], 'valde spik i avd',avd)
-            # add avd to a list
-            spikad_avd.append(avd)
+            spikad_avd.append(avd)      # add avd to a list
             
-            veckans_rad.loc[spik1,'spik'] = True
-            veckans_rad.loc[spik1, 'välj'] = True
-        elif spik_strategi[1] == 'a':
+            veckans_rad.loc[ix_spik1,'spik'] = True
+            veckans_rad.loc[ix_spik1, 'välj'] = True
+        elif spik_strategi[1] == 'a':   # forcerad spik 1
             print('strategi',spik_strategi[1], 'valde spik i avd',avd)
-            spikad_avd.append(avd)
-            veckans_rad.loc[spik1,['spik']]= True
-            veckans_rad.loc[spik1, 'välj']= True
+            spikad_avd.append(avd)      # add avd to a list
+            veckans_rad.loc[ix_spik1,['spik']]= True
+            veckans_rad.loc[ix_spik1, 'välj']= True
             
     if spik_strategi[0] == '2':
         spik2 = veckans_rad.nlargest(2,'proba').index[1] # second in dataset
         avd = veckans_rad.loc[spik2, 'avd']
         no2 = veckans_rad.query("avd==@avd").nlargest(2, 'proba').index[1]  # second in avd
-        print(f'näst högsta proba={veckans_rad.loc[spik2, "proba"]} i avd={avd}; no2 i avd={avd} är {veckans_rad.loc[no2,"proba"]}')
+        print(f'näst högsta proba totalt={veckans_rad.loc[spik2, "proba"]} finns i avd={avd}; no2 i avd={avd} är {veckans_rad.loc[no2,"proba"]}')
         avstånd = veckans_rad.loc[spik2, 'proba'] - veckans_rad.loc[no2, 'proba']
         print('avst',avstånd)
-        if (spik_strategi[1] =='b') and (avstånd > min_avst):
+        if (spik_strategi[1] =='b') and (avstånd > min_avst):   # spik om stort avstånd till 2:an
             print('strategi', spik_strategi[1], 'valde spik i avd', avd)    
             spikad_avd.append(avd)
             veckans_rad.loc[spik2, 'spik'] = True
             veckans_rad.loc[spik2, 'välj'] = True
-        elif spik_strategi[1] == 'a':
+        elif spik_strategi[1] == 'a':   # forcerad spik 2
             print('strategi', spik_strategi[1], 'i avd',avd)
             spikad_avd.append(avd)
             veckans_rad.loc[spik2,'spik'] = True
@@ -278,6 +282,16 @@ def hitta_spikar(veckans_rad, spikad_avd, spik_strategi, min_avst):
     return veckans_rad, spikad_avd
 
 def plocka_en_efter_en(veckans_rad, spikad_avd, kelly_strategi, max_cost=300):
+    """_summary_
+    Args:
+        veckans_rad (_type_): df att fylla
+        spikad_avd (_type_): lista med spikade avdelningar
+        kelly_strategi (_type_): 1 välj med Kelly varannan gång, annars ingen Kelly
+        max_cost (int, optional): Max kostnad. Defaults to 300.
+
+    Returns:
+        _type_: df med veckans rad samt kostnad
+    """
     cost = 0.5 # 1 rad
     while cost < max_cost:
         # d) plocka en och en - först proba sedan ev positiv kelly markera som valda i df
@@ -379,7 +393,7 @@ def rätta_rad(df, datum, df_utdelning ):
     
     return sjuor, sexor, femmor, beräkna_utdelning(datum, sjuor,sexor,femmor, df_utdelning)
 
-
+import json
 def main():
     ## Skapa v75-instans
     v75 = td.v75(pref='')
@@ -413,10 +427,11 @@ def main():
     # Namnge modeller efter konfig samt selektering tex typ_abcdef235
     
     #-------------- skapa test-modeller
-    #              name,   ant_hästar  proba,  kelly,  motst_ant,   motst_diff,  ant_favoriter,  only_clear, streck, pref
-    test1 = tp.Typ('test1',  True,    True,     False,       0,  False,          0,        False,    True, pref='')
-
-    st.dataframe(df[["streck_avst",'rel_kr','streck',"rel_rank","h1_samma_bana","h2_samma_bana","h3_samma_bana","h1_samma_kusk","h2_samma_kusk","h3_samma_kusk"]])
+    #              name,   ant_hästar  proba,  kelly,   motst_ant,  motst_diff,  ant_favoriter,  only_clear, streck, test, pref
+    test1 = tp.Typ('test1',  True,    True,     False,       0,        False,          0,           False,    True,  True, pref='')
+    test2 = tp.Typ('test2',  True,    True,     False,       0,        False,          0,           False,    False, True, pref='')
+    typ6 = tp.Typ('typ6',    True,    True,     False,       0,        False,          0,           False,    True,  False, pref='')
+    # st.dataframe(df)
     
     df_utdelning = pd.read_csv('utdelning.csv')
     
@@ -425,40 +440,64 @@ def main():
     placeholder1 = st.empty()
     placeholder2 = st.empty()
     placeholder3 = st.empty()
-    for i in range(100):
+    for i in range(200):
         datum = datumar[curr_datum_ix]
         placeholderdat.empty()
-        placeholderdat.write(f'{datum}')
+        placeholderdat.write(f'{datum}    ant_omgångar: {i}')
         # 1. learn fram till datum
         #### 1a. skapa train och test dataframes samt aktuell omgång som vi predictar - returnerar df_train, df_test, df_curr
-        print(f'learn fram till {datum}')
         X,y,X_test,y_test, X_curr, y_curr  = skapa_data_för_datum(df, datum)
-        veckans_rad = X_curr[['datum','avd','häst','bana','kusk','streck','streck_avst','rel_rank']].copy()
-
-        veckans_rad['y'] = y_curr
-
+        if X.empty or X_test.empty or X_curr.empty:
+            break
+        
+        print(f'learned fram till {datum}')
+        veckans_rad1 = X_curr[['datum','avd','häst','bana','kusk','streck','streck_avst','rel_rank']].copy()
+        veckans_rad1['y'] = y_curr
+        veckans_rad2 = X_curr[['datum','avd','häst','bana','kusk','streck','streck_avst','rel_rank']].copy()
+        veckans_rad2['y'] = y_curr
+        veckans_rad3 = X_curr[['datum','avd','häst','bana','kusk','streck','streck_avst','rel_rank']].copy()
+        veckans_rad3['y'] = y_curr
+        
         #------------- Learn test-modeller-------------------------------------------
         params = {"depth": 2, "l2_leaf_reg": 3,"iterations": 500, "learning_rate": 0.008}
-        model1 = test1.learn(X, y, X_test=X_test, y_test=y_test,save=True, params=params)
-        print(X.shape)
-        print(X_curr.shape)
+        model1 = test1.learn(X, y, X_test_= X_test, y_test=y_test,save=True, params=params.copy())
+        model2 = test2.learn(X, y, X_test_= X_test, y_test=y_test,save=True, params=params.copy())
+        with open('optimera/params_'+typ6.name+'.json', 'r') as f:
+                    params6 = json.load(f)
+                    params6 = params6['params']
+        model3 = typ6.learn(X, y, X_test_= X_test, y_test=y_test, save=False,  params=params6)   # don't save. Use model3.predict() instead
+        print('X_shape',X.shape)
+        print('X_curr.shape',X_curr.shape, 'X_test.shape',X_test.shape)
         
         #------------- predict och skapa Kelly ----------------------------------------
-        veckans_rad['proba'] = test1.predict(X_curr)
-        veckans_rad['kelly'] = kelly(veckans_rad.proba.copy(), veckans_rad[['streck']].copy(), None)
+        veckans_rad1['proba'] = test1.predict(X_curr)
+        veckans_rad1['kelly'] = kelly(veckans_rad1.proba.copy(), veckans_rad1[['streck']].copy(), None)
+        veckans_rad2['proba'] = test2.predict(X_curr)
+        veckans_rad2['kelly'] = kelly(veckans_rad2.proba.copy(), veckans_rad2[['streck']].copy(), None)
+        
+        veckans_rad3['proba'] = typ6.predict(X_curr, model=model3)
+        veckans_rad3['kelly'] = kelly(veckans_rad3.proba.copy(), veckans_rad3[['streck']].copy(), None)
 
         # ta fram rad för datum, rätta och spara
         # inkluderar spik_strategi,kelly_strategi,
-        veckans_rad, kostnad = ta_fram_rad(veckans_rad, '2b', '1', min_avst=0.4)
+        veckans_rad1, kostnad1 = ta_fram_rad(veckans_rad1, '2b', None, min_avst=0.4)
+        veckans_rad2, kostnad2 = ta_fram_rad(veckans_rad2, None, '1', min_avst=0.4)
+        veckans_rad3, kostnad3 = ta_fram_rad(veckans_rad3, None, None, min_avst=0.4)
 
-        sjuor, sexor, femmor, utdelning = rätta_rad(veckans_rad, datum, df_utdelning)
+        sjuor1, sexor1, femmor1, utdelning1 = rätta_rad(veckans_rad1, datum, df_utdelning)
+        sjuor2, sexor2, femmor2, utdelning2 = rätta_rad(veckans_rad2, datum, df_utdelning)
+        sjuor3, sexor3, femmor3, utdelning3 = rätta_rad(veckans_rad3, datum, df_utdelning)
         # print('kostnad',kostnad, 'utdelning', utdelning)
-        last_row = df_resultat.iloc[-1] + [sjuor,sexor,femmor,kostnad,utdelning,utdelning-kostnad]
+        last_row = df_resultat.iloc[-1] + [sjuor1, sexor1,femmor1, kostnad1, utdelning1, utdelning1-kostnad1,
+                                           sjuor2, sexor2,femmor2, kostnad2, utdelning2, utdelning2-kostnad2,
+                                           sjuor3, sexor3,femmor3, kostnad3, utdelning3, utdelning3-kostnad3 ]
         df_resultat.loc[datum] = last_row
-        
+         
         df_resultat.to_csv('backtest_resultat.csv', index=False)
         
         # 3. plotta
+        graf_data = df_resultat.copy()
+        graf_data.index = pd.to_datetime(graf_data.index, format="%Y-%m-%d")
         placeholder1.empty()
         placeholder2.empty()
         placeholder3.empty()
@@ -466,8 +505,8 @@ def main():
         # df_resultat.loc['2019-08-08'] = [0, 0, 0,300,0, -400]
         # df_resultat.loc['2019-08-15'] = [0, 1, 2,300,600, -100]
         # df_resultat.loc['2019-08-22'] = [1, 2, 8,300,1000, 900] 
-        placeholder1.line_chart(df_resultat['t1_vinst'], width=0, height=0, use_container_width=True)
-        placeholder2.line_chart(df_resultat['t1_7'], width=0, height=0, use_container_width=True)
+        placeholder1.line_chart(graf_data[['t1_vinst','t2_vinst','t3_vinst']], width=0, height=0, use_container_width=True)
+        placeholder2.line_chart(graf_data[['t1_7','t2_7', 't3_7']], width=0, height=0, use_container_width=True)
         # st.write(df_resultat.plot(kind='line',  y='t1_vinst', rot=45, legend=True, figsize=(20,10)))
         placeholder3.dataframe(df_resultat.tail(10))
         curr_datum_ix += 1 

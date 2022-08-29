@@ -87,34 +87,40 @@ def lägg_in_diff_motståndare(X_, ant_motståndare):
     return X
 
 class Typ():
-    def __init__(self, name, ant_hästar, proba, kelly, motst_ant, motst_diff,  ant_favoriter, only_clear, streck,pref=''):
+    def __init__(self, name, ant_hästar, proba, kelly, motst_ant, motst_diff,  ant_favoriter, only_clear, streck, test=False, pref=''):
         assert (motst_diff == False and motst_ant == 0) or (motst_ant > 0)
-        assert (ant_favoriter == 0 and only_clear ==
-                False) or (ant_favoriter > 0)
-        self.name = name                # string - för filnamn mm
+        assert (ant_favoriter == 0 and only_clear == False) or (ant_favoriter > 0)
+        self.name = name                # string - används för filnamn mm
 
         # extra features att inkludera 
-        self.ant_hästar = ant_hästar    # int  - feature med antal hästar per avdelning
+        self.ant_hästar = ant_hästar    # int  - skapa kol med antal hästar per avdelning
         
         self.motst_ant = motst_ant      # int  - inkludera n features med bästa motståndare (streck)
-        self.motst_diff = motst_diff    # bool - ovanstående med diff istf fasta värden
+        self.motst_diff = motst_diff    # bool - ovanstående med diff (streck) istf fasta värden
         self.streck = streck            # bool - inkludera streck som feature
-
+        print('streck:', self.streck,'i init')
+    
         # urval av rader
         self.proba = proba              # bool - för prioritering vid urval av rader
         self.kelly = kelly              # bool - för prioritering vid urval av rader
-        
         self.ant_favoriter = ant_favoriter # int  - för hur många favoriter (avd där endast en häst spelas) som ska användas
         self.only_clear = only_clear       # bool - för att bara avvända klara favoriter
         
         self.pref = pref                # string - prefix för map/filnamn
         
         ##### test #####
-        self.rel_kr = True
-        self.rel_rank = True
-        self.streck_avst = True
-        self.hx_samma_bana = True
-        self.hx_sammam_kusk = True
+        if test:
+            self.rel_kr = True              # bool - skapa kol med relativt kr gentemot motståndarna
+            self.rel_rank = True            # bool - skapa kol med relativ rank gentemot motståndarna
+            self.streck_avst = True         # bool - skapa kol med streck avstånd gentemot motståndarna
+            self.hx_samma_bana = True       # bool - skapa kol med hx.bana som bana
+            self.hx_sammam_kusk = True      # bool - skapa kol med hx.kusk som kusk
+        else:
+            self.rel_kr = False
+            self.rel_rank = False
+            self.streck_avst = False
+            self.hx_samma_bana = False
+            self.hx_sammam_kusk = False    
 
     def load_model(self):
         with open(self.pref+'modeller/'+self.name+'.model', 'rb') as f:
@@ -122,6 +128,7 @@ class Typ():
         return model
 
     def save_model(self, model):
+        print(f'Sparar {self.name+".model"}')
         with open(self.pref+'modeller/'+self.name+'.model', 'wb') as f:
             pickle.dump(model, f)
 
@@ -146,17 +153,31 @@ class Typ():
         
         #### test ###
         # vi har några nya tillagda i __init__ ovan.
+        # Dessa kolumner läggs till av travdata.py och skall selekteras i prepare_for_model
+        if not self.rel_kr:
+            X = X.drop(['rel_kr'], axis=1)
+        if not self.rel_rank:
+            X = X.drop(['rel_rank'], axis=1)
+        if not self.streck_avst:
+            X = X.drop(['streck_avst'], axis=1) 
+        if not self.hx_samma_bana:
+            X = X.drop(['h1_samma_bana','h2_samma_bana','h3_samma_bana'], axis=1)   # hx_samma_bana 
+        if not self.hx_sammam_kusk:
+            X = X.drop(['h1_samma_kusk','h2_samma_kusk','h3_samma_kusk'], axis=1)   # hx_sammam_kusk
+        
         if verbose:
             print('Test')
         return X
     
-    def learn(self, X_, y=None, X_test=None, y_test=None, params=None ,
-              iterations=1000, save=True, verbose=False):
+    def learn(self, X_, y=None, X_test_=None, y_test=None, params=None, iterations=1000, save=True, verbose=False):
         # X_ måste ha datum och avd
-        if not params:
+        X_test = X_test_.copy()
+        assert 'streck' in list(X_.columns), 'streck saknas i learn X'
+        if params==None:
             #read params from file
             with open(self.pref+'optimera/params_'+self.name+'.json', 'rb') as f:
                 params = json.load(f)
+                print(params)
                 params = exec(params['params'])
 
         iterations = params['iterations'] if 'iterations' in params else iterations
@@ -194,12 +215,18 @@ class Typ():
         return cbc
 
 
-    def predict(self, X_,verbose=False):
+    def predict(self, X_,verbose=False,model=None):
         # X_ måste ha datum och avd
+        assert 'streck' in list(X_.columns), f'streck saknas i predict X ({self.name})'
+        
         X = self.prepare_for_model(X_)
-        model = self.load_model()
+        assert 'streck' in list(X.columns), f'streck saknas efter prepare_for_model i predict X ({self.name})'
+        
+        if model==None:
+            model = self.load_model()
+            
         if not self.streck:
-            # print('drop streck')
+            print('drop streck')
             X.drop('streck', axis=1, inplace=True)
 
         X, cat_features = prepare_for_catboost(X, model.feature_names_)

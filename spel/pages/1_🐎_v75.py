@@ -154,7 +154,7 @@ def lägg_in_diff_motståndare(X_, motståndare):
 
 #%%
 # skapa modeller
-#             name,  ant_ästar, proba, kelly, motst_ant,   motst_diff,  ant_favoriter,  only_clear, streck
+#             name,  ant_ästar,  proba, kelly, motst_ant,   motst_diff,  ant_favoriter,  only_clear, streck
 typ6 = tp.Typ('typ6', True,       True, False,     0,          False,          0,            False,    True)
 typ1 = tp.Typ('typ1', False,      True, False,     2,          True,           2,            True,     False)
 typ9 = tp.Typ('typ9', True,       True, True,      2,          True,           2,            True,     True)
