@@ -4,6 +4,7 @@
 """
 import pandas as pd
 import numpy as np
+from category_encoders import TargetEncoder
 
 class v75():
     def __init__(self, filnamn='all_data.csv', pref=''):
@@ -67,16 +68,17 @@ class v75():
         # return self.work_df    
         
     #################### Handle high cardinality ############################################
-    def _handle_high_cardinality(self, column, threshold=0.75, max=10):
+    def _handle_high_cardinality(self, column, threshold=0.33, max=10):
         """ Reducera cardinality baserat på frekvens """
-        threshold_value=int(threshold*len(self.work_df[column].unique()))
-        
+    
+        threshold_value=int(threshold*len(self.work_df[column]))
+        # print('Threshold:value for', column, 'is', threshold_value)
         categories_list=[]
         s=0
         #Create a counter dictionary of the form unique_value: frequency
         counts=self.work_df[column].value_counts()
-        # print(counts)
-        values = list(counts.index)
+        # print('5 counts\n', counts[0:5])
+        values = list(counts.index) 
 
         #Loop through the category name and its corresponding frequency after sorting the categories by descending order of frequency
         for e,i in enumerate(counts):
@@ -89,6 +91,7 @@ class v75():
             categories_list.append(values[e])
             #Check if the global sum has reached the threshold value, if so break the loop
             if s>=threshold_value:
+                # print(f'{column} s = {s} more than threshold_value={threshold_value}. {e} categories')
                 break
         #Append the category Other to the list
         categories_list.append('Other')
@@ -98,7 +101,14 @@ class v75():
         self.work_df[column]=new_column
 
         # return self.work_df
-        
+    
+    def _target_encode(self, columns):
+        """ target encode """
+        y = self.work_df['y']
+        enc = TargetEncoder(cols=columns, min_samples_leaf=20, smoothing=10).fit(self.work_df.drop('y',axis=1), self.work_df.y)
+        self.work_df = enc.transform(self.work_df.drop('y',axis=1))
+        self.work_df['y'] = y
+        return enc  
         
     #################### Features som inte används ##########################################
     def _remove_features(self, remove=['startnr', 'vodds', 'podds', 'bins', 'h1_dat',
@@ -113,7 +123,7 @@ class v75():
 
         return self.work_df
 
-    def förbered_data(self, missing_num=True, missing_cat=True, cardinality_list=[], remove_mer=[]):
+    def förbered_data(self, missing_num=True, missing_cat=True, cardinality_list=[], target_encode_list=[], remove_mer=[]):
         """ En komplett förberedelse innan ML
         Returns:
             self.work_df: Färdig df att användas för ML
@@ -122,7 +132,10 @@ class v75():
         # rensa omgångar som saknar avdelningar
         self._rensa_saknade_avd()
         
-        # ta bort nummer från travbana i history (i.e Åby-1 -> Åby, etc)
+        # set datum till datum-typ
+        self.work_df.datum = pd.to_datetime(self.work_df.datum)
+        
+        # ta bort suffix-nummer från travbana i history (i.e Åby-1 -> Åby, etc)
         self.work_df.loc[:, 'h1_bana'] = self.work_df.h1_bana.str.split('-').str[0]
         self.work_df.loc[:, 'h2_bana'] = self.work_df.h2_bana.str.split('-').str[0]
         self.work_df.loc[:, 'h3_bana'] = self.work_df.h3_bana.str.split('-').str[0]
@@ -146,10 +159,17 @@ class v75():
             
         if cardinality_list:
             for col in cardinality_list:
-                assert col in self.work_df.columns, f'{col} is not in work_df'
+                assert col in self.work_df.columns, f'cardinality_list: {col} is not in work_df'
                 self._handle_high_cardinality(col)
+                
+        enc=None
+        if len(target_encode_list)>0 :
+            for col in target_encode_list:
+                assert col in self.work_df.columns, f'target_encode_list: {col} is not in work_df'
             
-        return self.work_df
+            enc=self._target_encode(target_encode_list)    
+        
+        return self.work_df, enc
     
     def train_test_split(self, train_size=0.8):
         """ Splits data into train and test set based on train_size """
