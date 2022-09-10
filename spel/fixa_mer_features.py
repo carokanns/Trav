@@ -80,18 +80,24 @@ def justkm(kmtid):
         print('vafalls status=',status,'km =',km,'kmtid =',kmtid)
 # %%
 def fixa_mer_features(df, hist=False):
-    print('startar Fixa mer')
+    print('startar Fixa mer, ', end='')
+    # get avd in the last row
+    avd = df.iloc[-1]['avd']
+    print('avd=', avd)
     
     ### Strukna ###
     före=len(df)
     try:
         df=df.loc[df.plac!='s'].copy()  # ta bort alla strukna - nu försvinner nog alla vodds=EJ
+        print('tog först bort strukna från', före, 'till', len(df))
     except:
         pass # plac saknas    
+    
+    
     df=df.loc[df.vodds!='EJ',:].copy()  ## Ta bort all strukna
     efter=len(df)
     if före-efter !=0:
-        print('tog bort',före-efter,'strukna från',före,'till',efter)
+        print('tog nu bort',före-efter,'strukna från',före,'till',efter)
 
     ### Dubletter ###
     före=len(df)
@@ -176,8 +182,7 @@ def fixa_mer_features(df, hist=False):
     
     # spår  NaN
     if len(df[df.spår == 0]):
-        print('spår==0', df[df.spår == 0][['datum', 'bana',
-                                                           'avd', 'häst', 'spår', 'start', 'vodds']])
+        print('spår==0', df[df.spår == 0][['datum', 'bana', 'avd', 'häst', 'spår', 'start', 'vodds']])
     if df.spår.isna().sum() >0:
         print('spår NaNs', df.spår.isna().sum())
     
@@ -236,6 +241,7 @@ def fixa_mer_features(df, hist=False):
 
 ##########################################  hhär följer all history ######################################
     if hist:
+        print('start hist')
         ### hx_plac ###
         
         # diskad pga av galopp eller annat = 20
@@ -459,6 +465,7 @@ def fixa_mer_features(df, hist=False):
         df['delta3']=delta(df.h3_dat.copy(), df.h4_dat.copy())
         df['delta4']=delta(df.h4_dat.copy(), df.h5_dat.copy())
         
+    print(f'klar med rensning avd={avd} df.shape={df.shape}')
     return df
 
 # %%
