@@ -50,15 +50,24 @@ def get_webdriver(res, headless=True):
     # _=input('tryck enter för att starta webdriver')
     
     # initializing webdriver for Chrome with our options
+    
     driver = webdriver.Chrome(
         executable_path='C:\\Users\peter\\Documents\\MyProjects\\gecko\\chromedriver.exe', options=options)
     
-    driver.implicitly_wait(5)     # seconds
+    driver.implicitly_wait(10)     # seconds
     
     # print(f'startade webdriver för resultat={res}')
     # time.sleep(10)
     return driver
 
+def quit_drivers(driver_r, driver_s):
+    if driver_s:
+        driver_s.quit()
+        print('quit driver_s klar')
+    if driver_r:
+        driver_r.quit()
+        print('quit driver_r klar')
+        
 # %%
 def städa_och_rensa(df, history):
     före = len(df)
@@ -247,23 +256,46 @@ def do_scraping(driver_s, driver_r, avdelningar, history, datum):  # get data fr
  
     if driver_r:
         print('find driver_r game-table avd', avdelningar)
-        result_tab = driver_r.find_elements(By.CLASS_NAME, 'game-table')[:]  # alla lopp med resultatordning
-        # time.sleep(5)
+        
+        # WebDriverWait(driver_r, 10).until(
+        #     EC.presence_of_element_located((By.CLASS_NAME, 'game-table')))
+        # print('1r ############################### ')
+        
+        driver_r.implicitly_wait(10)     # seconds
+        result_tab = driver_r.find_elements(
+            By.CLASS_NAME, 'game-table')[:]  # alla lopp med resultatordning
+        print('2r ############################### len result_tab =', len(result_tab))
+        
+        if len(result_tab) == 0:
+            print('result_tab not found - try again')
+            # driver_r.implicitly_wait(10)     # seconds
+            # WebDriverWait(driver_r, 10).until(
+            #     EC.presence_of_element_located((By.CLASS_NAME, 'game-table')))[:]
+            
+            driver_r.implicitly_wait(10)     # seconds
+            result_tab = driver_r.find_elements(By.CLASS_NAME, 'game-table')[:]  # alla lopp med resultatordning
+        
         
         if len(result_tab) == 8:
             result_tab = result_tab[1:]
 
-        assert len(result_tab) == 7, f'Antal resultat är fel i avd {avdelningar}: {len(result_tab)}'
+        assert len(result_tab) == 7, f'################################ Antal resultat är fel i avd {avdelningar}: {len(result_tab)}'
         
         
     print('find driver_s game-table avd', avdelningar)
+    # driver_s.implicitly_wait(10)     # seconds
+    # WebDriverWait(driver_s, 10).until(
+    #     EC.presence_of_element_located((By.CLASS_NAME, 'game-table')))
+    # print('1 ############################### ')
+    
+    driver_s.implicitly_wait(10)     # seconds
     start_tab = driver_s.find_elements(By.CLASS_NAME, 'game-table')[:]  # alla lopp med startlistor
-    # time.sleep(5)
-        
+    print('2 ############################### len start_tab =', len(start_tab))
+            
     if len(start_tab) == 8:
         start_tab = start_tab[1:]
 
-    assert len(start_tab) == 7, f'Antal lopp är fel: {len(start_tab)} avd {avdelningar}'
+    assert len(start_tab) == 7, f'################################### Antal lopp är fel: {len(start_tab)} avd {avdelningar}'
     
     comb = driver_s.find_elements(By.CLASS_NAME,'race-combined-info')  # alla bana,dist,start
     priselement = driver_s.find_elements(By.CLASS_NAME,
@@ -372,9 +404,10 @@ def anpassa(driver_s, avd):
     print('klickade på', buts[0].text, 'Avdelning', avd)
 
     # tics = driver_s.find_elements_by_class_name("css-1hngy38-Checkbox-styles--label")
-    WebDriverWait(driver_s, 10).until(EC.presence_of_element_located((By.CLASS_NAME, 'css-1hngy38-Checkbox-styles--label')))
+    # WebDriverWait(driver_s, 10).until(EC.presence_of_element_located((By.CLASS_NAME, 'css-1hngy38-Checkbox-styles--label')))
+    driver_s.implicitly_wait(10)     # seconds
     tics = driver_s.find_elements(By.CLASS_NAME,"css-1hngy38-Checkbox-styles--label")
-    driver_s.implicitly_wait(5)     # seconds
+    driver_s.implicitly_wait(10)     # seconds
     # print('len tics',len(tics))
 
     flag1 = flag2 = flag3 = flag4 = flag5 = flag6 = flag7 = flag8 = flag9 = True
@@ -421,7 +454,9 @@ def anpassa(driver_s, avd):
                 pass
 
             # WebDriverWait(t, 10).until(EC.element_to_be_clickable(t), message='distans och spår gick inte att klicka på')
-            WebDriverWait(t,10)
+            # WebDriverWait(t,10)
+            
+            driver_s.implicitly_wait(10)     # seconds
             t.click()
             if t.is_selected():
                 # print(t.text+' är korrekt')
@@ -500,7 +535,6 @@ def v75_threads(resultat=False, history=False, headless=True, avdelningar=None, 
     print('avdelningar', avdelningar)
     omg_df = pd.read_csv(
         'C:\\Users\\peter\\Documents\\MyProjects\\PyProj\\Trav\\spel\\omg_att_spela_link.csv')
-    df = pd.DataFrame()
 
     if not driver_r:
         if resultat:
@@ -518,22 +552,22 @@ def v75_threads(resultat=False, history=False, headless=True, avdelningar=None, 
     for enum, omg in enumerate(omg_df.Link.values):
         print(f'omgång {enum+1}:', omg)
         datum = omg.split('spel/')[1][0:10]
-
-        print('Öppnar startlistan med driver_s för avd', avdelningar)
+        df = pd.DataFrame()
+        print('Öppnar startlist-sidan med driver_s för avd', avdelningar)
         print('omg', omg)
         
         # _=input('Tryck enter för att öppna startlistan\n')
-        
+        driver_s.implicitly_wait(10)     # seconds
         driver_s.get(omg)              # öppna startlista
-        driver_s.implicitly_wait(5)     # seconds
-        print('Öppnade startlistan med driver_s för avd', avdelningar)
+        
+        print('############## Öppnade startlist-sidan med driver_s för avd', avdelningar)
 
         if enum == 0:  # första gången startlista
             # ok till första popup om kakor
             
             print('find cookie popup')
             # _ = input('Tryck enter för find cookie popup\n')
-            
+            driver_s.implicitly_wait(10)  # seconds
             but_kakor = driver_s.find_element(By.ID,"onetrust-accept-btn-handler")
             but_kakor_text = but_kakor.text
             
@@ -542,7 +576,7 @@ def v75_threads(resultat=False, history=False, headless=True, avdelningar=None, 
             
             but_kakor.click()
             driver_s.fullscreen_window()
-            driver_s.implicitly_wait(5)     # seconds
+            driver_s.implicitly_wait(10)     # seconds
             print( 'klickade på ', but_kakor_text, 'för avd', avdelningar)
             
             # _ = input('Tryck enter för att klicka bort reklamen\n')
@@ -556,18 +590,21 @@ def v75_threads(resultat=False, history=False, headless=True, avdelningar=None, 
             #     pass
             
             # _ =input('Efter Try: Klicka för find lopp-info\n')
-            
+            driver_s.implicitly_wait(20)  # seconds
             race_info = driver_s.find_elements(By.CLASS_NAME, "race-info-toggle")
             if len(race_info)==0: #Try again
-                print(f'try race_info igen för avd {avdelningar} resultat={resultat}')
-                # time.sleep(2)
+                print(f'try race_info igen för avd {avdelningar}')
+                input('enter för att försöka igen med race_info')
+                # WebDriverWait(driver_s, 10).until(
+                #     EC.presence_of_element_located((By.CLASS_NAME, "race-info-toggle")))
+                
+                driver_s.implicitly_wait(10)  # seconds
                 race_info = driver_s.find_elements(By.CLASS_NAME, "race-info-toggle")
                 
             print(f'len(race_info)= {len(race_info)} för avd {avdelningar} resultat={resultat}')
             assert len(race_info) > 0, f'race_info måste innehålla en info per lopp men är tom, avd={avdelningar} resultat={resultat}' 
             
             driver_s.find_elements(By.CLASS_NAME, "race-info-toggle")[1].click()  # prissummor mm
-            driver_s.implicitly_wait(5)     # seconds
             
             # _ = input('Efter prissummor mm: Klicka på OK för att fortsätta\n'  )
             
@@ -578,49 +615,63 @@ def v75_threads(resultat=False, history=False, headless=True, avdelningar=None, 
             
         # resultat
         if resultat:
-            print('Öppnar resultatlistan med driver_r för avd', avdelningar)
+            print('Öppnar resultatsidan med driver_r för avd', avdelningar)
+            driver_r.implicitly_wait(10) # seconds
             driver_r.get(omg+'/resultat')   # öppna resultat
-            driver_r.implicitly_wait(5)     # second
-            print('Öppnade resultatlistan med driver_r för avd', avdelningar)
+    
+            print('Öppnade resultatsidan med driver_r för avd', avdelningar)
             # _ = input('Efter öppnade resultatlistan: Klicka på OK för att fortsätta\n'  )
             if enum == 0:
                 # ok till första popup om kakor
-                driver_r.find_element(By.ID,"onetrust-accept-btn-handler").click()
+                # WebDriverWait(driver_r, 10).until(
+                #     EC.presence_of_element_located((By.ID, "onetrust-accept-btn-handler")))
+                
+                driver_r.implicitly_wait(10)  # seconds
+                but_kakor = driver_r.find_element(By.ID,"onetrust-accept-btn-handler")
+                driver_r.implicitly_wait(10)  # seconds
+                but_kakor.click()
                 driver_r.fullscreen_window()
                 
-                try:
-                    driver_r.implicitly_wait(1)     # seconds
-                    driver_r.find_element(By.CLASS_NAME, "css-1m9bhvf-Typography-styles--body1-Typography--Typography").click()
-                    print('******* (resultat) Så länge reklam för vm i travspel finns kvar')   
-                except:
-                    print("********Är VM i travspel bortplockat nu?")
-                    pass
+                # try:
+                #     driver_r.implicitly_wait(1)     # seconds
+                #     driver_r.find_element(By.CLASS_NAME, "css-1m9bhvf-Typography-styles--body1-Typography--Typography").click()
+                #     print('******* (resultat) Så länge reklam för vm i travspel finns kvar')   
+                # except:
+                #     print("********Är VM i travspel bortplockat nu?")
+                #     pass
 
         # scraping
         print('Kör scraping med driver_s och driver_r för avd', avdelningar)
-        komplett, bana = do_scraping(driver_s, driver_r, avdelningar, history, datum)
-        print('Klar scraping med driver_s och driver_r för avd', avdelningar)
+        try:
+            komplett, bana = do_scraping(driver_s, driver_r, avdelningar, history, datum)
+            print('Klar scraping med driver_s och driver_r för avd', avdelningar)
+        except:
+            print(f'************************** Något gick fel i do_scraping avd {avdelningar} - quit drive *******************************') 
+            quit_drivers(driver_s, driver_r)    
+            return df
+        
         temp_df = pd.DataFrame(komplett)
         df = pd.concat([df, temp_df])
 
         # utdelning
         if resultat:
-            print('Kör utdelning med driver_r för avd', avdelningar)
-            utdelning(driver_r, datum, bana)  # utdelning för denna omgång
-            print('Klar utdelning med driver_r för avd', avdelningar)
+            try:
+                print('Kör utdelning med driver_r för avd', avdelningar)
+                utdelning(driver_r, datum, bana)  # utdelning för denna omgång
+                print('Klar utdelning med driver_r för avd', avdelningar)
 
+            except:
+                print(f'************************** Något gick fel i utdelning(...) avd {avdelningar} - quit drivers *******************************') 
+                quit_drivers(driver_s, driver_r)    
+                return df
+            
     # för att göra tester och debugging efteråt
     # global df_spara
     # df_spara = df.copy()
     ###
-    print('quit driver_s för avd', avdelningar)
-    driver_s.quit()
-    print('quit driver_s klar för avd', avdelningar)
-    if resultat:
-        print('quit driver_r för avd', avdelningar)
-        driver_r.quit()
-        print('quit driver_r klar för avd', avdelningar)
-
+    
+    quit_drivers(driver_s, driver_r)
+    
     strukna = df.loc[df.vodds == 'EJ', :].copy()  # Ta bort all strukna
 
     df = städa_och_rensa(df, history)
@@ -637,12 +688,13 @@ if __name__ == '__main__':
     omg_df = pd.read_csv(
         'C:\\Users\\peter\\Documents\\MyProjects\\PyProj\\Trav\\spel\\omg_att_spela_link.csv')
     avd_list=[[1],[2],[3],[4],[5],[6],[7]]
-    avd_list=[[1],[2],[3],[4],[5],[6]]
-    avd_list=[[1],[2],[3],[4],[5]]
+    # avd_list=[[1],[2],[3],[4],[5],[6]]
+    # avd_list=[[1],[2],[3],[4],[5]]
     # avd_list=[[1],[2],[3],[4]]
     # avd_list=[[1],[2],[3]]
     # avd_list=[[1],[2]]
     # avd_list=[[1]]
+    concurrency=True
     resultat=True
     history=True
     headless=True
@@ -656,7 +708,8 @@ if __name__ == '__main__':
     # df_list = ['df1','df2','df3','df4','df5','df6','df7']
     
     df=pd.DataFrame()
-    if False: # concurrency
+
+    if concurrency:
         with concurrent.futures.ThreadPoolExecutor() as executor:
             results = executor.map(start_scrape, avd_list)
             for i, result in enumerate(results):
@@ -665,7 +718,7 @@ if __name__ == '__main__':
     else:            
         for enum,avd in enumerate(avd_list):
             df = pd.concat([df,start_scrape(avd)], ignore_index=True)
-        
+                   
     # df=pd.DataFrame()    
     # with concurrent.futures.ThreadPoolExecutor() as executor:
     #     for temp_df in executor.map(start_scrape,avd_lists):

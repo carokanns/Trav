@@ -9,6 +9,8 @@
 			"C:\\\\Users\\\\peter\\\\Documents\\\\MyProjects\\\\PyProj\\\\Trav\\\\Trav\\\\spel"
 		],
 		"jupyter.jupyterServerType": "local",
-		"editor.acceptSuggestionOnEnter": "on"
+		"editor.acceptSuggestionOnEnter": "on",
+		"notebook.outputFontSize": 16,
+		"editor.fontSize": 18
 	}
 }
