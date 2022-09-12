@@ -17,3 +17,4 @@ spel/flaml.log
 spel/v75_tester/try_gluon/agModels-predictClass/*.*
 spel/v75_tester/*.*
 spel/v75_tester
+spel/__pycache__/*.*

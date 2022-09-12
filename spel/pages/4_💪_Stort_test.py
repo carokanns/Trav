@@ -118,7 +118,7 @@ def compute_total_insats(veckans_rad):
     summa = veckans_rad.groupby('avd').avd.count().prod() / 2
     return summa
 
-def rätta_rad(df, datum, df_utdelning ):
+def rätta_rad1(df, datum, df_utdelning ):
     """
     Räkna ut antal 5:or, 6:or resp. 7:or
     Hämta ev utdelning
@@ -173,10 +173,13 @@ def rätta_rad(df, datum, df_utdelning ):
     
     return sjuor, sexor, femmor, beräkna_utdelning(datum, sjuor,sexor,femmor, df_utdelning)
 
-def starta_upp(df):
-    curr_datix = len(df.datum.unique()) - 200      # ca 3 å3 tillbaks
-    startdatum = df.datum.unique()[curr_datix]     # ca 3 år tillbaks
-    print('startdatum', startdatum)
+def starta_upp(df, back_in_time):
+    import datetime
+    curr_datix = len(df.datum.unique()) - back_in_time     # ant omg tillbaks
+    startdatum = df.datum.unique()[curr_datix]            
+    
+    st.info(f'Startdatum = {startdatum}')
+    
     ### init resutat-tabell
     df_resultat = pd.DataFrame(columns = ['datum',  't1_7', 't1_6', 't1_5', 't1_kostn', 't1_utd', 't1_vinst',
                                                     't2_7', 't2_6', 't2_5', 't2_kostn', 't2_utd', 't2_vinst',
@@ -226,6 +229,8 @@ def compute_total_insats(veckans_rad):
     return summa
 
 def beräkna_utdelning(datum, sjuor, sexor, femmor, df_utdelning):
+    datum = datum.strftime('%Y-%m-%d')
+        
     min_utdelning = df_utdelning.loc[df_utdelning.datum==datum,['7rätt', '6rätt','5rätt']]
     
     return (min_utdelning['7rätt'] * sjuor + min_utdelning['6rätt'] * sexor + min_utdelning['5rätt'] * femmor).values[0]
@@ -341,7 +346,7 @@ def ta_fram_rad(veckans_rad_, spik_strategi,kelly_strategi, max_cost=300, min_av
     # return veckans_rad, cost
     return plocka_en_efter_en(veckans_rad, spikad_avd, kelly_strategi, max_cost)
       
-def rätta_rad(df, datum, df_utdelning ):
+def rätta_rad2(df, datum, df_utdelning ):
     """
     Räkna ut antal 5:or, 6:or resp. 7:or
     Hämta ev utdelning
@@ -393,57 +398,21 @@ def rätta_rad(df, datum, df_utdelning ):
     
     return sjuor, sexor, femmor, beräkna_utdelning(datum, sjuor,sexor,femmor, df_utdelning)
 
-import json
-def main():
-    ## Skapa v75-instans
-    v75 = td.v75(pref='')
-    ## Hämta data från v75
-    _ = v75.förbered_data( missing_num=False)  # num hanteras av catboost
-    df = v75.test_lägg_till_kolumner()
-    
-    ###############################################################
-    # Några idéer på nya kolumner:
-    #  -   ❌ streck/sum(streck för avd) - fungerar inte bra. Nästan alla sum == 100 per avd
-    #  a - ✔️ plats(streck)/ant_hästar_i_avd (antal startande hästar i avd)                    
-    #  b - ❌ pris / tot_pris_i_avd - går inte att använda ju! pris är ju loppets 1.pris - samma för all i loppet 
-    #  c - ✔️ kr / tot_kr_i_avd     rel_kr
-    #  d - ✔️ Avståndet till ettan (streck)
-    #  e - ✔️ hx_bana samma som bana
-    #  f - ✔️ hx_kusk samma som kusk
-    #  META
-    #  g - meta får annan input än bara typ-resultat, tex, plats i avd, ettans avstånd till tvåan
-    #
-    # Några idéer på regler för att selektera raden:
-    #  1 - 1 avd med favorit som spik
-    #  2 - 2 avd med var sin favorit som spik
-    #  3 - Endast solklara favoriter - beror på avståndet till tvåan
-    #  4 - Inga forcerade favoriter
-    #  5 - Välj den högsta positiva Kelly efter vald proba - om vartannat
-    ###############################################################
-    #  Minska max-kostnad för en rad  - 384 är för mycket
-    ###############################################################
-    # Använd typ9 som grund-modell och lägg till resp ta bort kolumner per test-typ
-    # genererara alla kolumner som vi sedan selekterar från
-    # Namnge modeller efter konfig samt selektering tex typ_abcdef235
-    
-    #-------------- skapa test-modeller
-    #              name,   ant_hästar  proba,  kelly,   motst_ant,  motst_diff,  ant_favoriter,  only_clear, streck, test, pref
-    test1 = tp.Typ('test1',  True,    True,     False,       0,        False,          0,           False,    True,  True, pref='')
-    test2 = tp.Typ('test2',  True,    True,     False,       0,        False,          0,           False,    False, True, pref='')
-    typ6 = tp.Typ('typ6',    True,    True,     False,       0,        False,          0,           False,    True,  False, pref='')
-    # st.dataframe(df)
-    
+def kör(df,test1, test2, typ6):   
     df_utdelning = pd.read_csv('utdelning.csv')
+    back_in_time = 300  # antal dagar att gå tillbaka i tiden för backtesting
     
-    curr_datum_ix, datumar, df_resultat = starta_upp(df)
+    curr_datum_ix, datumar, df_resultat = starta_upp(df, back_in_time)
     placeholderdat = st.empty()
     placeholder1 = st.empty()
     placeholder2 = st.empty()
     placeholder3 = st.empty()
-    for i in range(200):
+    for i in range(back_in_time):
         datum = datumar[curr_datum_ix]
         placeholderdat.empty()
-        placeholderdat.write(f'{datum}    ant_omgångar: {i}')
+        if i >0:
+            placeholderdat.info(f'Aktuell datum: {  datum} {"        "} \nant_omgångar spelade: {  i}')
+            
         # 1. learn fram till datum
         #### 1a. skapa train och test dataframes samt aktuell omgång som vi predictar - returnerar df_train, df_test, df_curr
         X,y,X_test,y_test, X_curr, y_curr  = skapa_data_för_datum(df, datum)
@@ -484,15 +453,15 @@ def main():
         veckans_rad2, kostnad2 = ta_fram_rad(veckans_rad2, None, '1', min_avst=0.4)
         veckans_rad3, kostnad3 = ta_fram_rad(veckans_rad3, None, None, min_avst=0.4)
 
-        sjuor1, sexor1, femmor1, utdelning1 = rätta_rad(veckans_rad1, datum, df_utdelning)
-        sjuor2, sexor2, femmor2, utdelning2 = rätta_rad(veckans_rad2, datum, df_utdelning)
-        sjuor3, sexor3, femmor3, utdelning3 = rätta_rad(veckans_rad3, datum, df_utdelning)
+        sjuor1, sexor1, femmor1, utdelning1 = rätta_rad2(veckans_rad1, datum, df_utdelning)
+        sjuor2, sexor2, femmor2, utdelning2 = rätta_rad2(veckans_rad2, datum, df_utdelning)
+        sjuor3, sexor3, femmor3, utdelning3 = rätta_rad2(veckans_rad3, datum, df_utdelning)
         # print('kostnad',kostnad, 'utdelning', utdelning)
         last_row = df_resultat.iloc[-1] + [sjuor1, sexor1,femmor1, kostnad1, utdelning1, utdelning1-kostnad1,
-                                           sjuor2, sexor2,femmor2, kostnad2, utdelning2, utdelning2-kostnad2,
-                                           sjuor3, sexor3,femmor3, kostnad3, utdelning3, utdelning3-kostnad3 ]
+                                        sjuor2, sexor2,femmor2, kostnad2, utdelning2, utdelning2-kostnad2,
+                                        sjuor3, sexor3,femmor3, kostnad3, utdelning3, utdelning3-kostnad3 ]
         df_resultat.loc[datum] = last_row
-         
+        
         df_resultat.to_csv('backtest_resultat.csv', index=False)
         
         # 3. plotta
@@ -511,6 +480,53 @@ def main():
         placeholder3.dataframe(df_resultat.tail(10))
         curr_datum_ix += 1 
         
+    return veckans_rad1, veckans_rad2, veckans_rad3           
+        
+import json
+def main():
+    ## Skapa v75-instans
+    v75 = td.v75(pref='')
+    ## Hämta data från v75
+    _ = v75.förbered_data( missing_num=False)  # num hanteras av catboost
+    df = v75.test_lägg_till_kolumner()
+    
+    ###############################################################
+    # Några idéer på nya kolumner:
+    #  -   ❌ streck/sum(streck för avd) - fungerar inte bra. Nästan alla sum == 100 per avd
+    #  a - ✔️ plats(streck)/ant_hästar_i_avd (antal startande hästar i avd)                    
+    #  b - ❌ pris / tot_pris_i_avd - går inte att använda ju! pris är ju loppets 1.pris - samma för all i loppet 
+    #  c - ✔️ kr / tot_kr_i_avd     rel_kr
+    #  d - ✔️ Avståndet till ettan (streck)
+    #  e - ✔️ hx_bana samma som bana
+    #  f - ✔️ hx_kusk samma som kusk
+    #  META
+    #  g - meta får annan input än bara typ-resultat, tex, plats i avd, ettans avstånd till tvåan
+    #
+    # Några idéer på regler för att selektera raden:
+    #  1 - 1 avd med favorit som spik
+    #  2 - 2 avd med var sin favorit som spik
+    #  3 - Endast solklara favoriter - beror på avståndet till tvåan
+    #  4 - Inga forcerade favoriter
+    #  5 - Välj den högsta positiva Kelly efter vald proba - om vartannat
+    ###############################################################
+    #  Minska max-kostnad för en rad  - 384 är för mycket
+    ###############################################################
+    # Använd typ9 som grund-modell och lägg till resp ta bort kolumner per test-typ
+    # genererara alla kolumner som vi sedan selekterar från
+    # Namnge modeller efter konfig samt selektering tex typ_abcdef235
+    
+    #-------------- skapa test-modeller
+    #              name,   ant_hästar  proba,  kelly,   motst_ant,  motst_diff,  ant_favoriter,  only_clear, streck, test, pref
+    test1 = tp.Typ('test1',  True,    True,     False,       0,        False,          0,           False,    True,  True, pref='')
+    test2 = tp.Typ('test2',  True,    True,     False,       0,        False,          0,           False,    False, True, pref='')
+    typ6 = tp.Typ('typ6',    True,    True,     False,       0,        False,          0,           False,    True,  False, pref='')
+    
+    # st.dataframe(df)
+    
+    if st.button('kör'):
+        veckans_rad1,veckans_rad2,veckans_rad3 = kör(df, test1, test2, typ6)
+    
+
 
 if __name__ == "__main__":
     main()

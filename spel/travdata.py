@@ -132,9 +132,9 @@ class v75():
         # rensa omgångar som saknar avdelningar
         self._rensa_saknade_avd()
         
-        # set datum till datum-typ
-        self.work_df.datum = pd.to_datetime(self.work_df.datum)
-        
+        # set datum to datetime
+        self.work_df['datum'] = pd.to_datetime(self.work_df['datum']).dt.date
+        # self.work_df['datum'] = self.work_df['datum'].dt.date
         # ta bort suffix-nummer från travbana i history (i.e Åby-1 -> Åby, etc)
         self.work_df.loc[:, 'h1_bana'] = self.work_df.h1_bana.str.split('-').str[0]
         self.work_df.loc[:, 'h2_bana'] = self.work_df.h2_bana.str.split('-').str[0]
