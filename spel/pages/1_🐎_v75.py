@@ -432,10 +432,27 @@ with scraping:
     with col1:          
         if st.button('scrape'):
             do_scraping=True
-    with col2:            
+    with col2:  
         if st.button('reuse scrape'):
-            scrape(False, meta=st.session_state['meta'])
-            del st.session_state.datum  # säkra att datum är samma som i scraping
+            try:
+                df=pd.read_csv('sparad_scrape_spela.csv')
+                
+                if df.datum.iloc[0] != st.session_state.datum:
+                    st.error(f'Datum i data = {df.datum.iloc[0]} \n\n är inte samma som i omgång') 
+                else:    
+                    # st.success(f'inläst data med datum = {temp_df.datum.iloc[0]}') 
+                    st.info(f'inläst data med datum = {df.datum.iloc[0]} kör nu scrape med full=False')
+                    try:
+                        df.drop(['plac'], axis=1, inplace=True)
+                    except:
+                        pass
+                    # scrape(False, meta=st.session_state['meta'])
+                    # st.info('scrape klar')
+                    del st.session_state.datum  # säkra att datum är samma som i scraping
+            except:
+                # write error message
+                st.error('<Dey finns ingen sparad data') 
+            
     
     if do_scraping:
         scrape(meta=st.session_state['meta'])

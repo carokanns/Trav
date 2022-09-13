@@ -60,7 +60,7 @@ typer = [typ6, typ1, typ9]  # load a file with pickl
 ################################################
 
 def v75_scraping():
-    df = vs.v75_scraping(history=True, resultat=True, headless=False)
+    df = vs.v75_scraping(history=True, resultat=True, headless=True)
     
     for f in ['häst','bana', 'kusk', 'h1_kusk', 'h2_kusk', 'h3_kusk', 'h4_kusk', 'h5_kusk', 'h1_bana', 'h2_bana', 'h3_bana', 'h4_bana', 'h5_bana']:
         df[f] = df[f].str.lower()
