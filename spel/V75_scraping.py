@@ -396,6 +396,8 @@ def anpassa(driver_s, avd):
     # print('sl end')
     
     buts = sl[0].find_elements(By.CLASS_NAME, "css-eugx3a-startlistoptionsview-styles--configButton-Button--buttonComponent")
+
+    print('len buts', len(buts), 'avdelning', avd)
     print('Klickar nu på', buts[0].text, 'avdelning', avd)
     buts[0].click()
     
@@ -695,7 +697,7 @@ if __name__ == '__main__':
     # avd_list=[[1],[2]]
     # avd_list=[[1]]
     concurrency=True
-    resultat=True
+    resultat=False
     history=True
     headless=True
     print(f'Kör med avd_list={avd_list}, resultat={resultat}, history={history}, headless={headless}, omg={omg_df.Link.values}')
