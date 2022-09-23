@@ -391,20 +391,31 @@ def do_scraping(driver_s, driver_r, avdelningar, history, datum):  # get data fr
 
 # %% popup för vilken info som ska visas
 def anpassa(driver_s, avd):
-    sl = driver_s.find_elements(By.CLASS_NAME, "startlist")
-    # print('sl all text\n', sl[0].text)
-    # print('sl end')
+    avd = avd[0]
+    # sl = driver_s.find_elements(By.CLASS_NAME, "startlist")
+    sl = driver_s.find_elements(
+        By.CLASS_NAME, "css-8y0fv8-Startlists-styles--startlistelement")
     
-    buts = sl[0].find_elements(By.CLASS_NAME, "css-eugx3a-startlistoptionsview-styles--configButton-Button--buttonComponent")
+    print('AVDELNING =', avd, '    antal lopp =', len(sl))
+    
+    buts = sl[avd-1].find_elements(
+        By.CSS_SELECTOR, "button[class^='MuiButtonBase-root MuiButton-root']")
+    
+    print('    len buts', len(buts))
+    # print('sl',sl)
+    # print('    sl.text',sl[avd-1].text)
+    assert len(buts) > 0, f'buts skall inte vara tom: {buts} för avd {avd}'
 
-    print('len buts', len(buts), 'avdelning', avd)
-    print('Klickar nu på', buts[0].text, 'avdelning', avd)
-    buts[0].click()
-    
-    time.sleep(1)
-    
-    print('klickade på', buts[0].text, 'Avdelning', avd)
+    print('    buts[0].text', buts[0].text, 'buts[1]. text',
+          buts[1].text, 'buts[2].text', buts[2].text)
 
+    buts = buts[2]
+    print('********************************************Klickar nu på', buts.text, 'avdelning', avd)
+
+    buts.click()
+
+    print('********************************************klickade   på', buts.text, 'Avdelning', avd)
+    
     # tics = driver_s.find_elements_by_class_name("css-1hngy38-Checkbox-styles--label")
     # WebDriverWait(driver_s, 10).until(EC.presence_of_element_located((By.CLASS_NAME, 'css-1hngy38-Checkbox-styles--label')))
     driver_s.implicitly_wait(10)     # seconds

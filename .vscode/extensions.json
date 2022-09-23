@@ -2,6 +2,7 @@
     "recommendations": [
         "alefragnani.project-manager",
         "github.copilot",
-        "donjayamanne.githistory"
+        "donjayamanne.githistory",
+        "amazonwebservices.aws-toolkit-vscode"
     ]
 }
