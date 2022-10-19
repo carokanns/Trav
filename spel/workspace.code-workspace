@@ -6,11 +6,30 @@
 	],
 	"settings": {
 		"projectManager.git.baseFolders": [
-			"C:\\\\Users\\\\peter\\\\Documents\\\\MyProjects\\\\PyProj\\\\Trav\\\\Trav\\\\spel"
+			"C:\\Users\\peter\\Documents\\MyProjects\\PyProj\\Trav\\spel"
 		],
 		"jupyter.jupyterServerType": "local",
 		"editor.acceptSuggestionOnEnter": "on",
 		"notebook.outputFontSize": 16,
 		"editor.fontSize": 18
+	},
+	"launch": {
+		"configurations": [
+			{
+				"type": "aws-sam",
+				"request": "direct-invoke",
+				"name": "pages:4_💪_Stort_test.välj_rad_orginal (python3.9)",
+				"invokeTarget": {
+					"target": "code",
+					"projectRoot": "${workspaceFolder}/spel/pages",
+					"lambdaHandler": "4_💪_Stort_test.välj_rad_orginal"
+				},
+				"lambda": {
+					"runtime": "python3.9",
+					"payload": {},
+					"environmentVariables": {}
+				}
+			}
+		]
 	}
 }

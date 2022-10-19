@@ -55,9 +55,8 @@ class v75():
     def _handle_missing_num(self):
         """ Fyll i saknade numeriska värden med 0 """
         categoricals = self.work_df.select_dtypes(include=['object']).columns
-        # check if column y is in the dataframe
         
-        assert 'y' in self.work_df.columns, 'y is not in the work_df'
+        assert 'y' in self.work_df.columns, 'y is missing in the work_df'
         numericals = self.work_df.drop('y', axis=1).select_dtypes(exclude=['object']).columns
         self.work_df[numericals] = self.work_df[numericals].fillna(0)
         
@@ -65,7 +64,7 @@ class v75():
         """ Fyll i saknade kategoriska värden med 'missing' """
         categoricals = self.work_df.select_dtypes(include=['object']).columns
         self.work_df[categoricals] = self.work_df[categoricals].fillna('missing')
-        # return self.work_df    
+    
         
     #################### Handle high cardinality ############################################
     def _handle_high_cardinality(self, column, threshold=0.33, max=10):
@@ -100,7 +99,6 @@ class v75():
         new_column=self.work_df[column].apply(lambda x: x if x in categories_list else 'Other')
         self.work_df[column]=new_column
 
-        # return self.work_df
     
     def _target_encode(self, columns):
         """ target encode """
@@ -172,7 +170,7 @@ class v75():
         return self.work_df, enc
     
     def train_test_split(self, train_size=0.8):
-        """ Splits data into train and test set based on train_size """
+        """ Splits data into train and test set time dependent based on train_size """
         datumar = self.work_df.datum.unique()
         train_datum = datumar[:int(train_size*len(datumar))]
         test_datum = datumar[int(train_size*len(datumar)):]

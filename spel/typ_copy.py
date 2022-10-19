@@ -224,11 +224,14 @@ class Typ():
         
         if model==None:
             model = self.load_model()
-            
+    
         if not self.streck:
             print('drop streck')
             X.drop('streck', axis=1, inplace=True)
 
+        # print('prepare for catb - model', self.name,  'columns=:')
+        # print(list(X.columns))
+        # print(list(model.feature_names_))
         X, cat_features = prepare_for_catboost(X, model.feature_names_)
 
         # all features in model
