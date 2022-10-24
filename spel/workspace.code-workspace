@@ -6,7 +6,7 @@
 	],
 	"settings": {
 		"projectManager.git.baseFolders": [
-			"C:\\Users\\peter\\Documents\\MyProjects\\PyProj\\Trav\\spel"
+			"C:\\Users\\peter\\Documents\\MyProjects\\PyProj\\Trav\\spel\\"
 		],
 		"jupyter.jupyterServerType": "local",
 		"editor.acceptSuggestionOnEnter": "on",
@@ -18,11 +18,11 @@
 			{
 				"type": "aws-sam",
 				"request": "direct-invoke",
-				"name": "pages:4_💪_Stort_test.välj_rad_orginal (python3.9)",
+				"name": "",
 				"invokeTarget": {
 					"target": "code",
-					"projectRoot": "${workspaceFolder}/spel/pages",
-					"lambdaHandler": "4_💪_Stort_test.välj_rad_orginal"
+					"projectRoot": "${workspaceFolder}/spel/",
+					"lambdaHandler": ""
 				},
 				"lambda": {
 					"runtime": "python3.9",

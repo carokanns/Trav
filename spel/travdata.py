@@ -170,7 +170,7 @@ class v75():
         return self.work_df, enc
     
     def train_test_split(self, train_size=0.8):
-        """ Splits data into train and test set time dependent based on train_size """
+        """ Splits data into train and test sets (time dependent) based on train_size """
         datumar = self.work_df.datum.unique()
         train_datum = datumar[:int(train_size*len(datumar))]
         test_datum = datumar[int(train_size*len(datumar)):]
@@ -201,7 +201,7 @@ class v75():
     
     def test_lägg_till_kolumner(self):
         """
-        Gör tester med nya kolumner b-f ovan
+        Testar nya kolumner b-f ovan
         Körs typiskt efter förbered_data()
         """
         

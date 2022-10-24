@@ -124,6 +124,7 @@ class Typ():
 
     def load_model(self):
         with open(self.pref+'modeller/'+self.name+'.model', 'rb') as f:
+            print('Loading model:', self.name)
             model = pickle.load(f)
         return model
 
@@ -171,14 +172,20 @@ class Typ():
     
     def learn(self, X_, y=None, X_test_=None, y_test=None, params=None, iterations=1000, save=True, verbose=False):
         # X_ måste ha datum och avd
-        X_test = X_test_.copy()
+        assert X_ is not None, 'X är None'
+        print('Learning', self.name)
+        X = X_.copy()
+        X_test=None
+        if X_test_:
+            X_test = X_test_.copy()
+            
         assert 'streck' in list(X_.columns), 'streck saknas i learn X'
         if params==None:
             #read params from file
             with open(self.pref+'optimera/params_'+self.name+'.json', 'rb') as f:
                 params = json.load(f)
                 print(params)
-                params = exec(params['params'])
+                params = params['params']
 
         iterations = params['iterations'] if 'iterations' in params else iterations
         params.pop('iterations')  # remove iterations from params
@@ -229,11 +236,12 @@ class Typ():
             print('drop streck')
             X.drop('streck', axis=1, inplace=True)
 
-        # print('prepare for catb - model', self.name,  'columns=:')
-        # print(list(X.columns))
-        # print(list(model.feature_names_))
+        print('Före prepare for catb - model', self.name,  'columns=:')
+        print('X.columns',list(X.columns))
+        print('feature names', list(model.feature_names_))
+        
         X, cat_features = prepare_for_catboost(X, model.feature_names_)
-
+        print('Efter prepare for catb - model', self.name)
         # all features in model
         X = remove_features(X, remove_mer=['datum', 'avd'])
         

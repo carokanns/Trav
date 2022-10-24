@@ -6,6 +6,12 @@ import sys
 import time
 import concurrent.futures
 from catboost import CatBoostClassifier, Pool
+
+from sklearn.ensemble import RandomForestClassifier
+# import RidgeClassifier and knn
+from sklearn.linear_model import RidgeClassifier
+from sklearn.neighbors import KNeighborsClassifier
+
 import pickle
 import streamlit as st
 import numpy as np
@@ -109,12 +115,10 @@ def välj_rad_orginal(df_meta_predict, max_insats=300):
     # display(veckans_rad[veckans_rad.välj])
     return veckans_rad
 
-
+#%%
 def compute_total_insats(veckans_rad):
     summa = veckans_rad.groupby('avd').avd.count().prod() / 2
     return summa
-
-
 
 
 def starta_upp(df, start_ix=220):
@@ -142,7 +146,7 @@ def starta_upp(df, start_ix=220):
 
     return  df.datum.unique(), df_resultat
 
-
+#%%
 def skapa_data_för_datum(df_, datum):
     df = df_.copy()
     X = df.query(f'datum < @datum')
@@ -158,8 +162,9 @@ def skapa_data_för_datum(df_, datum):
 
     from sklearn.ensemble import RandomForestRegressor as rf
 
-
-def kelly(proba, streck, odds):  # proba = prob winning, streck i % = streck
+#%%
+def kelly(proba_, streck, odds):  # proba = prob winning, streck i % = streck
+    proba = proba_.copy()
     # läs in streck_to_odds.pkl
     import pickle
     with open('rf_streck_odds.pkl', 'rb') as f:
@@ -179,7 +184,7 @@ def compute_total_insats(veckans_rad):
     summa = veckans_rad.groupby('avd').avd.count().prod() / 2
     return summa
 
-
+#%%
 def beräkna_utdelning(datum, sjuor, sexor, femmor, df_utdelning):
     datum = datum.strftime('%Y-%m-%d')
 
@@ -198,7 +203,7 @@ def varje_avd_minst_en_häst(veckans_rad):
             veckans_rad.proba == max_proba), 'välj'] = True
     return veckans_rad
 
-
+#%%
 def hitta_spikar(veckans_rad, spikad_avd, spik_strategi, min_avst):
     print('spik_strategi', spik_strategi)
     assert spik_strategi in [
@@ -328,6 +333,37 @@ def ta_fram_rad(veckans_rad_, spik_strategi, kelly_strategi, max_cost=300, min_a
     # return veckans_rad, cost
     return plocka_en_efter_en(veckans_rad, spikad_avd, kelly_strategi, max_cost)
 
+def ta_fram_meta_rad(veckans_rad_, meta_modeller, spik_strategi, kelly_strategi, max_cost=300, min_avst=0.175):
+    """ Denna funktion tar fram en rad för meta-modellerna genom mean value
+    df nnehåller _en omgång_
+    _spik_strategi_: None - inget, '1a' - forcera 1 spik, '2a' - forcera 2 spikar, '1b' - 1 spik endast om klar favorit, '2b' - spikar för endast klara favoriter 
+    _kelly_strategi_: None - ingen kelly, 1 - kelly varannan gång om positiv
+    """
+    veckans_rad = veckans_rad_.copy()
+    veckans_rad['kelly_val'] = False
+    veckans_rad['välj'] = False   # inga rader valda ännu
+    veckans_rad['spik'] = False   # inga spikar valda ännu
+
+    veckans_rad['proba'] = 0
+    for key in meta_modeller.keys():
+        veckans_rad['proba'] += veckans_rad[key]
+
+    veckans_rad = varje_avd_minst_en_häst(veckans_rad)
+
+    # b) leta 1-2 spikar om så begärs - markera valda i df
+    spikad_avd = []
+    if spik_strategi:
+        veckans_rad, spikad_avd = hitta_spikar(veckans_rad, spikad_avd, spik_strategi, min_avst)
+
+    # c) sortera upp i proba-ordning. Om kelly skapa en sortering efter kelly-ordning
+    veckans_rad = veckans_rad.sort_values(by=['proba'], ascending=False)
+    veckans_rad = veckans_rad.reset_index(drop=True)
+    
+
+    # plocka en efter en tills kostnaden är för stor
+    # return veckans_rad, cost
+    return plocka_en_efter_en(veckans_rad, spikad_avd, kelly_strategi, max_cost)
+
 
 def rätta_rad(df, datum, df_utdelning):
     """
@@ -384,7 +420,75 @@ def rätta_rad(df, datum, df_utdelning):
     return sjuor, sexor, femmor, beräkna_utdelning(datum, sjuor, sexor, femmor, df_utdelning)
 
 
+#%%
+def skapa_stack_data(model, X_meta, stack_data):
+    """Skapa stack_data inklusive Kelly"""
+    nr = model.name[3:]
+    this_proba=model.predict(X_meta)
+            
+    # Bygg up meta-kolumnerna (proba och Kelly) för denns typ
+    stack_data['proba'+nr] = this_proba
+    stack_data['kelly'+nr] = kelly(this_proba, X_meta[['streck']], None)
+       
+    return stack_data
 
+def first_learn_modeller(modeller, X, y, X_meta, y_meta):
+    ############################################################################################################
+    #                        Här görs en första learn av modeller och sedan skapas stack_data
+    #                        - Learn modeller på X,y
+    #                        - Ha en egen skapa_stack_funktion (som också används längre ner)
+    #                           - Skapa stack_data med predict X_meta med nya modellerna
+    #                           - Spara även X_meta, y_meta i stack_data
+    #                           - Spara även Kelly i stack_data
+    ############################################################################################################
+    
+    stack_data = pd.DataFrame()
+    stack_data['y'] =  y_meta
+        
+    for model in modeller:
+        with open('optimera/params_'+model.name+'.json', 'r') as f:
+            params = json.load(f)
+            params = params['params']
+    
+        model = model.learn(X, y, params=params,save=False)
+        
+        stack_data = skapa_stack_data(model, X_meta, stack_data)
+        
+    stack_data.y = stack_data.y.astype(int)
+
+    return stack_data
+
+############################################################################################################
+#                       Här gör vi learn av meta_modeller på stack_data
+############################################################################################################
+def learn_meta_models(meta_modeller, stack_data):
+    # learn på stack_data
+    X_meta = stack_data.drop('y', axis=1)
+    y_meta = stack_data.y
+    
+    for key, items in meta_modeller.items():
+        meta_model = items['model']
+        with open('optimera/params_'+meta_model.name+'.json', 'r') as f:
+            params = json.load(f)
+            params = params['params']
+        
+        items['model'] = meta_model.fit(X_meta, y_meta, params=params,save=False)
+        meta_modeller[key] = items
+        
+    return meta_modeller
+
+def final_learn_modeller(modeller, X, y, X_meta, y_meta):
+    for enum, model in enumerate(modeller):
+        with open(pref+'optimera/params_'+model.name+'.json', 'r') as f:
+            params = json.load(f)
+            params = params['params']
+        
+        X_train = pd.concat([X, X_meta])
+        y_train = pd.concat([y, y_meta])
+        modeller[enum] = model.learn(X_train, y_train, params=params,save=False)
+        
+    return modeller
+        
 def initiera_veckans_rader(X_curr, y_curr, antal_rader):
     # ---------- initier veckans rad med aktuell omgång ----------------------
     veckans_rader=[]
@@ -396,42 +500,56 @@ def initiera_veckans_rader(X_curr, y_curr, antal_rader):
         
     return veckans_rader
 
-def predict_curr_omgang(model, X_curr, y_curr, veckans_rad)   :
+def predict_curr_omgang(modeller, meta_modeller, X_curr, veckans_rad)   :
+    """
+        Här tas meta_modellernas prediktioner fram
+        - modeller     : predict X_curr och använd skapa_stack_data funktionen
+        - meta_modeller: predict på stack_datat och fyll i veckans rader
+        veckans_rader innehåller nu prediktioner från alla meta_modeller plus X_curr, y_curr
+    """
+    
     # ------------- predict aktuell omgång och skapa Kelly -------------------
-    
-    veckans_rad['proba'] = model.predict(X_curr)
-    
-    veckans_rad['kelly'] = kelly(
-        veckans_rad.proba.copy(), veckans_rad[['streck']].copy(), None)
-    
+    for model in modeller:
+        nr = model.name[3:]
+        veckans_rad['proba'+nr] = model.predict(X_curr)
+        veckans_rad['kelly'+nr] = kelly(veckans_rad['proba'+nr], veckans_rad[['streck']], None)
+        
+        veckans_rad = skapa_stack_data(model, X_curr, veckans_rad)
+        
+    for key, values in meta_modeller.items():
+        meta_model = values['model']
+
+        # PREDICTORS???
+        veckans_rad[key] = meta_model.predict_proba(veckans_rad)[:, 1]
+
     return veckans_rad
     
-def learn_and_predict(modeller, X, y, X_test, y_test, X_curr, y_curr):
+def learn_all_and_predict(modeller, meta_modeller, X, y, X_meta, y_meta, X_curr, y_curr):
+    """Learn alla modeller och meta_modeller och gör prediktioner på X_curr"""
         
-    veckans_rader = initiera_veckans_rader(X_curr, y_curr, len(modeller))
+    stack_data = first_learn_modeller(modeller, X, y, X_meta, y_meta) # Learn modeller part och skapa stack_data
+    meta_modeller = learn_meta_models(meta_modeller, stack_data)      # Learn meta_modeller på stack_data
+    modeller  = final_learn_modeller(modeller, X, y, X_meta, y_meta)  # Learn modeller på allt utom X_curr, y_curr
     
-
-    params = {"depth": 2, "l2_leaf_reg": 3, "iterations": 500, "learning_rate": 0.008}
-        
-    # learn and predict all models    
-    for enum, model in enumerate(modeller):
-        the_params = params.copy()
-        save=True
-                
-        model.learn(X, y, X_test_=X_test, y_test=y_test, save=save, params=the_params)
-        modeller[enum] = model
-        
-        # print('X_shape', X.shape)
-        # print('X_curr.shape', X_curr.shape, 'X_test.shape', X_test.shape)
-        
-        veckans_rader[enum] = predict_curr_omgang(model, X_curr, y_curr, veckans_rader[enum])
-
-        
+    curr_stack = pd.DataFrame()
+    curr_stack['y'] = y_curr
+    for model in modeller:
+        curr_stack = skapa_stack_data(model, X_meta, curr_stack)
+        for key, values in meta_modeller.items():
+            meta_model = values['model']
+            
+            PREDICTORS = curr_stack.drop('y', axis=1)
+            curr_stack[key] = meta_model.predict_proba(curr_stack[PREDICTORS])[:,1]
+            
+            
+    veckans_rader = predict_curr_omgang(modeller, meta_modeller, X_curr, y_curr, veckans_rader)    
+    
     return veckans_rader            
 
-def backtest(df, df_resultat, modeller, predictors, datumar, gap=0, proba_val=0.6, start_ix=220, step=1):    
+def backtest(df, df_resultat, modeller, meta_modeller, datumar, gap=0, proba_val=0.6, base_ix=100, meta_ix=150, cv=False, step=1):    
     """ Backtesting anpassad för travets omgångar, dvs datum istf dagar"""
     
+    assert base_ix > meta_ix, f'base_ix ({base_ix}) måste vara större än meta_ix ({meta_ix})'
     placeholder0 = st.empty()
     placeholder1 = st.empty()
     placeholder2 = st.empty()
@@ -439,27 +557,20 @@ def backtest(df, df_resultat, modeller, predictors, datumar, gap=0, proba_val=0.
 
     df_utdelning = pd.read_csv('utdelning.csv')
 
-    for curr_datum_ix in range(start_ix, len(datumar), step):
+    for curr_datum_ix in range(base_ix, len(datumar), step):
         datum = datumar[curr_datum_ix]
         placeholder0.empty()
         placeholder0.info(f'Aktuell datum: {datum} {"        "} \nant_omgångar spelade: {curr_datum_ix}')
 
-        X, y, X_test, y_test, X_curr, y_curr = skapa_data_för_datum(df, datum)
-        if X.empty or X_test.empty or X_curr.empty:
+        X, y, X_meta, y_meta, X_curr, y_curr = skapa_data_för_datum(df, datum)
+        if X.empty or X_meta.empty or X_curr.empty:
             break        
             
         print(f'learn fram till {datum}')
-        veckans_rader = learn_and_predict(modeller, X, y, X_test, y_test, X_curr, y_curr)
+        veckans_rader = learn_all_and_predict(modeller, X, y, X_meta, y_meta, X_curr, y_curr)
         
         #### speciellt for stacking ####
-        # ------------- Predict senare datum och skapa en stack ------------------
-        # ------------- learn meta-modeller på stacken från predict ovan ---------
-        # ------------- skapa en stack av den aktuella omgången ----------------
-        # ------------- skapa predict med meta-modellerna ----------------------
-        # ------ inkludera predict i veckans_rad för varje meta-modell ---------
-        # ------------- ta fram rad för aktuell omgång med meta-predicterna ----
-        # ------------- Använd spik- och kelly-strategi ------------------------
-        #### speciellt for stacking ####
+        assert cv==False, 'cv==True not implemented'
         
         spik_strategier = ['2b', '2b', None, '2b', None]
         kelly_strategier= [None, None, 1, 1, None]
@@ -468,7 +579,7 @@ def backtest(df, df_resultat, modeller, predictors, datumar, gap=0, proba_val=0.
         femmor, sexor, sjuor, utdelning, kostnad, vinst = [],[],[],[],[],[]     
         last_row = df_resultat.iloc[-1]
         for enum, veckans_rad in enumerate(veckans_rader):
-            veckans_rad, cost = ta_fram_rad(veckans_rad, spik_strategier[enum], kelly_strategier[enum], min_avst=0.178)
+            veckans_rad, cost = ta_fram_meta_rad(veckans_rad, meta_modeller, spik_strategier[enum], kelly_strategier[enum], min_avst=0.178)
             kostnad.append(cost)
             sju, sex, fem, utd = rätta_rad(veckans_rad, datum, df_utdelning)
             sjuor.append(int(sju)); sexor.append(int(sex)); femmor.append(int(fem)); utdelning.append(int(utd))
@@ -503,23 +614,22 @@ def backtest(df, df_resultat, modeller, predictors, datumar, gap=0, proba_val=0.
     return df_resultat
 
 
-def kör(df, modeller):
-    # df_utdelning = pd.read_csv('utdelning.csv')
-    start_ix = 100  # antal omgångar som vi startar från i backtesting
+def kör(df, modeller, meta_modeller, cv=False):
+    
+    base_ix = 100  # antal omgångar som vi startar bas-modellerna från i backtesting
+    meta_ix = 150  # antal omgångar som vi startar meta-modellerna från i backtesting
 
     ##################################################################################
-    # Bestäm i förväg vilka predictors som varje meta-model skall använda            #
+    # Bestäm i förväg vilka predictors som varje meta-model skall använda?           #
     # Bestäm också spik-strategi och kelly-strategi för varje meta-model             #
     # Kanske en dict är bra?                                                         #
     ##################################################################################
 
-    datumar, df_resultat = starta_upp(df, start_ix)
-    predictors = []
-    
+    datumar, df_resultat = starta_upp(df, base_ix)    
 
     # backtesting
-    df_resultat = backtest(df, df_resultat, modeller,
-                             predictors, datumar, gap=0, proba_val=0.6, start_ix=start_ix, step=1)
+    df_resultat = backtest(df, df_resultat, modeller, meta_modeller,
+                             datumar, gap=0, proba_val=0.6, base_ix=base_ix, meta_ix=meta_ix, cv=cv,step=1)
 
 
     
@@ -565,10 +675,35 @@ def main():
     test4 = tp.Typ('test4', True, True,  False,   0,     False,       0,    False,   True,  False, pref='')
 
     modeller=[test1, test2, test3, test4]
+    
+    ##### RandomForestClassifier
+    with open(pref+'optimera/params_rf.json', 'r') as f:
+        params = json.load(f)
+        rf_params=params['params']
+    rf_model = RandomForestClassifier(**rf_params, n_jobs=6, random_state=2022)
+    
+    ##### RidgeClassifier
+    with open(pref+'optimera/params_ridge.json', 'r') as f:
+        ridge_params = json.load(f)['params']
+        # st.write(params)
+    ridge_model = RidgeClassifier(**ridge_params,random_state=2022)
+    
+    ##### KNN classifier
+    with open(pref+'optimera/params_knn_meta.json', 'r') as f:
+        knn_params = json.load(f)['params']
+    KNN_model = KNeighborsClassifier(**knn_params, n_jobs=6)
+    
+    meta_modeller = {'rf'   :{'model':rf_model, 'params':rf_params},
+                     'ridge':{'model':ridge_model, 'params':ridge_params},
+                     'knn'  :{'model':KNN_model, 'params':knn_params}
+                     }
+    
 
     if st.button('kör'):
-    
-        df_resultaat = kör(df, modeller)
+        if st.button('med cv'):
+            st.warning(f'df_resultat = kör(df, modeller, cv=True)  är inte klar!')
+        else:
+            df_resultat = kör(df, modeller, meta_modeller, cv=False)
 
 
 if __name__ == "__main__":

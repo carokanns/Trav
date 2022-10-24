@@ -146,13 +146,13 @@ def kelly(proba, streck, odds):  # proba = prob winning, streck i % = streck
 # TimeSeriesSplit learning models
 def TimeSeries_learning(df_ny_, typer, n_splits=5,meta_fraction=None, save=True, learn_models=True):
     """
-    Skapar en stack av {1-meta_fraction} av X från alla typer. Används som input till meta_model.
+    Skapar en stack med {1 - meta_fraction} av X från alla typer. Används som input till meta_model.
         - learn_models=True betyder att vi både gör en learning och skapar en stack
-        - learn_models=False betyder att vi bara skapar en stack och då har save ingen funktion
+        - learn_models=False betyder att vi bara skapar en stack och då har param save ingen funktion
     """
     df_all = pd.read_csv(pref+'all_data.csv')
         
-    if df_ny_ is not None:
+    if df_ny_ is not None:  # Har vi en ny omgång?
         df_ny = df_ny_.copy()
         df_all = concat_data(df_all.copy(), df_ny, save=True)
     
