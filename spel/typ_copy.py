@@ -184,7 +184,7 @@ class Typ():
             #read params from file
             with open(self.pref+'optimera/params_'+self.name+'.json', 'rb') as f:
                 params = json.load(f)
-                print(params)
+                # print(params)
                 params = params['params']
 
         iterations = params['iterations'] if 'iterations' in params else iterations
@@ -236,12 +236,12 @@ class Typ():
             print('drop streck')
             X.drop('streck', axis=1, inplace=True)
 
-        print('Före prepare for catb - model', self.name,  'columns=:')
-        print('X.columns',list(X.columns))
-        print('feature names', list(model.feature_names_))
+        # print('Före prepare for catb - model', self.name,  'columns=:')
+        # print('X.columns',list(X.columns))
+        # print('feature names', list(model.feature_names_))
         
         X, cat_features = prepare_for_catboost(X, model.feature_names_)
-        print('Efter prepare for catb - model', self.name)
+        # print('Efter prepare for catb - model', self.name)
         # all features in model
         X = remove_features(X, remove_mer=['datum', 'avd'])
         
