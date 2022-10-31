@@ -1,6 +1,7 @@
 import pandas as pd
 import numpy as np
 import pickle
+
 import json
 from catboost import CatBoostClassifier, Pool
 
@@ -112,6 +113,7 @@ class Typ():
     def load_model(self):
         with open(self.pref+'modeller/'+self.name+'.model', 'rb') as f:
             model = pickle.load(f)
+            
         return model
 
     def save_model(self, model):

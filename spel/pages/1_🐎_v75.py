@@ -162,7 +162,7 @@ typ9 = tp.Typ('typ9', True,       True, True,      2,          True,           2
 
 typer = [typ6, typ1, typ9]  # load a file with pickl
 
-with open('modeller\\meta_rf_model.model', 'rb') as f:
+with open('modeller\\meta_rf.model', 'rb') as f:
     meta_model = pickle.load(f)
 
 # with open('modeller\\meta_ridge_model.model', 'rb') as f:

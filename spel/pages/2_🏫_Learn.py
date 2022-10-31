@@ -143,6 +143,8 @@ def kelly(proba, streck, odds):  # proba = prob winning, streck i % = streck
     o[o > 40] = 1
     return (o*proba - (1-proba))/o
 
+
+
 # TimeSeriesSplit learning models
 def TimeSeries_learning(df_ny_, typer, n_splits=5,meta_fraction=None, save=True, learn_models=True):
     """
