@@ -90,6 +90,8 @@ class Typ():
     def __init__(self, name, ant_hästar, proba, kelly, motst_ant, motst_diff,  ant_favoriter, only_clear, streck, test=False, pref=''):
         assert (motst_diff == False and motst_ant == 0) or (motst_ant > 0)
         assert (ant_favoriter == 0 and only_clear == False) or (ant_favoriter > 0)
+        assert kelly == False or kelly == None, 'kelly skall inte användas mer'
+        
         self.name = name                # string - används för filnamn mm
 
         # extra features att inkludera 
@@ -102,7 +104,7 @@ class Typ():
     
         # urval av rader
         self.proba = proba              # bool - för prioritering vid urval av rader
-        self.kelly = kelly              # bool - för prioritering vid urval av rader
+        # self.kelly = kelly              # bool - för prioritering vid urval av rader
         self.ant_favoriter = ant_favoriter # int  - för hur många favoriter (avd där endast en häst spelas) som ska användas
         self.only_clear = only_clear       # bool - för att bara avvända klara favoriter
         
@@ -121,6 +123,8 @@ class Typ():
             self.streck_avst = False
             self.hx_samma_bana = False
             self.hx_sammam_kusk = False    
+            
+        print('Gör denna till produktion')    
 
     def load_model(self):
         with open(self.pref+'modeller/'+self.name+'.model', 'rb') as f:
