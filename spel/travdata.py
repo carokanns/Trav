@@ -24,7 +24,7 @@ class v75():
         self.work_df = self.work_df[~self.work_df.datum.isin(saknas)]
     
     #################### Konkatenera in ny data ############################################
-    def concat(self, ny_df, save=True):
+    def concat(self, ny_df, update_work=True, save=True):
         """ efter web scraping kan ny data läggas till """
         features = list(self.df.columns)
         assert set(features) == set(list(ny_df.columns)), 'Features in ny_df is not the same as in self.df'
@@ -33,12 +33,12 @@ class v75():
         self.df = pd.concat([self.df, ny_df], axis=0)
         self.df.drop_duplicates(subset=['datum', 'avd', 'häst'], inplace=True)
         self.df.reset_index(drop=True, inplace=True)
-        self.work_df = self.df.copy()
+        if update_work==True:
+            self.work_df = self.df.copy()
         
         if save==True:
             self.save_df()
-            
-        return self.df
+        
     
     #################### Load och save #####################################################
     def load_df(self):

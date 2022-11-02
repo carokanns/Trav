@@ -180,7 +180,7 @@ class Typ():
         print('Learning', self.name)
         X = X_.copy()
         X_test=None
-        if X_test_:
+        if X_test_ is not None:
             X_test = X_test_.copy()
             
         assert 'streck' in list(X_.columns), 'streck saknas i learn X'
