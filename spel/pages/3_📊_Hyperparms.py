@@ -8,6 +8,7 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 
 from sklearn.ensemble import RandomForestClassifier
+from sklearn.ensemble import ExtraTreesClassifier
 from catboost import CatBoostClassifier, Pool
 from sklearn.linear_model import RidgeClassifier
 from sklearn.linear_model import Lasso
@@ -194,6 +195,8 @@ def gridsearch_meta(v75, meta_name, params, folds=5,randomsearch=True, save=Fals
         meta = Lasso(random_state=2022)
     elif meta_name == 'rf':
         meta = RandomForestClassifier(n_jobs=-1,random_state=2022)  
+    elif meta_name == 'et':
+        meta = ExtraTreesClassifier(n_jobs=-1,random_state=2022)  
     else:   
         assert False, f'{meta_name} is not a valid meta-model'
             

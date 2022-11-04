@@ -241,8 +241,8 @@ class Typ():
             X.drop('streck', axis=1, inplace=True)
 
         # print('Före prepare for catb - model', self.name,  'columns=:')
-        # print('X.columns',list(X.columns))
-        # print('feature names', list(model.feature_names_))
+        # print('X.columns in predict',list(X.columns))
+        # print('feature names in predict', list(model.feature_names_))
         
         X, cat_features = prepare_for_catboost(X, model.feature_names_)
         # print('Efter prepare for catb - model', self.name)
