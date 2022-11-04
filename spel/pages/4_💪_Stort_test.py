@@ -15,6 +15,7 @@ import time
 from sklearn.neighbors import KNeighborsClassifier
 from sklearn.linear_model import RidgeClassifier
 from sklearn.ensemble import RandomForestClassifier
+from sklearn.ensemble import ExtraTreesClassifier
 pref = ''
 sys.path.append(
     'C:\\Users\\peter\\Documents\\MyProjects\\PyProj\\Trav\\spel\\modeller\\')
@@ -341,7 +342,7 @@ def plocka_en_efter_en(veckans_rad, spikad_avd, kelly_strategi, max_cost=300):
     return veckans_rad, cost
 
 
-def ta_fram_rad(veckans_rad_, spik_strategi, kelly_strategi, max_cost=300, min_avst=0.09):
+def ta_fram_rad(veckans_rad_, spik_strategi, kelly_strategi, max_cost=300, min_avst=0.10):
     """ Denna funktion tar fram en rad för typ-modeller (ej meta-modell)
     df nnehåller _en omgång_
     _spik_strategi_: None - inget, '1a' - forcera 1 spik, '2a' - forcera 2 spikar, '1b' - 1 spik endast om klar favorit, '2b' - spikar för endast klara favoriter 
@@ -358,8 +359,7 @@ def ta_fram_rad(veckans_rad_, spik_strategi, kelly_strategi, max_cost=300, min_a
     # b) leta 1-2 spikar om så begärs - markera valda i df
     spikad_avd = []
     if spik_strategi:
-        veckans_rad, spikad_avd = hitta_spikar(
-            veckans_rad, spikad_avd, spik_strategi, min_avst)
+        veckans_rad, spikad_avd = hitta_spikar(veckans_rad, spikad_avd, spik_strategi, min_avst)
 
     # c) sortera upp i proba-ordning. Om kelly skapa en sortering efter kelly-ordning
     veckans_rad = veckans_rad.sort_values(by=['proba'], ascending=False)
@@ -370,11 +370,12 @@ def ta_fram_rad(veckans_rad_, spik_strategi, kelly_strategi, max_cost=300, min_a
     return plocka_en_efter_en(veckans_rad, spikad_avd, kelly_strategi, max_cost)
 
 
-def ta_fram_meta_rad(veckans_rad_, meta_modeller, spik_strategi, kelly_strategi, max_cost=300, min_avst=0.09):
+def ta_fram_meta_rad(veckans_rad_, meta_modeller, spik_strategi, kelly_strategi, max_cost=300, min_avst=0.10, mean='geometric'):
     """ Denna funktion tar fram en rad för meta-modellerna via medelvärdet på alla meta-modeller
     veckans_rad innehåller _en omgång_
     _spik_strategi_: None - inget, '1a' - forcera 1 spik, '2a' - forcera 2 spikar, '1b' - 1 spik endast om klar favorit, '2b' - 2 spikar för endast klara favoriter 
-    _kelly_strategi_: None - ingen kelly, 1 - kelly varannan gång om positiv
+    _kelly_strategi_: None - ingen kelly, 1 - kelly varannan gång om positiv  
+    _mean_: 'arithmetic or geometric formula for mean
     """
     veckans_rad = veckans_rad_.copy()
     # veckans_rad['kelly_val'] = False
@@ -383,27 +384,36 @@ def ta_fram_meta_rad(veckans_rad_, meta_modeller, spik_strategi, kelly_strategi,
 
     veckans_rad['proba'] = 0
     # veckans_rad['kelly'] = 0
-
+    
     ### Här tar vi medelvärdet av predict_proba från meta-modellerna ######
     for enum, key in enumerate(meta_modeller.keys()):
-        veckans_rad['proba'] += veckans_rad[key]
-        # veckans_rad['kelly'] += veckans_rad['kelly'+enum]
-
-    veckans_rad['proba'] /= len(meta_modeller)
-    # veckans_rad['kelly'] /= len(meta_modeller)
+        if mean=='arithmetic':
+            veckans_rad['proba'] += veckans_rad[key]
+            # veckans_rad['kelly'] += veckans_rad['kelly'+enum]
+        else:
+            if enum==0:
+                veckans_rad['proba'] = veckans_rad[key].copy()   
+                continue 
+            veckans_rad['proba'] *= veckans_rad[key]
+            # veckans_rad['kelly'] *= veckans_rad['kelly'+enum]
+                  
+    if mean=='arithmetic':
+        veckans_rad['proba'] /= len(meta_modeller)
+        # veckans_rad['kelly'] /= len(meta_modeller)
+    else: # geometric 
+        veckans_rad['proba'] = veckans_rad['proba'] ** (1/len(meta_modeller) )
+        # veckans_rad['kelly'] = veckans_rad['kelly'] ** (1/len(meta_modeller))
     #################################################################
 
     veckans_rad = varje_avd_minst_en_häst(veckans_rad)
 
-    # b) leta 1-2 spikar om så begärs - markera valda i df
     spikad_avd = []
     if spik_strategi:
-        veckans_rad, spikad_avd = hitta_spikar(
-            veckans_rad, spikad_avd, spik_strategi, min_avst)
+        veckans_rad, spikad_avd = hitta_spikar(veckans_rad, spikad_avd, spik_strategi, min_avst)
     else:
         print('ingen spik-strategi')
 
-    # c) sortera upp i proba-ordning. Om kelly skapa en sortering efter kelly-ordning
+    # sortera upp i proba-ordning. Om kelly skapa en sortering efter kelly-ordning
     veckans_rad = veckans_rad.sort_values(by=['proba'], ascending=False)
     veckans_rad = veckans_rad.reset_index(drop=True)
 
@@ -696,7 +706,7 @@ def backtest(df, df_resultat, modeller, meta_modeller, datumar, gap=0, proba_val
         curr_datum = datumar[curr_datum_ix]
         placeholder0.empty()
         placeholder0.info(
-            f'Aktuell datum: {curr_datum} {"        "} \nant_omgångar spelade: {curr_datum_ix}')
+            f'Aktuell datum: {curr_datum} {"        "} \nant_omgångar inkluderade: {curr_datum_ix}')
 
         X_train, y_train, X_meta, y_meta, X_curr, y_curr = skapa_data_för_datum(
             df, curr_datum_ix)
@@ -716,8 +726,7 @@ def backtest(df, df_resultat, modeller, meta_modeller, datumar, gap=0, proba_val
         femmor, sexor, sjuor, utdelning, kostnad, vinst = [], [], [], [], [], []
         last_row = df_resultat.iloc[-1]
         for enum, strategi in enumerate(spik_strategier):
-            veckans_rad, cost = ta_fram_meta_rad(
-                veckans_rad, meta_modeller, spik_strategier[enum], kelly_strategier[enum], min_avst=0.09)
+            veckans_rad, cost = ta_fram_meta_rad(veckans_rad, meta_modeller, spik_strategier[enum], kelly_strategier[enum], min_avst=0.10)
             kostnad.append(cost)
             veckans_rad.to_csv('veckans_rad'+str(enum)+'.csv', index=False)
             sju, sex, fem, utd = rätta_rad(
@@ -816,14 +825,10 @@ def main():
 
     # -------------- skapa test-modeller
     #               name,   #häst     proba,    kelly,  #motst,  motst_diff, #fav, only_cl, streck, test,  pref
-    test1 = tp.Typ('test1',  True,    True,     False,       0,
-                   False,      0,   False,    True,  True, pref=pref)
-    test2 = tp.Typ('test2',  True,    True,     False,       0,
-                   False,      0,   False,    False, True, pref=pref)
-    test3 = tp.Typ('test3',  True,    True,     False,       0,
-                   False,      0,   False,    False, True, pref=pref)
-    test4 = tp.Typ('test4',  True,    True,     False,       0,
-                   False,      0,   False,    True,  False, pref=pref)
+    test1 = tp.Typ('test1',  True,    True,     False,       0,   False,      0,   False,    True,  True,  pref=pref)
+    test2 = tp.Typ('test2',  True,    True,     False,       0,   False,      0,   False,    False, True,  pref=pref)
+    test3 = tp.Typ('test3',  True,    True,     False,       0,   False,      0,   False,    False, False, pref=pref)
+    test4 = tp.Typ('test4',  True,    True,     False,       0,   False,      0,   False,    True,  False, pref=pref)
 
     modeller = [test1, test2, test3, test4]
 
@@ -844,9 +849,16 @@ def main():
         knn_params = json.load(f)['params']
     KNN_model = KNeighborsClassifier(**knn_params, n_jobs=6)
 
+    # ExtraTreesClassifier
+    with open('optimera/params_meta4_et.json', 'r') as f:
+        params = json.load(f)
+        et_params = params['params']
+    et_model = ExtraTreesClassifier(**et_params, n_jobs=6, random_state=2022)
+
     meta_modeller = {'meta1_rf': {'model': rf_model, 'params': rf_params},
                      'meta2_ridge': {'model': ridge_model, 'params': ridge_params},
-                     'meta3_knn': {'model': KNN_model, 'params': knn_params}
+                     'meta3_knn': {'model': KNN_model, 'params': knn_params},
+                     'meta4_et': {'model': et_model, 'params': et_params}
                      }
 
     if st.button('kör'):
