@@ -18,17 +18,40 @@
 			{
 				"type": "aws-sam",
 				"request": "direct-invoke",
-				"name": "",
+				"name": "pages:1_🐎_v75.build_stack_df (python3.9)",
 				"invokeTarget": {
 					"target": "code",
-					"projectRoot": "${workspaceFolder}/spel/",
-					"lambdaHandler": ""
+					"projectRoot": "${workspaceFolder}/spel/pages",
+					"lambdaHandler": "1_🐎_v75.build_stack_df"
 				},
 				"lambda": {
 					"runtime": "python3.9",
 					"payload": {},
 					"environmentVariables": {}
 				}
+			},
+			{
+				"name": "Python: Current File",
+				"type": "python",
+				"request": "launch",
+				"program": "${file}",
+				"console": "integratedTerminal",
+				"justMyCode": true
+			},
+			{
+				"name": "Python: Current File",
+				"type": "python",
+				"request": "launch",
+				"program": "${file}",
+				"console": "integratedTerminal",
+				"justMyCode": true
+			},
+			{
+				"name": "Python: Module",
+				"type": "python",
+				"request": "launch",
+				"module": "enter-your-module-name",
+				"justMyCode": true
 			}
 		]
 	}

@@ -87,26 +87,26 @@ def lägg_in_diff_motståndare(X_, ant_motståndare):
     return X
 
 class Typ():
-    def __init__(self, name, ant_hästar, proba, kelly, motst_ant, motst_diff,  ant_favoriter, only_clear, streck, test=False, pref=''):
+    #                  name,   #häst      #motst,  motst_diff, streck, test,        pref
+    def __init__(self, name, ant_hästar, motst_ant, motst_diff, streck, test=False, pref=''):
         assert (motst_diff == False and motst_ant == 0) or (motst_ant > 0)
-        assert (ant_favoriter == 0 and only_clear == False) or (ant_favoriter > 0)
-        assert kelly == False or kelly == None, 'kelly skall inte användas mer'
+        # assert (ant_favoriter == 0 and only_clear == False) or (ant_favoriter > 0)
+        # assert kelly == False or kelly == None, 'kelly skall inte användas mer'
         
         self.name = name                # string - används för filnamn mm
 
         # extra features att inkludera 
-        self.ant_hästar = ant_hästar    # int  - skapa kol med antal hästar per avdelning
-        
+        self.ant_hästar = ant_hästar    # bool - skapa kol med antal hästar per avdelning
         self.motst_ant = motst_ant      # int  - inkludera n features med bästa motståndare (streck)
         self.motst_diff = motst_diff    # bool - ovanstående med diff (streck) istf fasta värden
         self.streck = streck            # bool - inkludera streck som feature
-        print('streck:', self.streck,'i init')
+        print('streck:', self.streck,'i init för', self.name)
     
         # urval av rader
-        self.proba = proba              # bool - för prioritering vid urval av rader
+        # self.proba = proba              # bool - för prioritering vid urval av rader
         # self.kelly = kelly              # bool - för prioritering vid urval av rader
-        self.ant_favoriter = ant_favoriter # int  - för hur många favoriter (avd där endast en häst spelas) som ska användas
-        self.only_clear = only_clear       # bool - för att bara avvända klara favoriter
+        # self.ant_favoriter = ant_favoriter # int  - för hur många favoriter (avd där endast en häst spelas) som ska användas
+        # self.only_clear = only_clear       # bool - för att bara avvända klara favoriter
         
         self.pref = pref                # string - prefix för map/filnamn
         
@@ -117,15 +117,17 @@ class Typ():
             self.streck_avst = True         # bool - skapa kol med streck avstånd gentemot motståndarna
             self.hx_samma_bana = True       # bool - skapa kol med hx.bana som bana
             self.hx_sammam_kusk = True      # bool - skapa kol med hx.kusk som kusk
+            print('Gör denna till produktion')
         else:
             self.rel_kr = False
             self.rel_rank = False
             self.streck_avst = False
             self.hx_samma_bana = False
             self.hx_sammam_kusk = False    
-            
-        print('Gör denna till produktion')    
 
+    def get_name(self):
+        return self.name
+    
     def load_model(self):
         with open(self.pref+'modeller/'+self.name+'.model', 'rb') as f:
             print('Loading model:', self.name)
@@ -242,7 +244,7 @@ class Typ():
 
         # print('Före prepare for catb - model', self.name,  'columns=:')
         # print('X.columns in predict',list(X.columns))
-        # print('feature names in predict', list(model.feature_names_))
+        # print('features in predict ', list(model.feature_names_))
         
         X, cat_features = prepare_for_catboost(X, model.feature_names_)
         # print('Efter prepare for catb - model', self.name)
@@ -259,4 +261,7 @@ class Typ():
         # print(model.get_feature_importance(prettified=True)[:3])
 
         return model.predict_proba(X)[:, 1]
-# the difference between two lists
+    
+    # method that retruns all the self variables
+    def get_params(self):
+        return {k:v for k,v in self.__dict__.items() if k[0]!='_'}  

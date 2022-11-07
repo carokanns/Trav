@@ -101,12 +101,13 @@ class v75():
 
     
     def _target_encode(self, columns):
-        """ target encode """
+        """ target encode måste y i work_df """
         y = self.work_df['y']
-        enc = TargetEncoder(cols=columns, min_samples_leaf=20, smoothing=10).fit(self.work_df.drop('y',axis=1), self.work_df.y)
-        self.work_df = enc.transform(self.work_df.drop('y',axis=1))
+        encoder = TargetEncoder(cols=columns, min_samples_leaf=20, smoothing=10).fit(self.work_df.drop('y',axis=1), y)
+        
+        self.work_df = encoder.transform(self.work_df.drop('y',axis=1))
         self.work_df['y'] = y
-        return enc  
+        return encoder  
         
     #################### Features som inte används ##########################################
     def _remove_features(self, remove=['startnr', 'vodds', 'podds', 'bins', 'h1_dat',
@@ -121,7 +122,7 @@ class v75():
 
         return self.work_df
 
-    def förbered_data(self, missing_num=True, missing_cat=True, cardinality_list=[], target_encode_list=[], remove_mer=[]):
+    def förbered_data(self, missing_num=True, missing_cat=True, remove=True, cardinality_list=[], target_encode_list=[], encoder=None, remove_mer=[]):
         """ En komplett förberedelse innan ML
         Returns:
             self.work_df: Färdig df att användas för ML
@@ -144,11 +145,16 @@ class v75():
         for f in ['häst', 'bana', 'kusk', 'h1_kusk', 'h2_kusk', 'h3_kusk', 'h4_kusk', 'h5_kusk', 'h1_bana', 'h2_bana', 'h3_bana', 'h4_bana', 'h5_bana']:
             self.work_df.loc[:, f] = self.work_df[f].str.lower()
 
-        self._remove_features(remove_mer=remove_mer)
+        if remove:
+            self._remove_features(remove_mer=remove_mer)
         
-        self.work_df['y'] = (self.work_df.plac==1) * 1
-        self.work_df = self.work_df.drop(['plac'], axis=1)
-
+        if 'plac' in self.work_df.columns.to_list():    
+            print('plac finns i df')
+            self.work_df['y'] = (self.work_df.plac==1) * 1
+            self.work_df = self.work_df.drop(['plac'], axis=1)
+        else:
+            print('No plac in df')
+            
         if missing_cat:
             self._handle_missing_cat()
             
@@ -160,14 +166,16 @@ class v75():
                 assert col in self.work_df.columns, f'cardinality_list: {col} is not in work_df'
                 self._handle_high_cardinality(col)
                 
-        enc=None
+                
         if len(target_encode_list)>0 :
             for col in target_encode_list:
                 assert col in self.work_df.columns, f'target_encode_list: {col} is not in work_df'
-            
-            enc=self._target_encode(target_encode_list)    
+            if encoder:
+                self.work_df = encoder.transform(self.work_df)
+            else:        
+                encoder=self._target_encode(target_encode_list, encoder)    
         
-        return self.work_df, enc
+        return self.work_df, encoder
     
     def train_test_split(self, train_size=0.8):
         """ Splits data into train and test sets (time dependent) based on train_size """

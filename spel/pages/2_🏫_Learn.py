@@ -49,12 +49,46 @@ st.sidebar.header("🏫 V75 Learning")
 #               name,   #häst     proba,    kelly,  #motst,  motst_diff, #fav, only_cl, streck, test,  pref
 test1 = tp.Typ('test1',  True,    True,     False,       0,   False,      0,   False,    True,  True, pref=pref)
 test2 = tp.Typ('test2',  True,    True,     False,       0,   False,      0,   False,    False, True, pref=pref)
-test3 = tp.Typ('test3',  True,    True,     False,       0,   False,      0,   False,    False, True, pref=pref)
+test3 = tp.Typ('test3',  True,    True,     False,       0,   False,      0,   False,    False, False, pref=pref)
 test4 = tp.Typ('test4',  True,    True,     False,       0,   False,      0,   False,    True,  False, pref=pref)
 
 modeller = [test1, test2, test3, test4]
 
 ###################################################################################
+# RandomForestClassifier
+with open('optimera/params_meta_rf.json', 'r') as f:
+    params = json.load(f)
+    rf_params = params['params']
+rf_model = RandomForestClassifier(**rf_params, n_jobs=6, random_state=2022)
+
+# RidgeClassifier
+with open('optimera/params_meta_ridge.json', 'r') as f:
+    ridge_params = json.load(f)['params']
+    # st.write(params)
+ridge_model = RidgeClassifier(**ridge_params, random_state=2022)
+
+# KNN classifier
+with open('optimera/params_meta_knn.json', 'r') as f:
+    knn_params = json.load(f)['params']
+KNN_model = KNeighborsClassifier(**knn_params, n_jobs=6)
+
+# ExtraTreesClassifier
+with open('optimera/params_meta_et.json', 'r') as f:
+    params = json.load(f)
+    et_params = params['params']
+et_model = ExtraTreesClassifier(**et_params, n_jobs=6, random_state=2022)
+
+with open(pref+'optimera/params_meta_et.json', 'r') as f:
+        params = json.load(f)
+        et_params = params['params']
+
+et_model = ExtraTreesClassifier(**params, n_jobs=6, random_state=2022)
+    
+meta_modeller = {'meta_et': {'model': et_model, 'params': et_params},
+                 'meta_ridge': {'model': ridge_model, 'params': ridge_params},
+                 'meta_knn': {'model': KNN_model, 'params': knn_params},
+                 #'meta_rf': {'model': rf_model, 'params': rf_params},         # testa et istället
+                }
 
 #%%
 ################################################
@@ -213,7 +247,6 @@ def learn_meta_et_model(X, y, save=True):
         params = json.load(f)
         params = params['params']
 
-    params = {'n_estimators': 10, 'max_depth': None, 'min_samples_leaf': 5}
     et_model = ExtraTreesClassifier(**params, n_jobs=6, random_state=2022)
     et_model.fit(X, y)
 
@@ -224,25 +257,25 @@ def learn_meta_et_model(X, y, save=True):
     return et_model
 
 
-def prepare_stack_data(stack_data_):
+def prepare_stack_data(stack_data_, y, ENC=None):
     """Hantera missing values, NaN, etc för meta-modellerna"""
-
-    assert 'y' in stack_data_.columns, 'y is missing in stack_data'
+    assert 'y' not in stack_data_.columns, "y shouldn't be in stack_data"
+    
     stack_data = stack_data_.copy()
-    stack_data.y = stack_data.y.astype(int)
-
-    """ rensa bort features som inte ska användas """
-    # stack_data.drop(['startnr', 'vodds', 'podds', 'bins', 'h1_dat',
-    #             'h2_dat', 'h3_dat', 'h4_dat', 'h5_dat'], axis=1, inplace=True)
+    
+    if ENC is None:
+        # a new encode needs y 
+        assert y is not None, "y is needed for new encoding"
+    else:
+        # use the existing encoder - y is not used 
+        assert y is None, "y should be None for existing encoding"
 
     """ Fyll i saknade numeriska värden med 0 """
-    numericals = stack_data.drop('y', axis=1).select_dtypes(
-        exclude=['object']).columns
+    numericals = stack_data.select_dtypes(exclude=['object']).columns
     stack_data[numericals] = stack_data[numericals].fillna(0)
 
     """ Fyll i saknade kategoriska värden med 'missing' """
-    categoricals = stack_data.drop(
-        'y', axis=1).select_dtypes(include=['object']).columns
+    categoricals = stack_data.select_dtypes(include=['object']).columns
     stack_data[categoricals] = stack_data[categoricals].fillna('missing')
 
     # """ Hantera high cardinality """
@@ -251,26 +284,30 @@ def prepare_stack_data(stack_data_):
     """ Target encoding"""
     target_encode_list = ['bana', 'häst', 'kusk', 'kön', 'h1_kusk', 'h1_bana', 'h2_kusk', 'h2_bana',
                           'h3_kusk', 'h3_bana', 'h4_kusk', 'h4_bana', 'h5_kusk', 'h5_bana']
+    
+    if ENC==None:
+        ENC = TargetEncoder(cols=target_encode_list,
+                            min_samples_leaf=20, smoothing=10).fit(stack_data, y)
+         
+    stack_data = ENC.transform(stack_data)
 
-    y = stack_data['y']
-    enc = TargetEncoder(cols=target_encode_list,
-                        min_samples_leaf=20, smoothing=10).fit(stack_data, y)
-    stack_data = enc.transform(stack_data)
-
-    return stack_data, enc
+    return stack_data, ENC
 
 def learn_meta_models(stack_data, meta_features, save=True):
     """ all meta models will be fitted on X and y """  
     
-    stack_data, ENC = prepare_stack_data(stack_data)
-    stack_data.to_csv(pref+'prepared_stack_data.csv', index=False)   # for testing purposes
-    print(meta_features)
-    Ridge_Classifier = learn_meta_ridge_model(stack_data[meta_features], stack_data.y, save=save)
-    RandomForest_Classifier = learn_meta_rf_model(stack_data[meta_features], stack_data.y, save=save)
-    Knn_model = learn_meta_knn_model(stack_data[meta_features], stack_data.y, save=save)
-    ExtraTrees_Classifier = learn_meta_et_model(stack_data[meta_features], stack_data.y, save=save)
+    y = stack_data.pop('y')
+    stack_data, ENC = prepare_stack_data(stack_data[meta_features], y)
 
-    return Ridge_Classifier, RandomForest_Classifier, Knn_model, ExtraTrees_Classifier, ENC
+    with open(pref+'modeller/meta_encoder.pkl', 'wb') as f:
+        pickle.dump(ENC, f)
+        
+    Ridge_Classifier = learn_meta_ridge_model(stack_data[meta_features], y, save=save)
+    RandomForest_Classifier = learn_meta_rf_model(stack_data[meta_features], y, save=save)
+    Knn_model = learn_meta_knn_model(stack_data[meta_features], y, save=save)
+    ExtraTrees_Classifier = learn_meta_et_model(stack_data[meta_features], y, save=save)
+
+    return ENC
 
 #%%
 
@@ -363,8 +400,12 @@ def normal_learning(modeller, meta_modeller, X_train, y_train, X_meta, y_meta):
     # """ Learn meta_modeller på stack_data """
     meta_features = stack_data.drop(
         ['datum', 'avd', 'y'], axis=1).columns.to_list()
-    _, _, _, _, enc = learn_meta_models(stack_data, meta_features)
+    ENC = learn_meta_models(stack_data, meta_features)
 
+    # save encoder
+    with open(pref+'modeller/meta_encoder.pkl', 'wb') as f:
+        pickle.dump(ENC, f)
+        
     return stack_data[meta_features + ['y']]
 
 
@@ -450,7 +491,7 @@ def normal_learning(modeller, meta_modeller, X_train, y_train, X_meta, y_meta):
 #     #         Step 2:       Learn the meta models                                 #
 #     ###############################################################################
 #     st.write('Learning meta models')
-#     _, _, _, _ = learn_meta_models(stacked_data[meta_features], stacked_data['y'])
+#     ENC = learn_meta_models(stacked_data[meta_features], stacked_data['y'])
 
 
 #     ###############################################################################
@@ -585,7 +626,11 @@ def TimeSeries_learning(df_ny_, modeller, n_splits=5, val_fraction=0.25, save=Tr
     ###############################################################################
     st.write('Learning meta models')
     # print('Learning meta models')
-    _, _, _, _, enc = learn_meta_models(stacked_data, meta_features)
+    ENC = learn_meta_models(stacked_data, meta_features)
+   
+    #save encoder
+    with open(pref+'modeller/meta_encoder.pkl', 'wb') as f:
+        pickle.dump(ENC, f)
 
     ###############################################################################
     #         Step 3: learn models on all of X - what iteration to use?           #
@@ -615,7 +660,7 @@ def TimeSeries_learning(df_ny_, modeller, n_splits=5, val_fraction=0.25, save=Tr
     my_bar2.progress(1.0)
     st.empty()
     
-    return stacked_data[meta_features + ['y']]
+    return stacked_data[meta_features]
 
 def skapa_stack_learning(X_, y,meta_features):
     # För validate
@@ -676,11 +721,16 @@ def predict_meta_mean(preds, type):   # type='geometric' or 'arithmetic'
 
 def predict_meta_models(stack_data, meta_features):
     preds = pd.DataFrame(columns=['rf', 'ridge', 'knn', 'meta'])
-    stack_data, ENC = prepare_stack_data(stack_data)
+    # load ENC
+    with open(pref+'modeller/meta_encoder.pkl', 'rb') as f:
+        ENC = pickle.load(f)
+        
+    stack_data, _ = prepare_stack_data(stack_data[meta_features], y=None, ENC=ENC)
     preds['rf'] = predict_meta_rf_model(stack_data[meta_features])[:, 1]
     preds['ridge'] = predict_meta_ridge_model(stack_data[meta_features])[:, 1]
     preds['knn'] = predict_meta_knn_model(stack_data[meta_features])[:, 1]
     preds['et']  = predict_meta_et_model(stack_data[meta_features])[:, 1]
+    
     preds['meta'] = predict_meta_mean(preds, type='geometric')
     
     return preds
@@ -786,7 +836,6 @@ def validate(drop=[],fraction=None):
     #                          Meta models                       #
     ##############################################################
     
-    stacked_val['y'] = y_val
     y_true = y_val.values
 
     y_preds = predict_meta_models(stacked_val, meta_features)
@@ -854,8 +903,9 @@ def final_learning(modeller, n_splits=5):
                             learn_models=True)
     
     # st.info('Step 2: Final learn meta model')
-    # _, _, _, _= learn_meta_models(stacked_data.drop(['y'], axis=1), stacked_data['y'])
+    # ENC = learn_meta_models(stacked_data.drop(['y'], axis=1), stacked_data['y'])
 
+    
     st.success('✔️ Final learning done')
  
 
