@@ -220,6 +220,7 @@ class Typ():
             assert X.columns.tolist() == X_test.columns.tolist(), 'X and X_test have different columns'
             eval_pool = Pool(X_test, y_test, cat_features=cat_features)
             cbc.fit(X,y,cat_features=cat_features,eval_set=eval_pool, use_best_model=True,early_stopping_rounds=50)
+        
             
         if verbose:
             print('best score', cbc.best_score_)

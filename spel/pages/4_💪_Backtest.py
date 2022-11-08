@@ -20,7 +20,7 @@ pref = ''
 sys.path.append(
     'C:\\Users\\peter\\Documents\\MyProjects\\PyProj\\Trav\\spel\\modeller\\')
 
-plt.style.use('ggplot')
+plt.style.use('fivethirtyeight')
 
 pd.set_option('display.max_colwidth', None)
 pd.set_option('display.width', 260)
@@ -197,10 +197,13 @@ def compute_total_insats(veckans_rad):
 def beräkna_utdelning(datum, sjuor, sexor, femmor, df_utdelning):
     datum = datum.strftime('%Y-%m-%d')
 
-    min_utdelning = df_utdelning.loc[df_utdelning.datum == datum, [
-        '7rätt', '6rätt', '5rätt']]
+    min_utdelning = df_utdelning.loc[df_utdelning.datum == datum, ['7rätt', '6rätt', '5rätt']]
+    
+    tot_utdelning = (min_utdelning['7rätt'] * sjuor + min_utdelning['6rätt'] * sexor + min_utdelning['5rätt'] * femmor).values[0]
 
-    return (min_utdelning['7rätt'] * sjuor + min_utdelning['6rätt'] * sexor + min_utdelning['5rätt'] * femmor).values[0]
+    print('utdelning', tot_utdelning)
+    
+    return tot_utdelning
 
 
 def varje_avd_minst_en_häst(veckans_rad):
@@ -292,63 +295,37 @@ def hitta_spikar(veckans_rad, spikad_avd, spik_strategi, min_avst):
     return veckans_rad, spikad_avd
 
 
-def plocka_en_efter_en(veckans_rad, spikad_avd, kelly_strategi, max_cost=300):
+def plocka_en_efter_en(veckans_rad, spikad_avd, max_cost=300):
     """_summary_
     Args:
         veckans_rad (_type_): df att fylla
         spikad_avd (_type_): lista med spikade avdelningar
-        (kelly_strategi (_type_): 1 välj med Kelly varannan gång, annars ingen Kelly) Borttaget
         max_cost (int, optional): Max kostnad. Defaults to 300.
-
     Returns:
         _type_: df med veckans rad samt kostnad
     """
     cost = 0.5  # 1 rad
     while cost < max_cost:
         # d) plocka en och en - först proba sedan ev positiv kelly markera som valda i df
-        curr_index = veckans_rad.query(
-            "välj==False and avd not in @spikad_avd").nlargest(1, 'proba').index
+        curr_index = veckans_rad.query("välj==False and avd not in @spikad_avd").nlargest(1, 'proba').index
         veckans_rad.loc[curr_index, 'välj'] = True
-        # e) avbryt vid 300:-
+        # e) avbryt vid max_cost
         cost = compute_total_insats(veckans_rad.query("välj==True"))
         if cost > max_cost:
             # ta tillbaks den sist spelade
             veckans_rad.loc[curr_index, 'välj'] = False
             break
 
-        if kelly_strategi == 1:
-            pass
-            # veckans_kelly = veckans_rad.query(
-            #     "välj==False and kelly > 0 and avd not in @spikad_avd ")
-            # veckans_kelly = veckans_kelly.sort_values(
-            #     by=['kelly'], ascending=False)
-            # try:
-            #     True
-            #     # print('kelly')
-            # except:
-            #     print('no kelly', veckans_kelly.shape)
-
-            # if veckans_kelly.iloc[0]['kelly'] > 0:
-            #     curr_index = veckans_kelly.iloc[0].name
-            #     veckans_rad.loc[curr_index, 'välj'] = True
-            #     veckans_rad.loc[curr_index, 'kelly_val'] = True
-            #     cost = compute_total_insats(veckans_rad.query("välj==True"))
-
-            # if cost > max_cost:
-            #     # ta tillbaks den sist spelade
-            #     veckans_rad.loc[curr_index, 'välj'] = False
-            #     break
     cost = compute_total_insats(veckans_rad.query("välj==True"))
 
     return veckans_rad, cost
 
 
 
-def ta_fram_meta_rad(veckans_rad_, meta_modeller, spik_strategi, kelly_strategi, max_cost=300, min_avst=0.10, mean='geometric'):
+def ta_fram_meta_rad(veckans_rad_, meta_modeller, spik_strategi, max_cost=1000, min_avst=0.07, mean='geometric'):
     """ Denna funktion tar fram en rad för meta-modellerna via medelvärdet på alla meta-modeller
     veckans_rad innehåller _en omgång_
     _spik_strategi_: None - inget, '1a' - forcera 1 spik, '2a' - forcera 2 spikar, '1b' - 1 spik endast om klar favorit, '2b' - 2 spikar för endast klara favoriter 
-    _kelly_strategi_: None - ingen kelly, 1 - kelly varannan gång om positiv  
     _mean_: 'arithmetic or geometric formula for mean
     """
     veckans_rad = veckans_rad_.copy()
@@ -369,14 +346,13 @@ def ta_fram_meta_rad(veckans_rad_, meta_modeller, spik_strategi, kelly_strategi,
                 veckans_rad['proba'] = veckans_rad[key].copy()   
                 continue 
             veckans_rad['proba'] *= veckans_rad[key]
-            # veckans_rad['kelly'] *= veckans_rad['kelly'+enum]
                   
     if mean=='arithmetic':
         veckans_rad['proba'] /= len(meta_modeller)
-        # veckans_rad['kelly'] /= len(meta_modeller)
+        
     else: # geometric 
         veckans_rad['proba'] = veckans_rad['proba'] ** (1/len(meta_modeller) )
-        # veckans_rad['kelly'] = veckans_rad['kelly'] ** (1/len(meta_modeller))
+
     #################################################################
 
     veckans_rad = varje_avd_minst_en_häst(veckans_rad)
@@ -393,7 +369,7 @@ def ta_fram_meta_rad(veckans_rad_, meta_modeller, spik_strategi, kelly_strategi,
 
     # plocka en efter en tills kostnaden är för stor
     # return veckans_rad, cost
-    return plocka_en_efter_en(veckans_rad, spikad_avd, kelly_strategi, max_cost)
+    return plocka_en_efter_en(veckans_rad, spikad_avd, max_cost)
 
 
 def rätta_rad(df, datum, df_utdelning):
@@ -479,11 +455,11 @@ def build_stack_data(modeller, X_meta, y_meta):
     data = X_meta.copy()
     for model in modeller:
         this_proba = model.predict(data)
-        # print(f'X_meta.shape = {X_meta.shape} this_proba.shape={this_proba.shape}')
         nr = model.name[3:]
+        print(nr,'data.shape', data.shape)
+        print(nr,'stack_data.shape', stack_data.shape)
         stack_data['proba'+nr] = this_proba
         # stack_data['kelly'+nr] = kelly(this_proba, X_meta[['streck']], None)
-        # print(f'stack_data.shape = {stack_data.shape}')
         
     return stack_data
 
@@ -518,8 +494,9 @@ def prepare_stack_data(stack_data_, y, ENC=None):
     if ENC == None:
         ENC = TargetEncoder(cols=target_encode_list, min_samples_leaf=20, smoothing=10).fit(stack_data, y)
 
+    # print('stack_data.shape = ', stack_data.shape)
     stack_data = ENC.transform(stack_data)
-
+    
     # stack_data[target_encode_list] = stack_data_encoded[target_encode_list]  # update with encoded values
     return stack_data, ENC
 
@@ -558,10 +535,12 @@ def learn_meta_models(meta_modeller, stack_data, save=True):
     
     with open(pref+'modeller/test_encoder.pkl', 'wb') as f:
             pickle.dump(ENC, f)
-            
+    
+    X_meta.drop(['streck'], axis=1, inplace=True)
+           
     y_meta = y
     X_meta.to_csv('X_meta_Learn.csv', index=False)
-    print(f'Learn meta {stack_data.datum.min()} - {stack_data.datum.max()}')
+    print(f'Learn meta - ej streck {stack_data.datum.min()} - {stack_data.datum.max()}')
     # print(X_meta.columns)
     for key, items in meta_modeller.items():
         meta_model = items['model']
@@ -624,8 +603,10 @@ def predict_curr_omgang(modeller, meta_modeller, X_curr, y_curr):
     veckans_rad, _ = prepare_stack_data(stack_data.drop(['datum','avd','y'],axis=1), None, ENC)
     temp = veckans_rad.copy()
     
+    temp.drop(['streck'], axis=1, inplace=True)    # ta bort streck från meta_features
+    
     for key, values in meta_modeller.items():
-        print(f'{key} predicts')
+        print(f'{key} predicts - ej streck')
         meta_model = values['model']
 
         if 'ridg' in key:
@@ -674,7 +655,7 @@ def backtest(df, df_resultat, modeller, meta_modeller, datumar, gap=0, proba_val
         curr_datum = datumar[curr_datum_ix]
         placeholder0.empty()
         placeholder0.info(
-            f'Aktuell datum: {curr_datum} {"        "} \nant_omgångar inkluderade: {curr_datum_ix}')
+            f'Aktuell datum: {curr_datum} {"        "} \nomgång: {curr_datum_ix}. Meta ej streck ')
 
         X_train, y_train, X_meta, y_meta, X_curr, y_curr = skapa_data_för_datum(
             df, curr_datum_ix)
@@ -691,13 +672,12 @@ def backtest(df, df_resultat, modeller, meta_modeller, datumar, gap=0, proba_val
         assert cv == False, 'cv==True not implemented'
 
         spik_strategier = ['1a', '1b', '2b', None]
-        kelly_strategier = [None, None,  1,    1]
 
         # ta fram rader och rättaa dem
         femmor, sexor, sjuor, utdelning, kostnad, vinst = [], [], [], [], [], []
         last_row = df_resultat.iloc[-1]
         for enum, strategi in enumerate(spik_strategier):
-            veckans_rad, cost = ta_fram_meta_rad(veckans_rad, meta_modeller, spik_strategier[enum], kelly_strategier[enum], min_avst=0.10)
+            veckans_rad, cost = ta_fram_meta_rad(veckans_rad, meta_modeller, spik_strategier[enum])
             kostnad.append(cost)
             veckans_rad.to_csv('veckans_rad'+str(enum)+'.csv', index=False)
             sju, sex, fem, utd = rätta_rad(
@@ -729,11 +709,12 @@ def backtest(df, df_resultat, modeller, meta_modeller, datumar, gap=0, proba_val
         placeholder2.empty()
         placeholder3.empty()
 
-        # Backtest klart och nu plot
+        # Backtest klart och nu pandas plot med gridlines
         placeholder1.line_chart(graf_data[[
                                 't1_vinst', 't2_vinst', 't3_vinst', 't4_vinst']], use_container_width=True)
-        placeholder2.line_chart(graf_data[[
-                                't1_7', 't2_7', 't3_7', 't4_7']], width=16, height=14, use_container_width=True)
+
+        # placeholder2.line_chart(graf_data[[
+        #                         't1_7', 't2_7', 't3_7', 't4_7']], width=16, height=14, use_container_width=True)
 
         # st.write(df_resultat.plot(kind='line',  y='t1_vinst', rot=45, legend=True, figsize=(20,10)))
         placeholder3.dataframe(
@@ -799,7 +780,7 @@ def main():
     test1 = tp.Typ('test1', False,   0,     False,      True,   True,  pref=pref)
     test2 = tp.Typ('test2', False,   0,     False,      False,  True,  pref=pref)
     test3 = tp.Typ('test3', True,    0,     False,      False,  False, pref=pref)
-    test4 = tp.Typ('test4', True,    3,     True,       True,   False, pref=pref)
+    test4 = tp.Typ('test4', True,    3,     True,       False,  False, pref=pref)
 
     modeller = [test1, test2, test3, test4]
 
@@ -826,18 +807,20 @@ def main():
         et_params = params['params']
     et_model = ExtraTreesClassifier(**et_params, n_jobs=6, random_state=2022)
 
-    meta_modeller = {'meta1_et': {'model': et_model, 'params': et_params},
-                     'meta2_ridge': {'model': ridge_model, 'params': ridge_params},
-                     'meta3_knn': {'model': KNN_model, 'params': knn_params},
-                    #  'meta1_rf': {'model': rf_model, 'params': rf_params},         # testa et istället
+    meta_modeller = {
+                    # 'meta1_rf': {'model': rf_model, 'params': rf_params},  
+                    'meta2_ridge': {'model': ridge_model, 'params': ridge_params},
+                    'meta3_knn': {'model': KNN_model, 'params': knn_params},
+                            # testa et istället för rf
+                    'meta4_et': {'model': et_model, 'params': et_params},
                      }
 
     if st.button('kör'):
-        if st.button('med cv'):
-            st.warning(
-                f'df_resultat = kör(df, modeller, cv=True)  är inte klar!')
-        else:
-            df_resultat = kör(df, modeller, meta_modeller, cv=False)
+        st.write('Införa kör med cv?')
+        df_resultat = kör(df, modeller, meta_modeller, cv=False)
+    # elif st.button('kör med cv'):
+    #     st.warning(f'df_resultat = kör(df, modeller, cv=True)  är inte klar!')
+            
 
 
 if __name__ == "__main__":
