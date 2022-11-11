@@ -170,23 +170,6 @@ def skapa_data_för_datum(df_, curr_datum_ix, frac=0.5):
 # %%
 
 
-def kelly(proba_, streck, odds):  # proba = prob winning, streck i % = streck
-    proba = proba_.copy()
-    # läs in streck_to_odds.pkl
-    # import pickle
-    with open('rf_streck_odds.pkl', 'rb') as f:
-        rf = pickle.load(f)
-
-    if odds is None:
-        o = rf.predict(streck.copy())
-    else:
-        o = rf.predict(streck.copy())
-
-    # for each values > 40 in odds set to 1
-    o[o > 40] = 1
-    return (o*proba - (1-proba))/o
-
-
 def compute_total_insats(veckans_rad):
     summa = veckans_rad.groupby('avd').avd.count().prod() / 2
     return summa
@@ -197,12 +180,14 @@ def compute_total_insats(veckans_rad):
 def beräkna_utdelning(datum, sjuor, sexor, femmor, df_utdelning):
     datum = datum.strftime('%Y-%m-%d')
 
-    min_utdelning = df_utdelning.loc[df_utdelning.datum == datum, ['7rätt', '6rätt', '5rätt']]
-    
-    tot_utdelning = (min_utdelning['7rätt'] * sjuor + min_utdelning['6rätt'] * sexor + min_utdelning['5rätt'] * femmor).values[0]
+    min_utdelning = df_utdelning.loc[df_utdelning.datum == datum, [
+        '7rätt', '6rätt', '5rätt']]
+
+    tot_utdelning = (min_utdelning['7rätt'] * sjuor + min_utdelning['6rätt']
+                     * sexor + min_utdelning['5rätt'] * femmor).values[0]
 
     print('utdelning', tot_utdelning)
-    
+
     return tot_utdelning
 
 
@@ -223,7 +208,8 @@ def hitta_spikar(veckans_rad, spikad_avd, spik_strategi, min_avst):
     if spik_strategi == None:
         return veckans_rad, []
 
-    assert spik_strategi in ['1a', '1b', '2a', '2b'], "spik_strategi måste ha något av värdena i listan"
+    assert spik_strategi in [
+        '1a', '1b', '2a', '2b'], "spik_strategi måste ha något av värdena i listan"
 
     # avdelningar med största avstånd
     avd_avst = []
@@ -238,59 +224,69 @@ def hitta_spikar(veckans_rad, spikad_avd, spik_strategi, min_avst):
     avd1 = avd_avst.index(max1)+1
     max2 = max([x for x in avd_avst if x != max1])
     avd2 = avd_avst.index(max2)+1
-    
+
     if spik_strategi == '1a':
         print('strategi', spik_strategi, 'valde forcerad spik i avd', avd1)
         spikad_avd.append(avd1)      # add avd to a list
-        ix = veckans_rad.query('avd == @avd1').nlargest(1, 'proba').index[0]   # ix for largest in avd
+        ix = veckans_rad.query('avd == @avd1').nlargest(1,
+                                                        'proba').index[0]   # ix for largest in avd
         veckans_rad.loc[ix, ['spik']] = True
         veckans_rad.loc[ix, ['välj']] = True
-        
+
     elif spik_strategi == '1b':
         if max1 <= min_avst:
-            print('strategi', spik_strategi, 'inte vald då avst', max1, '< min', min_avst)
+            print('strategi', spik_strategi,
+                  'inte vald då avst', max1, '< min', min_avst)
             return veckans_rad, []
-            
-        print('strategi', spik_strategi, 'valde spik i avd', avd1,  'då avst', max1, '> min', min_avst)
+
+        print('strategi', spik_strategi, 'valde spik i avd',
+              avd1,  'då avst', max1, '> min', min_avst)
         spikad_avd.append(avd1)      # add avd to a list
-        ix = veckans_rad.query('avd == @avd1').nlargest(1, 'proba').index[0]   # ix for largest in avd
+        ix = veckans_rad.query('avd == @avd1').nlargest(1,
+                                                        'proba').index[0]   # ix for largest in avd
         veckans_rad.loc[ix, ['spik']] = True
         veckans_rad.loc[ix, ['välj']] = True
-        
+
     elif spik_strategi == '2a':
         print('strategi', spik_strategi, 'valde forcerad spik i avd', avd1)
         spikad_avd.append(avd1)      # add avd to a list
-        ix = veckans_rad.query('avd == @avd1').nlargest(1, 'proba').index[0]   # ix for largest in avd
+        ix = veckans_rad.query('avd == @avd1').nlargest(1,
+                                                        'proba').index[0]   # ix for largest in avd
         veckans_rad.loc[ix, ['spik']] = True
         veckans_rad.loc[ix, ['välj']] = True
         print('strategi', spik_strategi, 'valde 2:a forcerad spik i avd', avd2)
         spikad_avd.append(avd2)      # add avd to a list
-        ix = veckans_rad.query('avd == @avd2').nlargest(1, 'proba').index[0]   # ix for largest in avd
+        ix = veckans_rad.query('avd == @avd2').nlargest(1,
+                                                        'proba').index[0]   # ix for largest in avd
         veckans_rad.loc[ix, ['spik']] = True
         veckans_rad.loc[ix, ['välj']] = True
-        
+
     elif spik_strategi == '2b':
         if max1 <= min_avst:
-            print('strategi', spik_strategi, 'inget valt då avst', max1, '< min', min_avst)
+            print('strategi', spik_strategi,
+                  'inget valt då avst', max1, '< min', min_avst)
             return veckans_rad, []
-            
-        print('strategi', spik_strategi, 'valde spik i avd', avd1,  'då avst', max1, '> min', min_avst)
+
+        print('strategi', spik_strategi, 'valde spik i avd',
+              avd1,  'då avst', max1, '> min', min_avst)
         spikad_avd.append(avd1)      # add avd to a list
-        ix=veckans_rad.query('avd == @avd1').nlargest(1, 'proba').index[0]
-        veckans_rad.loc[ix, ['spik']]=True
-        veckans_rad.loc[ix, ['välj']]=True
-        
+        ix = veckans_rad.query('avd == @avd1').nlargest(1, 'proba').index[0]
+        veckans_rad.loc[ix, ['spik']] = True
+        veckans_rad.loc[ix, ['välj']] = True
+
         if max2 <= min_avst:
-            print(print('strategi', spik_strategi, '2:an inte vald då avst', max2, '< min', min_avst))
+            print(print('strategi', spik_strategi,
+                  '2:an inte vald då avst', max2, '< min', min_avst))
             return veckans_rad, spikad_avd
-                
-        print('strategi', spik_strategi, 'valde 2:a spik i avd', avd2,  'då avst', max2, '> min', min_avst)
+
+        print('strategi', spik_strategi, 'valde 2:a spik i avd',
+              avd2,  'då avst', max2, '> min', min_avst)
         spikad_avd.append(avd2)      # add avd to a list
-        ix=veckans_rad.query('avd == @avd2').nlargest(1, 'proba').index[0]
-        veckans_rad.loc[ix, ['spik']]=True
-        veckans_rad.loc[ix, ['välj']]=True        
-                
-    # print('spikad_avd', spikad_avd)            
+        ix = veckans_rad.query('avd == @avd2').nlargest(1, 'proba').index[0]
+        veckans_rad.loc[ix, ['spik']] = True
+        veckans_rad.loc[ix, ['välj']] = True
+
+    # print('spikad_avd', spikad_avd)
 
     return veckans_rad, spikad_avd
 
@@ -307,7 +303,8 @@ def plocka_en_efter_en(veckans_rad, spikad_avd, max_cost=300):
     cost = 0.5  # 1 rad
     while cost < max_cost:
         # d) plocka en och en - först proba sedan ev positiv kelly markera som valda i df
-        curr_index = veckans_rad.query("välj==False and avd not in @spikad_avd").nlargest(1, 'proba').index
+        curr_index = veckans_rad.query(
+            "välj==False and avd not in @spikad_avd").nlargest(1, 'proba').index
         veckans_rad.loc[curr_index, 'välj'] = True
         # e) avbryt vid max_cost
         cost = compute_total_insats(veckans_rad.query("välj==True"))
@@ -321,8 +318,7 @@ def plocka_en_efter_en(veckans_rad, spikad_avd, max_cost=300):
     return veckans_rad, cost
 
 
-
-def ta_fram_meta_rad(veckans_rad_, meta_modeller, spik_strategi, max_cost=1000, min_avst=0.07, mean='geometric'):
+def ta_fram_meta_rad(veckans_rad_, meta_modeller, spik_strategi, max_cost=300, min_avst=0.07, mean='geometric'):
     """ Denna funktion tar fram en rad för meta-modellerna via medelvärdet på alla meta-modeller
     veckans_rad innehåller _en omgång_
     _spik_strategi_: None - inget, '1a' - forcera 1 spik, '2a' - forcera 2 spikar, '1b' - 1 spik endast om klar favorit, '2b' - 2 spikar för endast klara favoriter 
@@ -335,23 +331,23 @@ def ta_fram_meta_rad(veckans_rad_, meta_modeller, spik_strategi, max_cost=1000, 
 
     veckans_rad['proba'] = 0
     # veckans_rad['kelly'] = 0
-    
+
     ### Här tar vi medelvärdet av predict_proba från meta-modellerna ######
     for enum, key in enumerate(meta_modeller.keys()):
-        if mean=='arithmetic':
+        if mean == 'arithmetic':
             veckans_rad['proba'] += veckans_rad[key]
             # veckans_rad['kelly'] += veckans_rad['kelly'+enum]
         else:
-            if enum==0:
-                veckans_rad['proba'] = veckans_rad[key].copy()   
-                continue 
+            if enum == 0:
+                veckans_rad['proba'] = veckans_rad[key].copy()
+                continue
             veckans_rad['proba'] *= veckans_rad[key]
-                  
-    if mean=='arithmetic':
+
+    if mean == 'arithmetic':
         veckans_rad['proba'] /= len(meta_modeller)
-        
-    else: # geometric 
-        veckans_rad['proba'] = veckans_rad['proba'] ** (1/len(meta_modeller) )
+
+    else:  # geometric
+        veckans_rad['proba'] = veckans_rad['proba'] ** (1/len(meta_modeller))
 
     #################################################################
 
@@ -359,7 +355,8 @@ def ta_fram_meta_rad(veckans_rad_, meta_modeller, spik_strategi, max_cost=1000, 
 
     spikad_avd = []
     if spik_strategi:
-        veckans_rad, spikad_avd = hitta_spikar(veckans_rad, spikad_avd, spik_strategi, min_avst)
+        veckans_rad, spikad_avd = hitta_spikar(
+            veckans_rad, spikad_avd, spik_strategi, min_avst)
     else:
         print('ingen spik-strategi')
 
@@ -447,21 +444,21 @@ def rätta_rad(df, datum, df_utdelning):
 def build_stack_data(modeller, X_meta, y_meta):
     """ Bygg stack_data inklusive ev Kelly
         X_meta:     innehåller datum och avd men ej y
-        stack_data: innehåller 'allt' när vi är klara med funktionen
+        stack_data: innehåller 'allt' i slutet av funktionen
     """
-    
+
     stack_data = X_meta.copy()
     stack_data['y'] = y_meta
     data = X_meta.copy()
     for model in modeller:
         this_proba = model.predict(data)
         nr = model.name[3:]
-        print(nr,'data.shape', data.shape)
-        print(nr,'stack_data.shape', stack_data.shape)
+        # print(nr, 'data.shape', data.shape)
+        # print(nr, 'stack_data.shape', stack_data.shape)
         stack_data['proba'+nr] = this_proba
-        # stack_data['kelly'+nr] = kelly(this_proba, X_meta[['streck']], None)
-        
+
     return stack_data
+
 
 def prepare_stack_data(stack_data_, y, ENC=None):
     """Hantera missing values, NaN, etc för meta-modellerna"""
@@ -492,11 +489,12 @@ def prepare_stack_data(stack_data_, y, ENC=None):
                           'h3_kusk', 'h3_bana', 'h4_kusk', 'h4_bana', 'h5_kusk', 'h5_bana']
 
     if ENC == None:
-        ENC = TargetEncoder(cols=target_encode_list, min_samples_leaf=20, smoothing=10).fit(stack_data, y)
+        ENC = TargetEncoder(cols=target_encode_list,
+                            min_samples_leaf=20, smoothing=10).fit(stack_data, y)
 
     # print('stack_data.shape = ', stack_data.shape)
     stack_data = ENC.transform(stack_data)
-    
+
     # stack_data[target_encode_list] = stack_data_encoded[target_encode_list]  # update with encoded values
     return stack_data, ENC
 
@@ -508,7 +506,7 @@ def train_modeller(modeller, X_train, y_train):
     #                        - Skapa stack_data med learned model på X_meta
     #                        - prepare stack_data
     ############################################################################################################
-    
+
     # features = X_train.drop(['datum','avd','y'], axis=1).columns.tolist()
     # X_train skall innehålla datum och avd
     for model in modeller:
@@ -516,8 +514,8 @@ def train_modeller(modeller, X_train, y_train):
         print(f'Learn {name} {X_train.datum.min()} t.o.m {X_train.datum.max()}')
         # print(X_train)
         model.learn(X_train, y_train, params=None, save=True)
-        
-    return 
+
+    return
 
 ############################################################################################################
 #                       Här gör vi learn av meta_modeller på stack_data
@@ -531,16 +529,16 @@ def learn_meta_models(meta_modeller, stack_data, save=True):
     stack_data.to_csv('stack_data_före_drop.csv', index=False)
     y = stack_data.y.astype(int)
     meta_features = stack_data.drop(['datum', 'avd', 'y'], axis=1).columns.to_list()
-    X_meta, ENC = prepare_stack_data(stack_data[meta_features],y)
-    
+    X_meta, ENC = prepare_stack_data(stack_data[meta_features], y)
+
     with open(pref+'modeller/test_encoder.pkl', 'wb') as f:
-            pickle.dump(ENC, f)
-    
-    X_meta.drop(['streck'], axis=1, inplace=True)
-           
+        pickle.dump(ENC, f)
+
+    # X_meta.drop(['streck'], axis=1, inplace=True)
+
     y_meta = y
-    X_meta.to_csv('X_meta_Learn.csv', index=False)
-    print(f'Learn meta - ej streck {stack_data.datum.min()} - {stack_data.datum.max()}')
+    # X_meta.to_csv('X_meta_Learn.csv', index=False)
+    print(f'Learn meta {stack_data.datum.min()} - {stack_data.datum.max()}')
     # print(X_meta.columns)
     for key, items in meta_modeller.items():
         meta_model = items['model']
@@ -590,7 +588,7 @@ def predict_curr_omgang(modeller, meta_modeller, X_curr, y_curr):
         - meta_modeller: predict på stack_datat och fyll i veckans rader
         veckans_rader innehåller nu prediktioner från alla meta_modeller plus X_curr, y_curr
     """
-    
+
     print(f'Predict curr_omgang {X_curr.datum.min()} - {X_curr.datum.max()}')
 
     # ------------- predict aktuell omgång för att skapa stack_data -------------------
@@ -599,22 +597,23 @@ def predict_curr_omgang(modeller, meta_modeller, X_curr, y_curr):
     # load ENC
     with open(pref+'modeller/test_encoder.pkl', 'rb') as f:
         ENC = pickle.load(f)
-        
-    veckans_rad, _ = prepare_stack_data(stack_data.drop(['datum','avd','y'],axis=1), None, ENC)
+
+    veckans_rad, _ = prepare_stack_data(
+        stack_data.drop(['datum', 'avd', 'y'], axis=1), None, ENC)
     temp = veckans_rad.copy()
-    
-    temp.drop(['streck'], axis=1, inplace=True)    # ta bort streck från meta_features
-    
+
+    # temp.drop(['streck'], axis=1, inplace=True)    # ta bort streck från meta_features
+
     for key, values in meta_modeller.items():
-        print(f'{key} predicts - ej streck')
+        print(f'{key} predicts')
         meta_model = values['model']
 
         if 'ridg' in key:
             veckans_rad[key] = meta_model._predict_proba_lr(temp)[:, 1]
         else:
             veckans_rad[key] = meta_model.predict_proba(temp)[:, 1]
-    veckans_rad[['datum','avd','y']] = stack_data[['datum','avd','y']]
-    
+    veckans_rad[['datum', 'avd', 'y']] = stack_data[['datum', 'avd', 'y']]
+
     return veckans_rad
 
 
@@ -625,7 +624,7 @@ def learn_all_and_predict(modeller, meta_modeller, X_train, y_train, X_meta, y_m
 
     #""" train modeller"""
     train_modeller(modeller, X_train, y_train)
-    
+
     # bygg stack_data från modeller
     stack_data = build_stack_data(modeller, X_meta, y_meta)
     assert 'y' in stack_data.columns, 'y is missing in stack_data'
@@ -655,7 +654,7 @@ def backtest(df, df_resultat, modeller, meta_modeller, datumar, gap=0, proba_val
         curr_datum = datumar[curr_datum_ix]
         placeholder0.empty()
         placeholder0.info(
-            f'Aktuell datum: {curr_datum} {"        "} \nomgång: {curr_datum_ix}. Meta ej streck ')
+            f'Aktuell datum: {curr_datum} {"        "} \nomgång: {curr_datum_ix}')
 
         X_train, y_train, X_meta, y_meta, X_curr, y_curr = skapa_data_för_datum(
             df, curr_datum_ix)
@@ -663,10 +662,10 @@ def backtest(df, df_resultat, modeller, meta_modeller, datumar, gap=0, proba_val
             break
 
         print(f'learn fram till {curr_datum}')
-        veckans_rad = learn_all_and_predict(modeller, 
-                                            meta_modeller, 
-                                            X_train, y_train, 
-                                            X_meta, y_meta, 
+        veckans_rad = learn_all_and_predict(modeller,
+                                            meta_modeller,
+                                            X_train, y_train,
+                                            X_meta, y_meta,
                                             X_curr, y_curr)
 
         assert cv == False, 'cv==True not implemented'
@@ -678,6 +677,7 @@ def backtest(df, df_resultat, modeller, meta_modeller, datumar, gap=0, proba_val
         last_row = df_resultat.iloc[-1]
         for enum, strategi in enumerate(spik_strategier):
             veckans_rad, cost = ta_fram_meta_rad(veckans_rad, meta_modeller, spik_strategier[enum])
+            print('cost', cost)
             kostnad.append(cost)
             veckans_rad.to_csv('veckans_rad'+str(enum)+'.csv', index=False)
             sju, sex, fem, utd = rätta_rad(
@@ -717,9 +717,9 @@ def backtest(df, df_resultat, modeller, meta_modeller, datumar, gap=0, proba_val
         #                         't1_7', 't2_7', 't3_7', 't4_7']], width=16, height=14, use_container_width=True)
 
         # st.write(df_resultat.plot(kind='line',  y='t1_vinst', rot=45, legend=True, figsize=(20,10)))
-        placeholder3.dataframe(
-            df_resultat.sort_index(ascending=False).head(40))
-
+        placeholder3.dataframe(df_resultat.sort_index(ascending=False).head(40))
+        df_resultat.to_csv('backtest_resultat.csv', index=True)
+        
     return df_resultat
 
 
@@ -759,26 +759,11 @@ def main():
     #  d - ✔️ Avståndet till ettan (streck)
     #  e - ✔️ hx_bana samma som bana
     #  f - ✔️ hx_kusk samma som kusk
-    #  META
-    #  g - meta får annan input än bara typ-resultat, tex, plats i avd, ettans avstånd till tvåan
-    #
-    # Några idéer på regler för att selektera raden:
-    #  1 - 1 avd med favorit som spik
-    #  2 - 2 avd med var sin favorit som spik
-    #  3 - Endast solklara favoriter - beror på avståndet till tvåan
-    #  4 - Inga forcerade favoriter
-    #  5 - Välj den högsta positiva Kelly efter vald proba - om vartannat
-    ###############################################################
-    #  Minska max-kostnad för en rad  - 384 är för mycket
-    ###############################################################
-    # Använd typ9 som grund-modell och lägg till resp ta bort kolumner per test-typ
-    # genererara alla kolumner som vi sedan selekterar från
-    # Namnge modeller efter konfig samt selektering tex typ_abcdef235
 
     # -------------- skapa test-modeller
     #               name,   #häst  #motst,  motst_diff, streck, test,  pref
-    test1 = tp.Typ('test1', False,   0,     False,      True,   True,  pref=pref)
-    test2 = tp.Typ('test2', False,   0,     False,      False,  True,  pref=pref)
+    test1 = tp.Typ('test1', False,   0,     False,      False,  True,  pref=pref)
+    test2 = tp.Typ('test2', False,   3,     True,       False,  True,  pref=pref)
     test3 = tp.Typ('test3', True,    0,     False,      False,  False, pref=pref)
     test4 = tp.Typ('test4', True,    3,     True,       False,  False, pref=pref)
 
@@ -808,19 +793,18 @@ def main():
     et_model = ExtraTreesClassifier(**et_params, n_jobs=6, random_state=2022)
 
     meta_modeller = {
-                    # 'meta1_rf': {'model': rf_model, 'params': rf_params},  
-                    'meta2_ridge': {'model': ridge_model, 'params': ridge_params},
-                    'meta3_knn': {'model': KNN_model, 'params': knn_params},
-                            # testa et istället för rf
-                    'meta4_et': {'model': et_model, 'params': et_params},
-                     }
+        # 'meta1_rf': {'model': rf_model, 'params': rf_params},
+        'meta2_ridge': {'model': ridge_model, 'params': ridge_params},
+        'meta3_knn': {'model': KNN_model, 'params': knn_params},
+        # testa et istället för rf
+        'meta4_et': {'model': et_model, 'params': et_params},
+    }
 
     if st.button('kör'):
         st.write('Införa kör med cv?')
         df_resultat = kör(df, modeller, meta_modeller, cv=False)
     # elif st.button('kör med cv'):
     #     st.warning(f'df_resultat = kör(df, modeller, cv=True)  är inte klar!')
-            
 
 
 if __name__ == "__main__":

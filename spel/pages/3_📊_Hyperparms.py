@@ -7,6 +7,9 @@ import json
 import matplotlib.pyplot as plt
 import seaborn as sns
 
+from sklearn.model_selection import RandomizedSearchCV
+from sklearn.neighbors import KNeighborsClassifier
+    
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.ensemble import ExtraTreesClassifier
 from catboost import CatBoostClassifier, Pool
@@ -174,8 +177,6 @@ def prepare_for_meta(v75, name):
 
 #%%
 def gridsearch_meta(v75, meta_name, params, folds=5,randomsearch=True, save=False):
-    from sklearn.model_selection import RandomizedSearchCV
-    from sklearn.neighbors import KNeighborsClassifier
     
     X, y = prepare_for_meta(v75, meta_name)
 

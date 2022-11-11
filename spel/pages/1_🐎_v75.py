@@ -156,10 +156,10 @@ def lägg_in_diff_motståndare(X_, motståndare):
 #%%
 # skapa modeller
 #               name,   #häst  #motst,  motst_diff, streck, test,  pref
-test1 = tp.Typ('test1',  False,   0,    False,      True,   True,  pref=pref)
-test2 = tp.Typ('test2',  False,   0,    False,      False,  True,  pref=pref)
-test3 = tp.Typ('test3',  True,    0,    False,      False,  False, pref=pref)
-test4 = tp.Typ('test4',  True,    3,    True,       True,   False, pref=pref)
+test1 = tp.Typ('test1',  False,   0,    False,      False,   True,  pref=pref)
+test2 = tp.Typ('test2',  False,   3,    True,       False,   True,  pref=pref)
+test3 = tp.Typ('test3',  True,    0,    False,      False,   False, pref=pref)
+test4 = tp.Typ('test4',  True,    3,    True,       False,   False, pref=pref)
 
 
 modeller = [test1, test2, test3, test4]
@@ -221,7 +221,6 @@ def build_stack_df(X_, modeller):
     st.dataframe(X)
     for modell in modeller:
         stack_data = add_to_stack(modell, modell.name, X, stack_data)
-        # stack_data['kelly'+nr] = kelly(stack_data['proba'+nr], X[['streck']], None)
            
     return stack_data
 

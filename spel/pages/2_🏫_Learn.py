@@ -46,12 +46,11 @@ st.markdown("# 🏫 V75 Learning")
 st.sidebar.header("🏫 V75 Learning")
 #%%
 # skapa modeller
-#               name,   #häst     proba,    kelly,  #motst,  motst_diff, #fav, only_cl, streck, test,  pref
-test1 = tp.Typ('test1',  True,    True,     False,       0,   False,      0,   False,    True,  True, pref=pref)
-test2 = tp.Typ('test2',  True,    True,     False,       0,   False,      0,   False,    False, True, pref=pref)
-test3 = tp.Typ('test3',  True,    True,     False,       0,   False,      0,   False,    False, False, pref=pref)
-test4 = tp.Typ('test4',  True,    True,     False,       0,   False,      0,   False,    True,  False, pref=pref)
-
+#               name,   #häst  #motst,  motst_diff, streck, test,  pref
+test1 = tp.Typ('test1', False,   3,     False,       True,  True,  pref=pref)
+test2 = tp.Typ('test2', False,   3,     True,       False,  True,  pref=pref)
+test3 = tp.Typ('test3', True,    0,     False,      True,   False, pref=pref)
+test4 = tp.Typ('test4', True,    3,     True,       False,  False, pref=pref)
 modeller = [test1, test2, test3, test4]
 
 ###################################################################################
@@ -77,17 +76,11 @@ with open('optimera/params_meta_et.json', 'r') as f:
     params = json.load(f)
     et_params = params['params']
 et_model = ExtraTreesClassifier(**et_params, n_jobs=6, random_state=2022)
-
-with open(pref+'optimera/params_meta_et.json', 'r') as f:
-        params = json.load(f)
-        et_params = params['params']
-
-et_model = ExtraTreesClassifier(**params, n_jobs=6, random_state=2022)
     
 meta_modeller = {'meta_et': {'model': et_model, 'params': et_params},
                  'meta_ridge': {'model': ridge_model, 'params': ridge_params},
-                 'meta_knn': {'model': KNN_model, 'params': knn_params},
-                 #'meta_rf': {'model': rf_model, 'params': rf_params},         # testa et istället
+                #  'meta_knn': {'model': KNN_model, 'params': knn_params},
+                 'meta_rf': {'model': rf_model, 'params': rf_params},       
                 }
 
 #%%
@@ -181,8 +174,6 @@ def kelly_old(proba, streck, odds):  # proba = prob winning, streck i % = streck
     return (o*proba - (1-proba))/o
 
 ##### RidgeClassifier (meta model) #####
-
-
 def learn_meta_ridge_model(X, y, save=True):
 
     with open(pref+'optimera/params_meta_ridge.json', 'r') as f:
@@ -200,8 +191,6 @@ def learn_meta_ridge_model(X, y, save=True):
     return ridge_model
 
 ##### RandomForestClassifier (meta model) #####
-
-
 def learn_meta_rf_model(X, y, save=True):
 
     with open(pref+'optimera/params_meta_rf.json', 'r') as f:
@@ -293,22 +282,37 @@ def prepare_stack_data(stack_data_, y, ENC=None):
 
     return stack_data, ENC
 
-def learn_meta_models(stack_data, meta_features, save=True):
-    """ all meta models will be fitted on X and y """  
-    
-    y = stack_data.pop('y')
-    stack_data, ENC = prepare_stack_data(stack_data[meta_features], y)
+
+def learn_meta_models(meta_modeller, stack_data, save=True):
+
+    assert 'y' in stack_data.columns, 'y is missing in stack_data'
+    stack_data.to_csv('stack_data_före_drop.csv', index=False)
+    y = stack_data.y.astype(int)
+    meta_features = stack_data.drop(['datum', 'avd', 'y'], axis=1).columns.to_list()
+    X_meta, ENC = prepare_stack_data(stack_data[meta_features], y)
 
     with open(pref+'modeller/meta_encoder.pkl', 'wb') as f:
-        pickle.dump(ENC, f)
-        
-    Ridge_Classifier = learn_meta_ridge_model(stack_data[meta_features], y, save=save)
-    RandomForest_Classifier = learn_meta_rf_model(stack_data[meta_features], y, save=save)
-    Knn_model = learn_meta_knn_model(stack_data[meta_features], y, save=save)
-    ExtraTrees_Classifier = learn_meta_et_model(stack_data[meta_features], y, save=save)
+            pickle.dump(ENC, f)
 
-    return ENC
+    # X_meta.drop(['streck'], axis=1, inplace=True)
 
+    y_meta = y
+    # X_meta.to_csv('X_meta_Learn.csv', index=False)
+    # print(f'Learn meta {stack_data.datum.min()} - {stack_data.datum.max()}')
+    # print(X_meta.columns)
+    for key, items in meta_modeller.items():
+        meta_model = items['model']
+
+        items['model'] = meta_model.fit(X_meta, y_meta)
+        meta_modeller[key] = items
+        meta_modeller[key]['model'] = meta_model
+
+        if save:
+            with open(pref+'modeller/'+key+'.model', 'wb') as f:
+                pickle.dump(meta_model, f)
+
+    # print('Done Learn meta_modeller på stack_data')
+    return meta_modeller
 #%%
 
 
@@ -398,145 +402,15 @@ def normal_learning(modeller, meta_modeller, X_train, y_train, X_meta, y_meta):
     stack_data.to_csv('first_stack_data.csv', index=False)
 
     # """ Learn meta_modeller på stack_data """
-    meta_features = stack_data.drop(
-        ['datum', 'avd', 'y'], axis=1).columns.to_list()
-    ENC = learn_meta_models(stack_data, meta_features)
+    meta_features = stack_data.drop(['datum', 'avd', 'y'], axis=1).columns.to_list()
+    meta_modeller = learn_meta_models(meta_modeller, stacked_data)
 
-    # save encoder
-    with open(pref+'modeller/meta_encoder.pkl', 'wb') as f:
-        pickle.dump(ENC, f)
         
     return stack_data[meta_features + ['y']]
 
-
 #%%
 # TimeSeriesSplit learning models
-# def TimeSeries_learning(df_ny_, modeller, n_splits=5,meta_fraction=None, save=True, learn_models=True):
-#     """
-#     Skapar en stack med {1 - meta_fraction} av X från alla modeller. Används som input till meta_model.
-#         - learn_models=True betyder att vi både gör en learning och skapar en stack
-#         - learn_models=False betyder att vi bara skapar en stack och då har param save ingen funktion
-#     """
-#     df_all = pd.read_csv(pref+'all_data.csv')
-        
-#     if df_ny_ is not None:  # Har vi en ny omgång?
-#         df_ny = df_ny_.copy()
-#         df_all = concat_data(df_all.copy(), df_ny, save=True)
-    
-#     X, y, X_val, _ = förbered(df_all, meta_fraction=meta_fraction)
-
-#     validation_text = ""
-
-#     if X_val is not None:
-#         validation_text = f', Validation: _{X_val.datum.iloc[0]} - -{X_val.datum.iloc[-1]}'
-        
-#     st.info(
-#         f'Train: {X.datum.iloc[0]} --{X.datum.iloc[-1]}{validation_text}')
-    
-#     ts = TimeSeriesSplit(n_splits=n_splits)
-#     # läs in meta_features
-#     with open(pref+'META_FEATURES.txt', 'r',encoding='utf-8') as f:    
-#         meta_features = f.read().splitlines()
-        
-#     stacked_data=pd.DataFrame(columns=meta_features + ['y'])
-    
-#     ###############################################################################
-#     #         Step 1: Learn the models on ts.split X_train and predict on X_test  #
-#     ###############################################################################
-#     st.write('Skapar stacked_data till meta')
-#     my_bar = st.progress(0)   
-
-#     step=1/(n_splits*len(modeller))-0.0000001
-#     steps=0.0
-    
-#     for enum,(train_index, test_index) in enumerate(ts.split(X,y)):
-#         print('shape of X', X.shape, 'shape of X_train', X.iloc[train_index].shape, 'shape of X_test', X.iloc[test_index].shape)
-#         X_train = X.iloc[train_index]
-#         y_train = y.iloc[train_index]
-#         X_test = X.iloc[test_index]
-#         y_test = y.iloc[test_index]
-#         temp_df = pd.DataFrame()
-#         temp_df['y'] =  y_test
-#         for typ in modeller:
-#             steps += step
-#             # progress bar continues to complete from 0 to 100
-#             my_bar.progress(steps)
-            
-#             if learn_models:
-#                 with open('optimera/params_'+typ.name+'.json', 'r') as f:
-#                     params = json.load(f)
-#                     params = params['params']
-#                 # learn på X_train-delen
-#                 cbc = typ.learn(X_train, y_train, X_test, y_test,params=params,save=save)
-                
-#             # predict the new fitted model on X_test-delen    
-#             nr = typ.name[3:]
-#             this_proba=typ.predict(X_test)
-            
-#             # Bygg up meta-kolumnerna (proba och Kelly) för denns typ
-#             temp_df['proba'+nr] = this_proba
-
-#             this_kelly=kelly(this_proba, X_test[['streck']], None)
-#             temp_df['kelly' + nr] = this_kelly
-        
-#         stacked_data = pd.concat([stacked_data, temp_df],ignore_index=True)
-#         stacked_data.y = stacked_data.y.astype(int)
-        
-#     #  Make sure that the meta features are in the right order in stack 
-#     stacked_data = stacked_data[meta_features+['y']]
-
-#     my_bar.progress(1.0)
-    
-#     ###############################################################################
-#     #         Step 2:       Learn the meta models                                 #
-#     ###############################################################################
-#     st.write('Learning meta models')
-#     ENC = learn_meta_models(stacked_data[meta_features], stacked_data['y'])
-
-
-#     ###############################################################################
-#     #         Step 3: learn models on all of X - what iteration to use?           #
-#     ###############################################################################
-#     st.write('Learn models on all of Train')
-#     my_bar2 = st.progress(0)
-#     ant_meta_models = 4
-#     step = 1/(ant_meta_models) - 0.0000001
-#     steps = 0.0
-#     my_bar2.progress(steps)
-
-#     for typ in modeller:
-#         steps += step
-#         my_bar2.progress(steps)
-#         if learn_models:
-#             with open('optimera/params_'+typ.name+'.json', 'r') as f:
-#                 params = json.load(f)
-                
-#             params = params['params']   
-#             cbc = typ.learn(X, y, None, None, iterations=500, params=params,save=save)
-     
-#     my_bar2.progress(1.0)
-#     st.empty()
-#     return stacked_data[meta_features + ['y']]
-
-# def skapa_stack_learning(X_, y):
-#     # För validate
-#     X=X_.copy()
-#     with open(pref+'META_FEATURES.txt', 'r', encoding='utf-8') as f:
-#         meta_features = f.read().splitlines()
-        
-#     stacked_data = pd.DataFrame(columns=meta_features)
-#     for typ in modeller:
-#             nr = typ.name[3:]
-#             stacked_data['proba'+nr] = typ.predict(X)
-#             stacked_data['kelly' + nr] = kelly(stacked_data['proba' + nr], X[['streck']], None)
-
-#     assert list(stacked_data.columns) == meta_features, f'columns in stacked_data is wrong {list(stacked_data.columns)}'
-#     assert len(stacked_data) == len(y), f'stacked_data {len(stacked_data)} and y {len(y)} should have same length'
-#     return stacked_data[meta_features],y   # enbart stack-info
-
-
-# TimeSeriesSplit learning models
-def TimeSeries_learning(df_ny_, modeller, n_splits=5, val_fraction=0.25, save=True, learn_models=True):
+def TimeSeries_learning(df_ny_, modeller, meta_modeller, n_splits=5, val_fraction=0.25, save=True, learn_models=True):
     """
     Skapar en stack med {1 - meta_fraction} av X från alla modeller. Används som input till meta_model.
         - learn_models=True betyder att vi både gör en learning och skapar en stack
@@ -626,11 +500,8 @@ def TimeSeries_learning(df_ny_, modeller, n_splits=5, val_fraction=0.25, save=Tr
     ###############################################################################
     st.write('Learning meta models')
     # print('Learning meta models')
-    ENC = learn_meta_models(stacked_data, meta_features)
-   
-    #save encoder
-    with open(pref+'modeller/meta_encoder.pkl', 'wb') as f:
-        pickle.dump(ENC, f)
+    meta_modeller = learn_meta_models(meta_modeller, stacked_data)
+
 
     ###############################################################################
     #         Step 3: learn models on all of X - what iteration to use?           #
@@ -713,25 +584,53 @@ def predict_meta_knn_model(X, knn_model=None):
 
     return knn_model.predict_proba(X)
 
-def predict_meta_mean(preds, type):   # type='geometric' or 'arithmetic'
-    if type=='arithmetic':
-        return (preds.rf + preds.et + preds.ridge + preds.knn)/4
-    
-    return (preds.rf * preds.et * preds.ridge * preds.knn)**(1/4)
 
-def predict_meta_models(stack_data, meta_features):
-    preds = pd.DataFrame(columns=['rf', 'ridge', 'knn', 'meta'])
+def predict_meta_models(meta_modeller, stack_data, meta_features, mean_type='geometric'):
+    """
+    Predicts the meta models på stack_data och beräknar meta_proba med mean_type
+
+    Args:
+        meta_modeller (_type_): Dict definierad från start
+        stack_data (_type_): Dataframe från modellers predict_proba plus deras input data
+        meta_features (_type_): Allt utom datum, avd och y
+        mean_type (str, optional): 'arithmetic' or 'geometric'. Defaults to 'geometric'.
+
+    Returns:
+        preds: Dataframe med meta_modellers prediktioner
+    """
+    
+    preds = pd.DataFrame(columns=list(meta_modeller.keys())+['meta'])
+    
     # load ENC
     with open(pref+'modeller/meta_encoder.pkl', 'rb') as f:
         ENC = pickle.load(f)
         
     stack_data, _ = prepare_stack_data(stack_data[meta_features], y=None, ENC=ENC)
-    preds['rf'] = predict_meta_rf_model(stack_data[meta_features])[:, 1]
-    preds['ridge'] = predict_meta_ridge_model(stack_data[meta_features])[:, 1]
-    preds['knn'] = predict_meta_knn_model(stack_data[meta_features])[:, 1]
-    preds['et']  = predict_meta_et_model(stack_data[meta_features])[:, 1]
+    temp = stack_data.copy()
     
-    preds['meta'] = predict_meta_mean(preds, type='geometric')
+    preds['meta'] = temp.iloc[:,0]    # dirty trick to init preds.meta with the number of rows  
+    if mean_type == 'arithmetic':
+        preds['meta'] = 0 
+    else:
+        preds['meta'] = 1
+        
+    for key, values in meta_modeller.items():
+        print(f'{key} predicts')
+        # meta_model = values['model']
+
+        fn = f'predict_{key}_model(temp)'
+            
+        preds[key] = eval(fn)[:,1]
+                                                                                      
+        if mean_type == 'arithmetic':
+            preds['meta'] += preds[key]
+        else:
+             preds['meta'] *= preds[key]
+             
+    if mean_type == 'arithmetic':
+        preds['meta'] /= len(meta_modeller)                     # aritmetisk medelvärde
+    else:  
+        preds['meta'] = preds['meta'] ** (1/len(meta_modeller)) # geometriskt medelvärde
     
     return preds
     
@@ -809,7 +708,7 @@ def plot_confusion_matrix(y_true, y_pred, typ, fr=0.0, to=0.9, margin=0.001):
     with open(pref+'modeller/meta_scores.pkl', 'wb') as f:
         pickle.dump(meta_scores, f)
     
-def validate(drop=[],fraction=None):
+def validate(meta_modeller, drop=[],fraction=None):
     # Skapa v75-instans
     v75 = td.v75(pref=pref)
 
@@ -838,7 +737,7 @@ def validate(drop=[],fraction=None):
     
     y_true = y_val.values
 
-    y_preds = predict_meta_models(stacked_val, meta_features)
+    y_preds = predict_meta_models(meta_modeller, stacked_val, meta_features)
     
     ############## write y_true to file for testing ##############
     # first make y_true a dataframe
@@ -847,33 +746,32 @@ def validate(drop=[],fraction=None):
     ##############################################################
     
     st.info('förbereder meta plot')
+    
     plot_confusion_matrix(y_true, y_preds.meta, 'meta', fr=0.0, to=0.9)
 
-    st.write('\n')
-    st.info('förbereder rf plot')
-    plot_confusion_matrix(y_true, y_preds.rf, 'rf',
-                          fr=0.0, to=1.0, margin=0.01)
+    for model in y_preds.columns:
+        if model == 'meta':
+            continue
+        
+        st.write('\n')
+        st.info(f'förbereder {model} plot')
+        plot_confusion_matrix(y_true, y_preds[model], model, fr=0.0, to=0.9)
+    
+    # st.write('\n')
+    # st.info('förbereder et plot')
+    # plot_confusion_matrix(y_true, y_preds.et, 'et',
+    #                       fr=0.0, to=1.0, margin=0.01)
 
-    st.write('\n')
-    st.info('förbereder et plot')
-    plot_confusion_matrix(y_true, y_preds.et, 'et',
-                          fr=0.0, to=1.0, margin=0.01)
+    # st.write('\n')
+    # st.info('förbereder knn plot')
+    # plot_confusion_matrix(y_true, y_preds.knn, 'knn', fr=0.0, to=0.9)
 
-    st.write('\n')
-    st.info('förbereder knn plot')
-    plot_confusion_matrix(y_true, y_preds.knn, 'knn', fr=0.0, to=0.9)
-
-    st.write('\n')
-    st.info('förbereder ridge plot')
-    plot_confusion_matrix(y_true, y_preds.ridge, 'ridge', fr=0.0, to=0.9)
+    # st.write('\n')
+    # st.info('förbereder ridge plot')
+    # plot_confusion_matrix(y_true, y_preds.ridge, 'ridge', fr=0.0, to=0.9)
     
     st.write('\n')
-    # st.info('förbereder lasso plot')
-    # plot_confusion_matrix(y_true, predict_meta_model(stacked_val, meta_model='lasso'),
-    #                     'lasso', fr=0.0, to=0.9)
-    # # placeholder.empty()
     
-    # stacked_val['meta'] = y_pred_rf # default
     stacked_val['y'] = y_true
     stacked_val['avd'] = X_val.avd.values
     
@@ -896,7 +794,7 @@ def final_learning(modeller, n_splits=5):
     st.info('Final learning on all the data')
    
     _ = TimeSeries_learning(None, 
-                            modeller, 
+                            modeller, meta_modeller,
                             n_splits=n_splits,
                             val_fraction=0, 
                             save=True,
@@ -1017,7 +915,7 @@ with buttons:
             st.write(f'learn models and meta models on first {(1-fraction)*100} % of the data')    
             
             stacked_data = TimeSeries_learning(df_ny, 
-                                               modeller, 
+                                               modeller, meta_modeller,
                                                n_splits=5, 
                                                val_fraction=fraction, 
                                                save=True, 
@@ -1026,7 +924,7 @@ with buttons:
             st.success('✔️ TimeSeries learning done')
     
         if st.sidebar.button('Validate'):
-            validate(fraction=st.session_state.fraction)
+            validate(meta_modeller, fraction=st.session_state.fraction)
        
         if st.sidebar.button('Final learning'):
             final_learning(modeller)  
