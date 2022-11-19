@@ -102,11 +102,14 @@ class v75():
     
     def _target_encode(self, columns):
         """ target encode måste y i work_df """
-        y = self.work_df['y']
-        encoder = TargetEncoder(cols=columns, min_samples_leaf=20, smoothing=10).fit(self.work_df.drop('y',axis=1), y)
+        y = self.work_df.pop('y')
+        encoder = TargetEncoder(cols=columns, min_samples_leaf=20, smoothing=10).fit(self.work_df, y)
         
-        self.work_df = encoder.transform(self.work_df.drop('y',axis=1))
+        self.work_df= encoder.transform(self.work_df)
         self.work_df['y'] = y
+        
+        print('Target encoding done')
+        display(self.work_df.head())
         return encoder  
         
     #################### Features som inte används ##########################################
@@ -116,13 +119,12 @@ class v75():
         
         if remove:
             self.work_df.drop(remove, axis=1, inplace=True)
-    
         if remove_mer: 
             self.work_df.drop(remove_mer, axis=1, inplace=True)
 
         return self.work_df
 
-    def förbered_data(self, missing_num=True, missing_cat=True, remove=True, cardinality_list=[], target_encode_list=[], encoder=None, remove_mer=[]):
+    def förbered_data(self, missing_num=True, extra=False,missing_cat=True, remove=True, cardinality_list=[], target_encode_list=[], encoder=None, remove_mer=[]):
         """ En komplett förberedelse innan ML
         Returns:
             self.work_df: Färdig df att användas för ML
@@ -166,18 +168,24 @@ class v75():
                 assert col in self.work_df.columns, f'cardinality_list: {col} is not in work_df'
                 self._handle_high_cardinality(col)
                 
-                
+        if extra:
+            _ = self.test_lägg_till_kolumner()
+            
         if len(target_encode_list)>0 :
             for col in target_encode_list:
                 assert col in self.work_df.columns, f'target_encode_list: {col} is not in work_df'
             if encoder:
-                self.work_df = encoder.transform(self.work_df)
+                print('Using existing encoder')
+                y = self.work_df.pop('y')
+                self.work_df = encoder.transform(self.work_df)          
+                self.work_df['y'] = y      
             else:        
-                encoder=self._target_encode(target_encode_list, encoder)    
-        
+                print('Creating new encoder')
+                encoder = self._target_encode(target_encode_list)
+                
         return self.work_df, encoder
     
-    def train_test_split(self, train_size=0.8):
+    def train_test_split(self, train_size=0.7):
         """ Splits data into train and test sets (time dependent) based on train_size """
         datumar = self.work_df.datum.unique()
         train_datum = datumar[:int(train_size*len(datumar))]

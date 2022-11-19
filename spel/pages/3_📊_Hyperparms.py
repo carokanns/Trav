@@ -7,9 +7,10 @@ import json
 import matplotlib.pyplot as plt
 import seaborn as sns
 
+import lightgbm as lgb
 from sklearn.model_selection import RandomizedSearchCV
 from sklearn.neighbors import KNeighborsClassifier
-    
+        
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.ensemble import ExtraTreesClassifier
 from catboost import CatBoostClassifier, Pool
@@ -83,7 +84,7 @@ def skapa_stack(X_, y):
     for typ in typer:
             nr = typ.name[3:]
             stacked_data['proba'+nr] = typ.predict(X)
-            stacked_data['kelly' + nr] = kelly(stacked_data['proba' + nr], X[['streck']], None)
+            # stacked_data['kelly' + nr] = kelly(stacked_data['proba' + nr], X[['streck']], None)
 
     assert list(stacked_data.columns) == meta_features, f'columns in stacked_data is wrong {list(stacked_data.columns)}'
     assert len(stacked_data) == len(y), f'stacked_data {len(stacked_data)} and y {len(y)} should have same length'
@@ -187,6 +188,7 @@ def gridsearch_meta(v75, meta_name, params, folds=5,randomsearch=True, save=Fals
     print(meta_name)
     scoring='roc_auc'
     params = None if len(params)==0 else eval(params)
+    
     if meta_name == 'knn_meta':
         meta = KNeighborsClassifier(n_jobs=-1)
     elif meta_name == 'ridge':
@@ -198,7 +200,9 @@ def gridsearch_meta(v75, meta_name, params, folds=5,randomsearch=True, save=Fals
         meta = RandomForestClassifier(n_jobs=-1,random_state=2022)  
     elif meta_name == 'et':
         meta = ExtraTreesClassifier(n_jobs=-1,random_state=2022)  
-    else:   
+    elif meta_name == 'lgbm':
+        meta = lgb.LGBMClassifier(n_jobs=-1, random_state=2022)
+    else:
         assert False, f'{meta_name} is not a valid meta-model'
             
     tscv = TimeSeriesSplit(n_splits=folds)
@@ -426,7 +430,7 @@ with buttons:
                 break
     else:        
         st.sidebar.write('---')
-        meta = st.sidebar.radio('Optimera meta parms', ['rf', 'ridge', 'lasso', 'knn_meta'])
+        meta = st.sidebar.radio('Optimera meta parms', ['rf', 'ridge', 'lasso', 'knn_meta', 'et', 'lgbm'])
         if st.session_state.meta:
             optimera_meta(st.session_state.v75,meta,folds=folds)
             # df = st.session_state.df

@@ -3,6 +3,7 @@ import streamlit as st
 from sklearn.linear_model import RidgeClassifier
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.ensemble import ExtraTreesClassifier
+import lightgbm as lgb  
 from sklearn.neighbors import KNeighborsClassifier
 import sys
 sys.path.append('C:\\Users\\peter\\Documents\\MyProjects\\PyProj\\Trav\\spel\\')
@@ -72,6 +73,12 @@ with open('optimera/params_meta_knn.json', 'r') as f:
 KNN_model = KNeighborsClassifier(**knn_params, n_jobs=6)
 
 # ExtraTreesClassifier
+with open('optimera/params_meta_et.json', 'r') as f:
+    params = json.load(f)
+    et_params = params['params']
+et_model = ExtraTreesClassifier(**et_params, n_jobs=6, random_state=2022)
+
+# LightgbmClassifier
 with open('optimera/params_meta_et.json', 'r') as f:
     params = json.load(f)
     et_params = params['params']
@@ -244,6 +251,19 @@ def learn_meta_et_model(X, y, save=True):
             pickle.dump(et_model, f)
 
     return et_model
+def learn_meta_lgb_model(X, y, save=True):
+    with open(pref+'optimera/params_meta_lgm.json', 'r') as f:
+        params = json.load(f)
+        params = params['params']
+
+    lgb_model = lgb(**params, n_jobs=6, random_state=2022)
+    lgb_model.fit(X, y)
+
+    if save:
+        with open(pref+'modeller/meta_lgb.model', 'wb') as f:
+            pickle.dump(lgb_model, f)
+
+    return lgb_model
 
 
 def prepare_stack_data(stack_data_, y, ENC=None):
