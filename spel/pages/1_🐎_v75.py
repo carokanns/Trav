@@ -16,6 +16,7 @@ import streamlit as st
 
 import sys
 import pickle
+import json
 # from sklearn.ensemble import RandomForestRegressor
 
 sys.path.append('C:\\Users\\peter\\Documents\\MyProjects\\PyProj\\Trav\\spel\\modeller\\')
@@ -37,7 +38,7 @@ st.sidebar.header("🐎 V75 Spel")
 # %%
 def remove_features(df_, remove_mer=[]):
     df = df_.copy()
-    df.drop(['startnr', 'vodds', 'podds', 'bins', 'h1_dat',
+    df.drop([ 'vodds', 'podds', 'bins', 'h1_dat',
             'h2_dat', 'h3_dat', 'h4_dat', 'h5_dat'], axis=1, inplace=True)
     if remove_mer:
         df.drop(remove_mer, axis=1, inplace=True)
@@ -156,11 +157,10 @@ def lägg_in_diff_motståndare(X_, motståndare):
 #%%
 # skapa modeller
 #               name,   #häst  #motst,  motst_diff, streck, test,  pref
-test1 = tp.Typ('test1',  False,   0,    False,      False,   True,  pref=pref)
-test2 = tp.Typ('test2',  False,   3,    True,       False,   True,  pref=pref)
-test3 = tp.Typ('test3',  True,    0,    False,      False,   False, pref=pref)
-test4 = tp.Typ('test4',  True,    3,    True,       False,   False, pref=pref)
-
+test1 = tp.Typ('test1', False,   3,     False,       True,  True,  pref=pref)
+test2 = tp.Typ('test2', False,   3,     True,       False,  True,  pref=pref)
+test3 = tp.Typ('test3', True,    0,     False,      True,   False, pref=pref)
+test4 = tp.Typ('test4', True,    3,     True,       False,  False, pref=pref)
 
 modeller = [test1, test2, test3, test4]
 
@@ -226,87 +226,88 @@ def build_stack_df(X_, modeller):
 
 
 def meta_knn_predict(X_):
-    # X_ innehåller även datum,startnr och avd
     first_features = ['datum', 'avd', 'startnr', 'häst']
-    pred_columns = ['proba'+str(i) for i in [6, 1, 9]] #+ ['kelly'+str(i) for i in [6, 1, 9]]
+    # pred_columns = ['proba'+str(i) for i in ['t1','t2','t3','t4']]
 
     X = X_.copy()
-    assert list(X.columns[:4]) == first_features, 'meta_model måste ha datum, avd och startnr, häst för att kunna välja'
+    # testa om first_features finns i X i någon ordning
+    assert set(first_features).issubset(set(
+        X.columns)), 'meta_model måste ha datum, avd och startnr, häst för att kunna välja'
+
     with open('modeller\\meta_knn.model', 'rb') as f:
-        meta_model = pickle.load(f)
+            meta_model = pickle.load(f)
 
-    # print(meta_model.predict_proba(X.iloc[:, -8:]))
+    # läs in en json fil med column names
+    with open('modeller\\meta_knn_columns.json', 'r') as f:
+        pred_columns = json.load(f)
+
     X['meta_predict'] = meta_model.predict_proba(X[pred_columns])[:, 1]
-    my_columns = first_features + pred_columns + ['meta_predict']
+    # my_columns = pred_columns + ['meta_predict']
 
-    return X[my_columns]
+    return X  # [my_columns]
 
 def meta_rf_predict(X_):
-    # X_ innehåller även datum,startnr och avd
     first_features = ['datum', 'avd', 'startnr', 'häst']
-    pred_columns = ['proba'+str(i) for i in [6,1,9]] #+ ['kelly'+str(i) for i in [6,1,9]]
+    # pred_columns = ['proba'+str(i) for i in ['t1','t2','t3','t4']] 
     
     X = X_.copy()
-    assert list(X.columns[:4]) == first_features, 'meta_model måste ha datum, avd och startnr, häst för att kunna välja'
+    
+    # testa om first_features finns i X i någon ordning
+    assert set(first_features).issubset(set(X.columns)), 'meta_model måste ha datum, avd och startnr, häst för att kunna välja'
+    
     with open('modeller\\meta_rf.model', 'rb') as f:
         meta_model = pickle.load(f)
 
-    # print(meta_model.predict_proba(X.iloc[:, -8:]))
+    # läs in en json fil med column names
+    with open('modeller\\meta_rf_columns.json', 'r') as f:
+        pred_columns = json.load(f)
+    
     X['meta_predict'] = meta_model.predict_proba(X[pred_columns])[:, 1]
-    my_columns = first_features + pred_columns + ['meta_predict']
+    # my_columns = pred_columns + ['meta_predict']
 
-    return X[my_columns]
+    return X   #[my_columns]
 
 def meta_et_predict(X_):
-    # X_ innehåller även datum,startnr och avd
     first_features = ['datum', 'avd', 'startnr', 'häst']
-    pred_columns = ['proba'+str(i) for i in [6,1,9]] #+ ['kelly'+str(i) for i in [6,1,9]]
-    
+    # pred_columns = ['proba'+str(i) for i in ['t1','t2','t3','t4']]
+
     X = X_.copy()
-    assert list(X.columns[:4]) == first_features, 'meta_model måste ha datum, avd och startnr, häst för att kunna välja'
+    # testa om first_features finns i X i någon ordning
+    assert set(first_features).issubset(set(
+        X.columns)), 'meta_model måste ha datum, avd och startnr, häst för att kunna välja'
+
     with open('modeller\\meta_et.model', 'rb') as f:
         meta_model = pickle.load(f)
 
-    # print(meta_model.predict_proba(X.iloc[:, -8:]))
+    # läs in en json fil med column names
+    with open('modeller\\meta_et_columns.json', 'r') as f:
+        pred_columns = json.load(f)
+            
     X['meta_predict'] = meta_model.predict_proba(X[pred_columns])[:, 1]
-    my_columns = first_features + pred_columns + ['meta_predict']
+    # my_columns = pred_columns + ['meta_predict']
 
-    return X[my_columns]
+    return X  # [my_columns]
 
 def meta_ridge_predict(X_):
-    # X_ innehåller även datum,startnr och avd
     first_features = ['datum', 'avd', 'startnr', 'häst']
-    pred_columns = ['proba'+str(i) for i in [6, 1, 9]] #+ ['kelly'+str(i) for i in [6, 1, 9]]
+    # pred_columns = ['proba'+str(i) for i in ['t1','t2','t3','t4']]
 
-    assert list(
-        X_.columns[:4]) == first_features, 'meta_model måste ha datum, avd och startnr, häst för att kunna välja'
     X = X_.copy()
+    # testa om first_features finns i X i någon ordning
+    assert set(first_features).issubset(set(
+        X.columns)), 'meta_model måste ha datum, avd och startnr, häst för att kunna välja'
+
     with open('modeller\\meta_ridge.model', 'rb') as f:
         meta_model = pickle.load(f)
-    
-    # print(meta_model.predict_proba(X.iloc[:, -8:]))
+
+    # läs in en json fil med column names
+    with open('modeller\\meta_ridge_columns.json', 'r') as f:
+        pred_columns = json.load(f)
+
     X['meta_predict'] = meta_model._predict_proba_lr(X[pred_columns])[:, 1]
-    my_columns = first_features + pred_columns + ['meta_predict']
 
-    return X[my_columns]
+    return X #[my_columns]
 
-
-def meta_lasso_predict(X_):
-    # X_ innehåller även datum,startnr och avd
-    first_features = ['datum', 'avd', 'startnr', 'häst']
-    pred_columns = ['proba'+str(i) for i in [6, 1, 9]] #+ ['kelly'+str(i) for i in [6, 1, 9]]
-
-    assert list(
-        X_.columns[:4]) == first_features, 'meta_model måste ha datum, avd och startnr, häst för att kunna välja'
-    X = X_.copy()
-    with open('modeller\\meta_lasso.model', 'rb') as f:
-        meta_model = pickle.load(f)
-
-    # print(meta_model.predict_proba(X.iloc[:, -8:]))
-    X['meta_predict'] = meta_model.predict(X[pred_columns])
-    my_columns = first_features + pred_columns + ['meta_predict']
-
-    return X[my_columns]
 
 
 def mesta_diff_per_avd(X_):
@@ -357,7 +358,7 @@ def välj_rad(df_predicted, max_insats=300):
         
     # print('cost', cost_before)
     veckans_rad.sort_values(by=['välj', 'avd'], ascending=[False, True], inplace=True)
-    # display(veckans_rad[veckans_rad.välj])
+
     return veckans_rad
 
 
@@ -371,7 +372,7 @@ try:
 except:
     st.write('No meta_scores.pkl found')
     print('No meta_scores.pkl found')
-    meta_scores = {'knn':0.6, 'rf':0.4,'ridge':0.7,'lasso':0.8}
+    meta_scores = {'knn':0.6, 'rf':0.4,'ridge':0.7,'et':0.5}
 # print('meta_scores:', meta_scores)    
 
 #%%
@@ -411,14 +412,49 @@ if 'datum' in st.session_state:
 
 # models = [typ6, typ1, typ9]   # typ16 och typ9 är samma förutom hur man väljer rader
 
-def use_meta(stack_data,meta):
+def prepare_stack_data(stack_data_):
+    """Hantera missing values, NaN, etc för meta-modellerna"""
+    assert 'y' not in stack_data_.columns, "y shouldn't be in stack_data"
 
+    stack_data = stack_data_.copy()
+        
+    # use the existing encoder - y is not used
+    assert 'y' not in stack_data, "y shouldn't be in stack_data when encode"
+
+    """ Fyll i saknade numeriska värden med 0 """
+    numericals = stack_data.select_dtypes(exclude=['object']).columns
+    stack_data[numericals] = stack_data[numericals].fillna(0)
+
+    """ Fyll i saknade kategoriska värden med 'missing' """
+    categoricals = stack_data.select_dtypes(include=['object']).columns
+    stack_data[categoricals] = stack_data[categoricals].fillna('missing')
+
+    # """ Hantera high cardinality """
+    # cardinality_list=['häst','kusk','h1_kusk','h2_kusk','h3_kusk','h4_kusk','h5_kusk']
+    
+    # läs in encoder till ENC
+    with open(pref+'modeller/meta_encoder.pkl', 'rb') as f:
+        ENC = pickle.load(f)
+
+    df = stack_data.drop(columns=['startnr', 'datum', 'avd'])
+    extra_columns = list(set(df.columns).difference(set(ENC.get_feature_names())))
+    assert len(extra_columns) == 0, f"extra_columns i stack_data={extra_columns}"
+    df = ENC.transform(df)
+    stack_data = pd.concat([stack_data[['startnr','datum','avd']],df],axis=1)
+    return stack_data
+
+def use_meta(stack_data,meta):
+    
+    häst_namn = stack_data[['avd','startnr','häst']].copy()
+    häst_namn.reset_index(drop=True, inplace=True)
+    
+    stack_data = prepare_stack_data(stack_data)
     if meta == 'knn':
         meta_predicted = meta_knn_predict(stack_data)
     elif meta == 'rf':
         meta_predicted = meta_rf_predict(stack_data)
-    elif meta=='lasso':
-        meta_predicted = meta_lasso_predict(stack_data)
+    elif meta == 'et':
+        meta_predicted = meta_et_predict(stack_data)
     elif meta=='ridge':
         meta_predicted = meta_ridge_predict(stack_data)
     else:
@@ -426,7 +462,15 @@ def use_meta(stack_data,meta):
         meta_predicted = meta_rf_predict(stack_data)
     
     meta_predicted.reset_index(drop=True, inplace=True)
+    
     df = välj_rad(meta_predicted)
+    df.sort_values(by=['avd','startnr'], inplace=True)
+    häst_namn = häst_namn.sort_values(by=['avd','startnr'])
+    
+    df=df.assign(häst_ = häst_namn['häst'])   
+    
+    assert len(df) == len(häst_namn), f"df={len(df)} häst_namn={len(häst_namn)}"
+    assert 'häst_' in df.columns, f"häst_ finns inte i df"
     st.session_state.df = df
     st.experimental_rerun()
     
@@ -471,7 +515,7 @@ with scraping:
             st.balloons()
             my_bar.empty()
             placeholder.empty()
-            # print(df_scraped.datum.unique())
+    
             df_stack = build_stack_df(df_scraped, modeller)
             df_stack.to_csv('sparad_stack.csv', index=False)
             use_meta(df_stack, meta)
@@ -484,6 +528,7 @@ with scraping:
             do_scraping=True
     with col2:  
         if st.button('reuse scrape'):
+            st.session_state.df = None  # säkra att df blir ny
             try:
                 df=pd.read_csv('sparad_scrape_spela.csv')
                 
@@ -522,14 +567,18 @@ with scraping:
     
 with avd:
     if st.session_state.df is not None:
+        # st.write(st.session_state.df    )
         use = avd.radio('Välj avdelning', ('Avd 1 och 2','Avd 3 och 4','Avd 5 och 6','Avd 7','clear'))
         avd.subheader(use)
         st.write('TA BORT OUTLIERS')
         col1, col2 = st.columns(2)
         # print(df.iloc[0].häst)
-        dfi=st.session_state.df
+        dfi=st.session_state.df.copy()
+        
+        assert 'startnr' in dfi.columns, f"startnr finns inte i dfi"
+        assert 'meta_predict' in dfi.columns, f"meta_predict finns inte i dfi"
         dfi.rename(columns={'startnr': 'nr', 'meta_predict': 'Meta'}, inplace=True)
-    
+        
     
         # CSS to inject contained in a string
         hide_dataframe_row_index = """
@@ -544,22 +593,22 @@ with avd:
         
         if use == 'Avd 1 och 2':
             col1.table(dfi[(dfi.avd == 1) & dfi.välj].sort_values(by=['Meta'],ascending=False)[
-                       ['nr', 'häst', 'Meta']])
+                       ['nr', 'häst_', 'Meta', 'streck']])
             col2.table(dfi[(dfi.avd == 2) & dfi.välj].sort_values(by=['Meta'],ascending=False)[
-                       ['nr', 'häst', 'Meta']])
+                       ['nr', 'häst_', 'Meta', 'streck']])
         elif use=='Avd 3 och 4':
             col1.table(dfi[(dfi.avd == 3) & dfi.välj].sort_values(by=['Meta'], ascending=False)[
-                       ['nr', 'häst', 'Meta']])
+                       ['nr', 'häst_', 'Meta', 'streck']])
             col2.table(dfi[(dfi.avd == 4) & dfi.välj].sort_values(by=['Meta'], ascending=False)[
-                       ['nr', 'häst', 'Meta']])
+                       ['nr', 'häst_', 'Meta', 'streck']])
         elif use=='Avd 5 och 6':
             col1.table(dfi[(dfi.avd == 5) & dfi.välj].sort_values(by=['Meta'], ascending=False)[
-                       ['nr', 'häst', 'Meta']])
+                       ['nr', 'häst_', 'Meta', 'streck']])
             col2.table(dfi[(dfi.avd == 6) & dfi.välj].sort_values(by=['Meta'], ascending=False)[
-                       ['nr', 'häst', 'Meta']])
+                       ['nr', 'häst_', 'Meta', 'streck']])
         elif use=='Avd 7':
             col1.table(dfi[(dfi.avd == 7) & dfi.välj].sort_values(by=['Meta'], ascending=False)[
-                       ['nr', 'häst', 'Meta']])
+                       ['nr', 'häst_','häst', 'Meta', 'streck']])
         elif use=='clear':
             st.stop()    
         else:
@@ -569,16 +618,19 @@ with avd:
 
 with sortera:   
     if st.sidebar.checkbox('se data'):
-        dfr = st.session_state.df
+        dfr = st.session_state.df.copy()
+        dfr.rename(columns={'startnr': 'nr', 'meta_predict': 'Meta'}, inplace=True)
+        
         sort=st.sidebar.radio('sortera på',['Meta','avd'])
         if sort:
             if sort=='Meta':
-                st.write(dfr[['avd', 'nr', 'häst','Meta']].sort_values(by=['Meta','avd','nr'], ascending=[False, False,False]))
+                st.write(dfr[['avd', 'nr', 'häst_', 'häst', 'Meta', 'streck', 'välj']].sort_values(
+                    by=['Meta', 'avd', 'nr'], ascending=[False, False, False]))
             else:
-                dfra  = dfr[['avd','nr','häst','proba6','proba9','proba1','Meta','välj']]
+                dfra = dfr[['avd', 'nr', 'häst_', 'häst', 'streck', 'Meta', 'välj']]
                 st.write(dfra.sort_values(by=['avd', 'nr'], ascending=[True, True]))
                 
-meta_list = ['rf', 'knn','ridge', 'lasso']
+meta_list = ['rf', 'et', 'knn','ridge']
 meta_list.sort(reverse=True, key=lambda x: sort_list_of_meta(x))
 meta = st.sidebar.radio('välj meta_model',meta_list)
 
@@ -592,7 +644,7 @@ if meta != st.session_state.meta:
     except:
         st.info('Datum: ' + df_scraped.datum.iloc[0])
         pass
-    
+  
     df_stack = build_stack_df(df_scraped, modeller)
     df_stack.to_csv('sparad_stack.csv', index=False)
     use_meta(df_stack, meta)

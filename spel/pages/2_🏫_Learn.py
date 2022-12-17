@@ -306,7 +306,7 @@ def prepare_stack_data(stack_data_, y, ENC=None):
 def learn_meta_models(meta_modeller, stack_data, save=True):
 
     assert 'y' in stack_data.columns, 'y is missing in stack_data'
-    stack_data.to_csv('stack_data_före_drop.csv', index=False)
+    
     y = stack_data.y.astype(int)
     meta_features = stack_data.drop(['datum', 'avd', 'y'], axis=1).columns.to_list()
     X_meta, ENC = prepare_stack_data(stack_data[meta_features], y)
@@ -314,12 +314,7 @@ def learn_meta_models(meta_modeller, stack_data, save=True):
     with open(pref+'modeller/meta_encoder.pkl', 'wb') as f:
             pickle.dump(ENC, f)
 
-    # X_meta.drop(['streck'], axis=1, inplace=True)
-
     y_meta = y
-    # X_meta.to_csv('X_meta_Learn.csv', index=False)
-    # print(f'Learn meta {stack_data.datum.min()} - {stack_data.datum.max()}')
-    # print(X_meta.columns)
     for key, items in meta_modeller.items():
         meta_model = items['model']
 
@@ -328,10 +323,15 @@ def learn_meta_models(meta_modeller, stack_data, save=True):
         meta_modeller[key]['model'] = meta_model
 
         if save:
+            # Save the model to a pckle file
             with open(pref+'modeller/'+key+'.model', 'wb') as f:
                 pickle.dump(meta_model, f)
 
-    # print('Done Learn meta_modeller på stack_data')
+            # Save the list of column names to a JSON file
+            with open(pref+'modeller/'+key+'_columns.json', "w") as f:
+                json.dump(X_meta.columns.tolist(), f)
+
+
     return meta_modeller
 #%%
 
@@ -509,8 +509,9 @@ def TimeSeries_learning(df_ny_, modeller, meta_modeller, n_splits=5, val_fractio
             stacked_data = pd.concat([stacked_data, temp_stack], ignore_index=True)
         
         stacked_data.y = stacked_data.y.astype(int)
-        
 
+    stacked_data.head(10).to_csv('stacked_data.csv', index=False)
+    
     meta_features = stacked_data.drop(['datum', 'avd', 'y'], axis=1).columns.to_list()
 
     my_bar.progress(1.0)

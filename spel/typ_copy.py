@@ -7,7 +7,7 @@ from catboost import CatBoostClassifier, Pool
 def remove_features(df_, remove_mer=[]):
     df = df_.copy()
     if 'vodds' in df.columns:
-        df.drop(['startnr', 'vodds', 'podds', 'bins', 'h1_dat',
+        df.drop([ 'vodds', 'podds', 'bins', 'h1_dat',
                 'h2_dat', 'h3_dat', 'h4_dat', 'h5_dat'], axis=1, inplace=True)
     if remove_mer and 'avd' in df.columns:
         df.drop(remove_mer, axis=1, inplace=True)
@@ -90,8 +90,6 @@ class Typ():
     #                  name,   #häst      #motst,  motst_diff, streck, test,        pref
     def __init__(self, name, ant_hästar, motst_ant, motst_diff, streck, test=False, pref=''):
         assert (motst_diff == False and motst_ant == 0) or (motst_ant > 0)
-        # assert (ant_favoriter == 0 and only_clear == False) or (ant_favoriter > 0)
-        # assert kelly == False or kelly == None, 'kelly skall inte användas mer'
         
         self.name = name                # string - används för filnamn mm
 
@@ -101,13 +99,7 @@ class Typ():
         self.motst_diff = motst_diff    # bool - ovanstående med diff (streck) istf fasta värden
         self.streck = streck            # bool - inkludera streck som feature
         print('streck:', self.streck,'i init för', self.name)
-    
-        # urval av rader
-        # self.proba = proba              # bool - för prioritering vid urval av rader
-        # self.kelly = kelly              # bool - för prioritering vid urval av rader
-        # self.ant_favoriter = ant_favoriter # int  - för hur många favoriter (avd där endast en häst spelas) som ska användas
-        # self.only_clear = only_clear       # bool - för att bara avvända klara favoriter
-        
+            
         self.pref = pref                # string - prefix för map/filnamn
         
         ##### test #####
@@ -152,10 +144,10 @@ class Typ():
             if verbose:
                 print('Lägg in diff motståndare', end=', ')
             X = lägg_in_diff_motståndare(X, self.motst_ant)
-        elif self.motst_ant > 0:
-            if verbose:
-                print('Lägg in motståndare', end=', ')
-            X = lägg_in_motståndare(X, self.motst_ant)
+        # elif self.motst_ant > 0:
+        #     if verbose:
+        #         print('Lägg in motståndare', end=', ')
+        #     X = lägg_in_motståndare(X, self.motst_ant)
         # Behåll streck ända tills learn och predict (används för prioritera rader)
         
         #### test ###
@@ -234,6 +226,7 @@ class Typ():
         assert 'streck' in list(X_.columns), f'streck saknas i predict X ({self.name})'
         
         X = self.prepare_for_model(X_)
+        
         assert 'streck' in list(X.columns), f'streck saknas efter prepare_for_model i predict X ({self.name})'
         
         if model==None:
@@ -242,19 +235,16 @@ class Typ():
         if not self.streck:
             print('drop streck')
             X.drop('streck', axis=1, inplace=True)
-
-        # print('Före prepare for catb - model', self.name,  'columns=:')
-        # print('X.columns in predict',list(X.columns))
-        # print('features in predict ', list(model.feature_names_))
         
         X, cat_features = prepare_for_catboost(X, model.feature_names_)
-        # print('Efter prepare for catb - model', self.name)
-        # all features in model
-        X = remove_features(X, remove_mer=['datum', 'avd'])
-        
-        the_diff= list(set(model.feature_names_) - set(X.columns.tolist())) + list(set(X.columns.tolist())- set(model.feature_names_) )  # the difference between them
-        assert len(X.columns) == len(model.feature_names_), f'{len(X.columns)}  != {len(model.feature_names_)} {the_diff} in predict {self.name}'
-        assert set(X.columns) == set(model.feature_names_), f'features in model and in X not equal {the_diff} in predict {self.name}'
+    
+        X = remove_features(X, remove_mer=['datum', 'avd', 'startnr'])
+        # Get the list of column names that are present in model.feature_names_ but not in X.columns
+        the_diff1 = list(set(model.feature_names_).difference(set(X.columns.tolist())))
+        # Get the list of column names that are present in X.columns but not in the model.feature_names_
+        the_diff2 = list(set(X.columns.tolist()).difference(set(model.feature_names_)))
+        assert len(the_diff1) == 0, f'1. features in model and in X not equal {the_diff1} in model.feature_names_ when predict {self.name}'
+        assert len(the_diff2) == 0, f'2. features in model and in X not equal {the_diff2} in X.columns when predict {self.name}'
         
         X = X[model.feature_names_]
         if verbose:

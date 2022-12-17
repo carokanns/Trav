@@ -5,6 +5,8 @@
 import pandas as pd
 import numpy as np
 from category_encoders import TargetEncoder
+from IPython.display import display
+
 
 class v75():
     def __init__(self, filnamn='all_data.csv', pref=''):
@@ -106,6 +108,7 @@ class v75():
         encoder = TargetEncoder(cols=columns, min_samples_leaf=20, smoothing=10).fit(self.work_df, y)
         
         self.work_df= encoder.transform(self.work_df)
+        
         self.work_df['y'] = y
         
         print('Target encoding done')
@@ -113,7 +116,7 @@ class v75():
         return encoder  
         
     #################### Features som inte används ##########################################
-    def _remove_features(self, remove=['startnr', 'vodds', 'podds', 'bins', 'h1_dat',
+    def _remove_features(self, remove=[ 'vodds', 'podds', 'bins', 'h1_dat',
                 'h2_dat', 'h3_dat', 'h4_dat', 'h5_dat'],remove_mer=[]):
         """ rensa bort features som inte ska användas """
         
@@ -171,18 +174,23 @@ class v75():
         if extra:
             _ = self.test_lägg_till_kolumner()
             
-        if len(target_encode_list)>0 :
+        if len(target_encode_list)>0 and encoder:
+            display("WARNING: Don't give both encoder and target_encode_list - the list ignored" )    
+            
+        if encoder:
+            print('Using existing encoder for encoding')
+            # y = self.work_df.pop('y')
+            cols = encoder.get_feature_names()
+            self.work_df = encoder.transform(self.work_df[cols])          
+            # self.work_df['y'] = y      
+            
+        elif len(target_encode_list) > 0:
+            print('Creating new encoder')
             for col in target_encode_list:
                 assert col in self.work_df.columns, f'target_encode_list: {col} is not in work_df'
-            if encoder:
-                print('Using existing encoder')
-                y = self.work_df.pop('y')
-                self.work_df = encoder.transform(self.work_df)          
-                self.work_df['y'] = y      
-            else:        
-                print('Creating new encoder')
-                encoder = self._target_encode(target_encode_list)
-                
+            
+            encoder = self._target_encode(target_encode_list)
+
         return self.work_df, encoder
     
     def train_test_split(self, train_size=0.7):
