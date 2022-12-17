@@ -526,7 +526,7 @@ def learn_meta_models(meta_modeller, stack_data, save=True):
     # global ENC
     # print('Learn meta_modeller på stack_data')
     assert 'y' in stack_data.columns, 'y is missing in stack_data'
-    stack_data.to_csv('stack_data_före_drop.csv', index=False)
+    stack_data.head(10).to_csv('stack_data_före_drop.csv', index=False)
     y = stack_data.y.astype(int)
     meta_features = stack_data.drop(['datum', 'avd', 'y'], axis=1).columns.to_list()
     X_meta, ENC = prepare_stack_data(stack_data[meta_features], y)
