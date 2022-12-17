@@ -351,12 +351,10 @@ def välj_rad(df_predicted, max_insats=300):
         # print('i',i)
         veckans_rad.loc[i, 'välj'] = True
         cost = compute_total_insats(veckans_rad[veckans_rad.välj])
-        # print('cost',cost)
         if cost > max_insats:
-            # veckans_rad.loc[i, 'välj'] = False
+            veckans_rad.loc[i, 'välj'] = False
             break
         
-    # print('cost', cost_before)
     veckans_rad.sort_values(by=['välj', 'avd'], ascending=[False, True], inplace=True)
 
     return veckans_rad
@@ -464,10 +462,14 @@ def use_meta(stack_data,meta):
     meta_predicted.reset_index(drop=True, inplace=True)
     
     df = välj_rad(meta_predicted)
-    df.sort_values(by=['avd','startnr'], inplace=True)
-    häst_namn = häst_namn.sort_values(by=['avd','startnr'])
     
-    df=df.assign(häst_ = häst_namn['häst'])   
+    df = df.sort_values(by=['avd','startnr'])
+    häst_namn = häst_namn.sort_values(by=['avd','startnr'])
+    df.reset_index(drop=True, inplace=True)
+    häst_namn.reset_index(drop=True, inplace=True)
+    df['häst_'] = None  
+    df[['häst_']] = häst_namn[['häst']]
+
     
     assert len(df) == len(häst_namn), f"df={len(df)} häst_namn={len(häst_namn)}"
     assert 'häst_' in df.columns, f"häst_ finns inte i df"
