@@ -86,7 +86,7 @@ et_model = ExtraTreesClassifier(**et_params, n_jobs=6, random_state=2022)
     
 meta_modeller = {'meta_et': {'model': et_model, 'params': et_params},
                  'meta_ridge': {'model': ridge_model, 'params': ridge_params},
-                #  'meta_knn': {'model': KNN_model, 'params': knn_params},
+                 'meta_knn': {'model': KNN_model, 'params': knn_params},
                  'meta_rf': {'model': rf_model, 'params': rf_params},       
                 }
 

@@ -193,7 +193,7 @@ def förbered_data(df_ny):
     ny = v75_ny(df_ny, pref=pref)
     ny.förbered_data(missing_num=False)
     ny = ny.test_lägg_till_kolumner()
-    
+        
     return ny
     
     
