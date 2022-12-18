@@ -21,7 +21,7 @@ import json
 
 sys.path.append('C:\\Users\\peter\\Documents\\MyProjects\\PyProj\\Trav\\spel\\modeller\\')
 import V75_scraping as vs
-import typ_copy as tp
+import typ as tp
 import travdata as td
 pref = ''
 import logging

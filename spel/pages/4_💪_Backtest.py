@@ -7,7 +7,7 @@ import streamlit as st
 from category_encoders import TargetEncoder
 from catboost import CatBoostClassifier, Pool
 import sys
-import typ_copy as tp
+import typ as tp
 import travdata as td
 import json
 import concurrent.futures

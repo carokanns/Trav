@@ -1,14 +1,14 @@
 import pandas as pd
 import numpy as np
 import pickle
-
 import json
 from catboost import CatBoostClassifier, Pool
+import xgboost as xgb
 
 def remove_features(df_, remove_mer=[]):
     df = df_.copy()
     if 'vodds' in df.columns:
-        df.drop(['startnr', 'vodds', 'podds', 'bins', 'h1_dat',
+        df.drop([ 'vodds', 'podds', 'bins', 'h1_dat',
                 'h2_dat', 'h3_dat', 'h4_dat', 'h5_dat'], axis=1, inplace=True)
     if remove_mer and 'avd' in df.columns:
         df.drop(remove_mer, axis=1, inplace=True)
@@ -88,35 +88,47 @@ def lägg_in_diff_motståndare(X_, ant_motståndare):
     return X
 
 class Typ():
-    def __init__(self, name, ant_hästar, proba, kelly, motst_ant, motst_diff,  ant_favoriter, only_clear, streck,pref=''):
+    #                  name,   #häst      #motst,  motst_diff, streck, test,        pref
+    def __init__(self, name, ant_hästar, motst_ant, motst_diff, streck, test=False, pref=''):
         assert (motst_diff == False and motst_ant == 0) or (motst_ant > 0)
-        assert (ant_favoriter == 0 and only_clear ==
-                False) or (ant_favoriter > 0)
-        self.name = name                # string - för filnamn mm
+        
+        self.name = name                # string - används för filnamn mm
 
         # extra features att inkludera 
-        self.ant_hästar = ant_hästar    # int  - feature med antal hästar per avdelning
-        
+        self.ant_hästar = ant_hästar    # bool - skapa kol med antal hästar per avdelning
         self.motst_ant = motst_ant      # int  - inkludera n features med bästa motståndare (streck)
-        self.motst_diff = motst_diff    # bool - ovanstående med diff istf fasta värden
+        self.motst_diff = motst_diff    # bool - ovanstående med diff (streck) istf fasta värden
         self.streck = streck            # bool - inkludera streck som feature
-
-        # urval av rader
-        self.proba = proba              # bool - för prioritering vid urval av rader
-        self.kelly = kelly              # bool - för prioritering vid urval av rader
-        
-        self.ant_favoriter = ant_favoriter # int  - för hur många favoriter (avd där endast en häst spelas) som ska användas
-        self.only_clear = only_clear       # bool - för att bara avvända klara favoriter
-        
+        print('streck:', self.streck,'i init för', self.name)
+            
         self.pref = pref                # string - prefix för map/filnamn
+        
+        ##### test #####
+        if test:
+            self.rel_kr = True              # bool - skapa kol med relativt kr gentemot motståndarna
+            self.rel_rank = True            # bool - skapa kol med relativ rank gentemot motståndarna
+            self.streck_avst = True         # bool - skapa kol med streck avstånd gentemot motståndarna
+            self.hx_samma_bana = True       # bool - skapa kol med hx.bana som bana
+            self.hx_sammam_kusk = True      # bool - skapa kol med hx.kusk som kusk
+            print('Gör denna till produktion')
+        else:
+            self.rel_kr = False
+            self.rel_rank = False
+            self.streck_avst = False
+            self.hx_samma_bana = False
+            self.hx_sammam_kusk = False    
 
+    def get_name(self):
+        return self.name
+    
     def load_model(self):
         with open(self.pref+'modeller/'+self.name+'.model', 'rb') as f:
+            print('Loading model:', self.name)
             model = pickle.load(f)
-            
         return model
 
     def save_model(self, model):
+        print(f'Sparar {self.name+".model"}')
         with open(self.pref+'modeller/'+self.name+'.model', 'wb') as f:
             pickle.dump(model, f)
 
@@ -133,25 +145,47 @@ class Typ():
             if verbose:
                 print('Lägg in diff motståndare', end=', ')
             X = lägg_in_diff_motståndare(X, self.motst_ant)
-        elif self.motst_ant > 0:
-            if verbose:
-                print('Lägg in motståndare', end=', ')
-            X = lägg_in_motståndare(X, self.motst_ant)
+        # elif self.motst_ant > 0:
+        #     if verbose:
+        #         print('Lägg in motståndare', end=', ')
+        #     X = lägg_in_motståndare(X, self.motst_ant)
         # Behåll streck ända tills learn och predict (används för prioritera rader)
+        
+        #### test ###
+        # vi har några nya tillagda i __init__ ovan.
+        # Dessa kolumner läggs till av travdata.py och skall selekteras i prepare_for_model
+        if not self.rel_kr:
+            X = X.drop(['rel_kr'], axis=1)
+        if not self.rel_rank:
+            X = X.drop(['rel_rank'], axis=1)
+        if not self.streck_avst:
+            X = X.drop(['streck_avst'], axis=1) 
+        if not self.hx_samma_bana:
+            X = X.drop(['h1_samma_bana','h2_samma_bana','h3_samma_bana'], axis=1)   # hx_samma_bana 
+        if not self.hx_sammam_kusk:
+            X = X.drop(['h1_samma_kusk','h2_samma_kusk','h3_samma_kusk'], axis=1)   # hx_sammam_kusk
+        
         if verbose:
-            print()
+            print('Test')
         return X
     
-    def learn(self, X_, y=None, X_test=None, y_test=None, params=None ,
-              iterations=1000, save=True, verbose=False):
+    def learn(self, X_, y=None, X_test_=None, y_test=None, params=None, iterations=1000, save=True, verbose=False):
         # X_ måste ha datum och avd
-        
-        if not params:
+        assert X_ is not None, 'X är None'
+        print('Learning', self.name)
+        X = X_.copy()
+        X_test=None
+        if X_test_ is not None:
+            X_test = X_test_.copy()
+            
+        assert 'streck' in list(X_.columns), 'streck saknas i learn X'
+        if params==None:
             #read params from file
             with open(self.pref+'optimera/params_'+self.name+'.json', 'rb') as f:
                 params = json.load(f)
-                params = exec(params['params'])
-        
+                # print(params)
+                params = params['params']
+
         iterations = params['iterations'] if 'iterations' in params else iterations
         params.pop('iterations')  # remove iterations from params
         cbc = CatBoostClassifier(**params,
@@ -179,6 +213,8 @@ class Typ():
             assert X.columns.tolist() == X_test.columns.tolist(), 'X and X_test have different columns'
             eval_pool = Pool(X_test, y_test, cat_features=cat_features)
             cbc.fit(X,y,cat_features=cat_features,eval_set=eval_pool, use_best_model=True,early_stopping_rounds=50)
+        
+            
         if verbose:
             print('best score', cbc.best_score_)
         if save:
@@ -186,22 +222,30 @@ class Typ():
         return cbc
 
 
-    def predict(self, X_,verbose=False):
+    def predict(self, X_,verbose=False,model=None):
         # X_ måste ha datum och avd
-        X = self.prepare_for_model(X_)
-        model = self.load_model()
-        if not self.streck:
-            # print('drop streck')
-            X.drop('streck', axis=1, inplace=True)
-
-        X, cat_features = prepare_for_catboost(X, model.feature_names_)
-
-        # all features in model
-        X = remove_features(X, remove_mer=['datum', 'avd'])
+        assert 'streck' in list(X_.columns), f'streck saknas i predict X ({self.name})'
         
-        the_diff= list(set(model.feature_names_) - set(X.columns.tolist())) + list(set(X.columns.tolist())- set(model.feature_names_) )  # the difference between them
-        assert len(X.columns) == len(model.feature_names_), f'{len(X.columns)}  != {len(model.feature_names_)} {the_diff} in predict {self.name}'
-        assert set(X.columns) == set(model.feature_names_), f'features in model and in X not equal {the_diff} in predict {self.name}'
+        X = self.prepare_for_model(X_)
+        
+        assert 'streck' in list(X.columns), f'streck saknas efter prepare_for_model i predict X ({self.name})'
+        
+        if model==None:
+            model = self.load_model()
+    
+        if not self.streck:
+            print('drop streck')
+            X.drop('streck', axis=1, inplace=True)
+        
+        X, cat_features = prepare_for_catboost(X, model.feature_names_)
+    
+        X = remove_features(X, remove_mer=['datum', 'avd', 'startnr'])
+        # Get the list of column names that are present in model.feature_names_ but not in X.columns
+        the_diff1 = list(set(model.feature_names_).difference(set(X.columns.tolist())))
+        # Get the list of column names that are present in X.columns but not in the model.feature_names_
+        the_diff2 = list(set(X.columns.tolist()).difference(set(model.feature_names_)))
+        assert len(the_diff1) == 0, f'1. features in model and in X not equal {the_diff1} in model.feature_names_ when predict {self.name}'
+        assert len(the_diff2) == 0, f'2. features in model and in X not equal {the_diff2} in X.columns when predict {self.name}'
         
         X = X[model.feature_names_]
         if verbose:
@@ -209,4 +253,7 @@ class Typ():
         # print(model.get_feature_importance(prettified=True)[:3])
 
         return model.predict_proba(X)[:, 1]
-# the difference between two lists
+    
+    # method that retruns all the self variables
+    def get_params(self):
+        return {k:v for k,v in self.__dict__.items() if k[0]!='_'}  

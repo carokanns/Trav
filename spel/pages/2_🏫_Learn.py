@@ -1,22 +1,19 @@
 import streamlit as st
 
-from sklearn.linear_model import RidgeClassifier
-from sklearn.ensemble import RandomForestClassifier
-from sklearn.ensemble import ExtraTreesClassifier
-import lightgbm as lgb  
-from sklearn.neighbors import KNeighborsClassifier
+from sklearn.linear_model import RidgeClassifier # TODO: Ta bort
+from sklearn.ensemble import RandomForestClassifier # TODO: Ta bort
+from sklearn.ensemble import ExtraTreesClassifier # TODO: Ta bort
+import lightgbm as lgb   # TODO: Ta bort
+from sklearn.neighbors import KNeighborsClassifier  # TODO: Ta bort
 import sys
 sys.path.append('C:\\Users\\peter\\Documents\\MyProjects\\PyProj\\Trav\\spel\\')
 
-import typ_copy as tp
+import typ as tp
 import travdata as td
 import V75_scraping as vs
 import concurrent.futures
 from IPython.display import display
 import pickle
-
-from logging import PlaceHolder
-from category_encoders import TargetEncoder
 
 import matplotlib.pyplot as plt
 import seaborn as sns
@@ -267,40 +264,10 @@ def learn_meta_lgb_model(X, y, save=True):
 
 
 def prepare_stack_data(stack_data_, y, ENC=None):
-    """Hantera missing values, NaN, etc för meta-modellerna"""
+    stack_data = stack_data_.copy(deep=True)
     assert 'y' not in stack_data_.columns, "y shouldn't be in stack_data"
-    
-    stack_data = stack_data_.copy()
-    
-    if ENC is None:
-        # a new encode needs y 
-        assert y is not None, "y is needed for new encoding"
-    else:
-        # use the existing encoder - y is not used 
-        assert y is None, "y should be None for existing encoding"
 
-    """ Fyll i saknade numeriska värden med 0 """
-    numericals = stack_data.select_dtypes(exclude=['object']).columns
-    stack_data[numericals] = stack_data[numericals].fillna(0)
-
-    """ Fyll i saknade kategoriska värden med 'missing' """
-    categoricals = stack_data.select_dtypes(include=['object']).columns
-    stack_data[categoricals] = stack_data[categoricals].fillna('missing')
-
-    # """ Hantera high cardinality """
-    # cardinality_list=['häst','kusk','h1_kusk','h2_kusk','h3_kusk','h4_kusk','h5_kusk']
-
-    """ Target encoding"""
-    target_encode_list = ['bana', 'häst', 'kusk', 'kön', 'h1_kusk', 'h1_bana', 'h2_kusk', 'h2_bana',
-                          'h3_kusk', 'h3_bana', 'h4_kusk', 'h4_bana', 'h5_kusk', 'h5_bana']
-    
-    if ENC==None:
-        ENC = TargetEncoder(cols=target_encode_list,
-                            min_samples_leaf=20, smoothing=10).fit(stack_data, y)
-         
-    stack_data = ENC.transform(stack_data)
-
-    return stack_data, ENC
+    return stack_data
 
 
 def learn_meta_models(meta_modeller, stack_data, save=True):

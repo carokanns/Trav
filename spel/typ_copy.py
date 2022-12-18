@@ -3,6 +3,7 @@ import numpy as np
 import pickle
 import json
 from catboost import CatBoostClassifier, Pool
+import xgboost as xgb
 
 def remove_features(df_, remove_mer=[]):
     df = df_.copy()
