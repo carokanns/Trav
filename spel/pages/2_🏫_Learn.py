@@ -43,49 +43,22 @@ st.set_page_config(page_title="V75 Learning", page_icon="🏫")
 st.markdown("# 🏫 V75 Learning")
 st.sidebar.header("🏫 V75 Learning")
 #%%
-# skapa modeller
-#               name,   #häst  #motst,  motst_diff, streck, test,  pref
-test1 = tp.Typ('test1', False,   3,     False,       True,  True,  pref=pref)
-test2 = tp.Typ('test2', False,   3,     True,       False,  True,  pref=pref)
-test3 = tp.Typ('test3', True,    0,     False,      True,   False, pref=pref)
-test4 = tp.Typ('test4', True,    3,     True,       False,  False, pref=pref)
-modeller = [test1, test2, test3, test4]
+# skapa dict med modeller
+modell_dict = { 'Cat1': {'#hästar': False, '#motst': 3, 'motst_diff': True, 'streck': False},
+                'Cat2': {'#hästar': True,  '#motst': 3, 'motst_diff': True, 'streck': True },
+                'XGB1': {'#hästar': False, '#motst': 3, 'motst_diff': True, 'streck': False}, 
+                'XGB2': {'#hästar': True,  '#motst': 3, 'motst_diff': True, 'streck': True }
+        }
 
-###################################################################################
-# RandomForestClassifier
-with open('optimera/params_meta_rf.json', 'r') as f:
-    params = json.load(f)
-    rf_params = params['params']
-rf_model = RandomForestClassifier(**rf_params, n_jobs=6, random_state=2022)
-
-# RidgeClassifier
-with open('optimera/params_meta_ridge.json', 'r') as f:
-    ridge_params = json.load(f)['params']
-    # st.write(params)
-ridge_model = RidgeClassifier(**ridge_params, random_state=2022)
-
-# KNN classifier
-with open('optimera/params_meta_knn.json', 'r') as f:
-    knn_params = json.load(f)['params']
-KNN_model = KNeighborsClassifier(**knn_params, n_jobs=6)
-
-# ExtraTreesClassifier
-with open('optimera/params_meta_et.json', 'r') as f:
-    params = json.load(f)
-    et_params = params['params']
-et_model = ExtraTreesClassifier(**et_params, n_jobs=6, random_state=2022)
-
-# LightgbmClassifier
-with open('optimera/params_meta_et.json', 'r') as f:
-    params = json.load(f)
-    et_params = params['params']
-et_model = ExtraTreesClassifier(**et_params, n_jobs=6, random_state=2022)
-    
-meta_modeller = {'meta_et': {'model': et_model, 'params': et_params},
-                 'meta_ridge': {'model': ridge_model, 'params': ridge_params},
-                 'meta_knn': {'model': KNN_model, 'params': knn_params},
-                 'meta_rf': {'model': rf_model, 'params': rf_params},       
-                }
+modeller = []
+meta_modeller = []   
+for key, value in modeller.items():
+    L1_key = key+'L1'
+    L2_key = key+'L2'
+    modeller.append(tp.Typ(L1_key, value['#hästar'], value['#motst'], value['motst_diff'], value['streck']))
+    meta_modeller.append(tp.Typ(L2_key, value['#hästar'], value['#motst'], value['motst_diff'], value['streck']))
+  
+                
 
 #%%
 ################################################
@@ -782,7 +755,7 @@ def final_learning(modeller, n_splits=5):
     st.info('Final learning on all the data')
    
     _ = TimeSeries_learning(None, 
-                            modeller, meta_modeller,
+                            modeller,
                             n_splits=n_splits,
                             val_fraction=0, 
                             save=True,
@@ -903,7 +876,7 @@ with buttons:
             st.write(f'learn models and meta models on first {(1-fraction)*100} % of the data')    
             
             stacked_data = TimeSeries_learning(df_ny, 
-                                               modeller, meta_modeller,
+                                               modeller,
                                                n_splits=5, 
                                                val_fraction=fraction, 
                                                save=True, 

@@ -88,36 +88,29 @@ def lägg_in_diff_motståndare(X_, ant_motståndare):
     return X
 
 class Typ():
-    #                  name,   #häst      #motst,  motst_diff, streck, test,        pref
-    def __init__(self, name, ant_hästar, motst_ant, motst_diff, streck, test=False, pref=''):
+    #                  name,   #häst      #motst,  motst_diff, streck, pref
+    def __init__(self, name, ant_hästar, motst_ant, motst_diff, streck, pref=''):
         assert (motst_diff == False and motst_ant == 0) or (motst_ant > 0)
         
         self.name = name                # string - används för filnamn mm
 
-        # extra features att inkludera 
+        
+        # Dessa features läggs till av travdata.py men kan ev selekteras bort i prepare_for_model
+        
         self.ant_hästar = ant_hästar    # bool - skapa kol med antal hästar per avdelning
         self.motst_ant = motst_ant      # int  - inkludera n features med bästa motståndare (streck)
         self.motst_diff = motst_diff    # bool - ovanstående med diff (streck) istf fasta värden
         self.streck = streck            # bool - inkludera streck som feature
         print('streck:', self.streck,'i init för', self.name)
+        self.rel_kr = True              # bool - skapa kol med relativt kr gentemot motståndarna
+        self.rel_rank = True            # bool - skapa kol med relativ rank gentemot motståndarna
+        self.streck_avst = True         # bool - skapa kol med streck avstånd gentemot motståndarna
+        self.hx_samma_bana = True       # bool - skapa kol med hx.bana som bana
+        self.hx_sammam_kusk = True      # bool - skapa kol med hx.kusk som kusk
             
         self.pref = pref                # string - prefix för map/filnamn
         
-        ##### test #####
-        if test:
-            self.rel_kr = True              # bool - skapa kol med relativt kr gentemot motståndarna
-            self.rel_rank = True            # bool - skapa kol med relativ rank gentemot motståndarna
-            self.streck_avst = True         # bool - skapa kol med streck avstånd gentemot motståndarna
-            self.hx_samma_bana = True       # bool - skapa kol med hx.bana som bana
-            self.hx_sammam_kusk = True      # bool - skapa kol med hx.kusk som kusk
-            print('Gör denna till produktion')
-        else:
-            self.rel_kr = False
-            self.rel_rank = False
-            self.streck_avst = False
-            self.hx_samma_bana = False
-            self.hx_sammam_kusk = False    
-
+        
     def get_name(self):
         return self.name
     
@@ -150,10 +143,6 @@ class Typ():
         #         print('Lägg in motståndare', end=', ')
         #     X = lägg_in_motståndare(X, self.motst_ant)
         # Behåll streck ända tills learn och predict (används för prioritera rader)
-        
-        #### test ###
-        # vi har några nya tillagda i __init__ ovan.
-        # Dessa kolumner läggs till av travdata.py och skall selekteras i prepare_for_model
         if not self.rel_kr:
             X = X.drop(['rel_kr'], axis=1)
         if not self.rel_rank:
@@ -165,8 +154,6 @@ class Typ():
         if not self.hx_sammam_kusk:
             X = X.drop(['h1_samma_kusk','h2_samma_kusk','h3_samma_kusk'], axis=1)   # hx_sammam_kusk
         
-        if verbose:
-            print('Test')
         return X
     
     def learn(self, X_, y=None, X_test_=None, y_test=None, params=None, iterations=1000, save=True, verbose=False):

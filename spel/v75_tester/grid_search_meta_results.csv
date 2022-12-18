@@ -1,8 +1,0 @@
-model,best_score,best_params
-logistic_regression,0.8162179691146931,{'C': 5}
-knn,0.8147495066626048,"{'algorithm': 'auto', 'leaf_size': 1, 'metric': 'chebyshev', 'n_neighbors': 2000, 'p': 1, 'weights': 'distance'}"
-ridge,0.8138085904751527,"{'alpha': 1, 'class_weight': None}"
-lasso,0.8135635915562999,"{'alpha': 2e-05, 'max_iter': 1000}"
-random_forest,0.8095759751502267,"{'class_weight': None, 'max_depth': 5, 'n_estimators': 500}"
-decision_tree,0.7977656570021961,"{'criterion': 'entropy', 'max_depth': 4}"
-naive_bayes_gaussian,0.791851776412239,{'priors': None}
