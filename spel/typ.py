@@ -155,9 +155,12 @@ class Typ():
             X = X.drop(['h1_samma_kusk','h2_samma_kusk','h3_samma_kusk'], axis=1)   # hx_sammam_kusk
         
         return X
-    
+    # TODO: Bygg en learn_cat och en learn_xgb - De är för olika
     def learn(self, X_, y=None, X_test_=None, y_test=None, params=None, iterations=1000, save=True, verbose=False):
-        # X_ måste ha datum och avd
+        assert False, 'Bygg learn_cat och learn_xgb'
+        
+        
+        
         assert X_ is not None, 'X är None'
         print('Learning', self.name)
         X = X_.copy()
@@ -175,21 +178,23 @@ class Typ():
 
         iterations = params['iterations'] if 'iterations' in params else iterations
         params.pop('iterations')  # remove iterations from params
-        cbc = CatBoostClassifier(**params,
+        model = CatBoostClassifier(**params,
             iterations=iterations,
             loss_function='Logloss', eval_metric='AUC', verbose=verbose)
         
         X = self.prepare_for_model(X_)
         if not self.streck:
             X.drop('streck', axis=1, inplace=True)
-
-        X, cat_features = prepare_for_catboost(X,verbose=verbose)
-        X = remove_features(X, remove_mer=['datum', 'avd'])
+        if self.name.startswith('cat'):
+            X, cat_features = prepare_for_catboost(X,verbose=verbose)
+            assert X[cat_features].isnull().sum().sum() == 0, 'there are NaN values in cat_features'
+        elif self.name.startswith('xgb'): 
+            X, cat_features = prepare_for_xgboost(X,verbose=verbose)   
         
-        assert X[cat_features].isnull().sum().sum() == 0, 'there are NaN values in cat_features'
-
+        X = remove_features(X, remove_mer=['datum', 'avd','startnr'])
+        
         if X_test is None or y_test is None:
-            cbc.fit(X, y, cat_features, use_best_model=False)
+            model.fit(X, y, cat_features, use_best_model=False)
         else:    
             X_test = self.prepare_for_model(X_test,verbose=verbose)
             if not self.streck:
@@ -199,13 +204,13 @@ class Typ():
             X_test = remove_features(X_test, remove_mer=['datum', 'avd'])
             assert X.columns.tolist() == X_test.columns.tolist(), 'X and X_test have different columns'
             eval_pool = Pool(X_test, y_test, cat_features=cat_features)
-            cbc.fit(X,y,cat_features=cat_features,eval_set=eval_pool, use_best_model=True,early_stopping_rounds=50)
+            model.fit(X,y,cat_features=cat_features,eval_set=eval_pool, use_best_model=True,early_stopping_rounds=50)
         
             
         if verbose:
-            print('best score', cbc.best_score_)
+            print('best score', model.best_score_)
         if save:
-            self.save_model(cbc)
+            self.save_model(model)
         return cbc
 
 

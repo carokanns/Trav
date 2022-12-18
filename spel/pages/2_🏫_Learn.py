@@ -44,15 +44,15 @@ st.markdown("# 🏫 V75 Learning")
 st.sidebar.header("🏫 V75 Learning")
 #%%
 # skapa dict med modeller
-modell_dict = { 'Cat1': {'#hästar': False, '#motst': 3, 'motst_diff': True, 'streck': False},
-                'Cat2': {'#hästar': True,  '#motst': 3, 'motst_diff': True, 'streck': True },
-                'XGB1': {'#hästar': False, '#motst': 3, 'motst_diff': True, 'streck': False}, 
-                'XGB2': {'#hästar': True,  '#motst': 3, 'motst_diff': True, 'streck': True }
+modell_dict = { 'cat1': {'#hästar': False, '#motst': 3, 'motst_diff': True, 'streck': False},
+                'cat2': {'#hästar': True,  '#motst': 3, 'motst_diff': True, 'streck': True },
+                'xgb1': {'#hästar': False, '#motst': 3, 'motst_diff': True, 'streck': False}, 
+                'xgb2': {'#hästar': True,  '#motst': 3, 'motst_diff': True, 'streck': True }
         }
 
 modeller = []
 meta_modeller = []   
-for key, value in modeller.items():
+for key, value in modell_dict.items():
     L1_key = key+'L1'
     L2_key = key+'L2'
     modeller.append(tp.Typ(L1_key, value['#hästar'], value['#motst'], value['motst_diff'], value['streck']))
@@ -437,7 +437,7 @@ def TimeSeries_learning(df_ny_, modeller, meta_modeller, n_splits=5, val_fractio
                                 y_test, params=params, save=save)
 
             # predict the new fitted model on X_test-delen
-            nr = model.name[3:]
+            nr = model.name[2:]
             this_proba = model.predict(X_test)
 
             # Bygg up meta-kolumnen proba för denns modell
@@ -876,7 +876,7 @@ with buttons:
             st.write(f'learn models and meta models on first {(1-fraction)*100} % of the data')    
             
             stacked_data = TimeSeries_learning(df_ny, 
-                                               modeller,
+                                               modeller, meta_modeller,
                                                n_splits=5, 
                                                val_fraction=fraction, 
                                                save=True, 
