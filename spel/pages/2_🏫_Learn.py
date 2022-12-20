@@ -433,7 +433,7 @@ def TimeSeries_learning(df_ny_, modeller, meta_modeller, n_splits=5, val_fractio
                     params = params['params']
                 # learn på X_train-delen
                 
-                cbc = model.learn(X_train, y_train, X_test,
+                my_model = model.learn(X_train, y_train, X_test,
                                 y_test, params=params, save=save)
 
             # predict the new fitted model on X_test-delen
