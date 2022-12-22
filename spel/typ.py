@@ -5,8 +5,10 @@ import json
 from catboost import CatBoostClassifier, Pool
 import xgboost as xgb
 
+
 def remove_features(df_, remove_mer=[]):
     df = df_.copy()
+    print(type(df))
     if 'vodds' in df.columns:
         df.drop([ 'vodds', 'podds', 'bins', 'h1_dat',
                 'h2_dat', 'h3_dat', 'h4_dat', 'h5_dat'], axis=1, inplace=True)
@@ -45,7 +47,7 @@ def prepare_for_catboost(X_, features=[],remove=True, verbose=False):
 
 # behålla alla NaN
 # ta bort alla features som inte används innan call
-def prepare_for_xgboost(X_, features=[],remove=True, verbose=False):
+def prepare_for_xgboost(X_, ohe=True, pred=False, features=[],remove=True, verbose=False, pref=''):
     X = X_.copy()
     
     if remove:
@@ -57,9 +59,8 @@ def prepare_for_xgboost(X_, features=[],remove=True, verbose=False):
         Xtemp = Xtemp[features]
         
     # get numerical features and cat_features
-    num_features = list(Xtemp.select_dtypes(include=[np.number]).columns)
     cat_features = list(Xtemp.select_dtypes(include=['object']).columns)
-    X[cat_features] = Xtemp[cat_features].astype('category')
+    num_features = list(set(Xtemp.columns) - set(cat_features))
     
     return X, cat_features
 
@@ -214,7 +215,7 @@ class Typ():
                                     iterations=iterations,
                                     loss_function='Logloss', eval_metric='AUC', verbose=verbose)
         elif model_name == 'xgboost':
-            X, cat_features = prepare_for_xgboost(X, verbose=verbose)
+            X, cat_features = prepare_for_xgboost(X, ohe=True, verbose=verbose, pref=self.pref)
             model = xgb.XGBClassifier(**params,
                                     iterations=iterations,
                                     early_stopping_rounds=Typ.EARLY_STOPPING_ROUNDS,
@@ -234,7 +235,7 @@ class Typ():
             if model_name == 'catboost':
                 X_test, _ = prepare_for_catboost(X_test, verbose=verbose)
             elif model_name == 'xgboost':
-                X_test, cat_features = prepare_for_xgboost(X_test, verbose=verbose)
+                X_test, cat_features = prepare_for_xgboost(X_test, ohe=True, verbose=verbose, pref=self.pref)
             else:
                 raise Exception('unknown model type')    
 
@@ -266,127 +267,10 @@ class Typ():
             
         if save:
             self.save_model(model)
+            
         return model
 
-# TODO : Ta bort denna metod
-#     def learn_cat(self, X_, y=None, X_test_=None, y_test=None, params=None, iterations=ITERATIONS, save=True, verbose=False):
-
-#         assert X_ is not None, 'X är None'
-#         print('Learning', self.name)
-#         X = X_.copy()
-#         X_test = None
-#         if X_test_ is not None:
-#             X_test = X_test_.copy()
-
-#         assert 'streck' in list(X_.columns), 'streck saknas i learn X'
-#         if params == None:
-#             #read params from file
-#             with open(self.pref+'optimera/params_'+self.name+'.json', 'rb') as f:
-#                 params = json.load(f)
-#                 # print(params)
-#                 params = params['params']
-
-#         iterations = params['iterations'] if 'iterations' in params else iterations
-#         params.pop('iterations')  # remove iterations from params
-#         model = CatBoostClassifier(**params,
-#                                    iterations=iterations,
-#                                    loss_function='Logloss', eval_metric='AUC', verbose=verbose)
-
-#         X = self.prepare_for_model(X_)
-#         if not self.streck:
-#             X.drop('streck', axis=1, inplace=True)
-#         if self.name.startswith('cat'):
-#             X, cat_features = prepare_for_catboost(X, verbose=verbose)
-#             assert X[cat_features].isnull().sum().sum(
-#             ) == 0, 'there are NaN values in cat_features'
-
-#         X = remove_features(X, remove_mer=['datum', 'avd', 'startnr'])
-
-#         if X_test is None or y_test is None:
-#             model.fit(X, y, cat_features, use_best_model=False)
-#         else:
-#             X_test = self.prepare_for_model(X_test, verbose=verbose)
-#             if not self.streck:
-#                 X_test.drop('streck', axis=1, inplace=True)
-
-#             X_test, _ = prepare_for_catboost(X_test, verbose=verbose)
-#             X_test = remove_features(X_test, remove_mer=['datum', 'avd'])
-#             assert X.columns.tolist() == X_test.columns.tolist(), 'X and X_test have different columns'
-#             eval_pool = Pool(X_test, y_test, cat_features=cat_features)
-#             model.fit(X, y, cat_features=cat_features, eval_set=eval_pool,
-#                       use_best_model=True, early_stopping_rounds=Typ.EARLY_STOPPING_ROUNDS)
-
-#         if verbose:
-#             print('best score', model.best_score_)
-#         if save:
-#             self.save_model(model)
-#         return model
-
-# TODO: Ta bort denna metod
-#     def learn_xgb(self, X_, y=None, X_test_=None, y_test=None, params=None, iterations=ITERATIONS, save=True, verbose=False):
-        
-#         assert X_ is not None, 'X är None'
-#         print('Learning', self.name)
-#         X = X_.copy()
-#         X_test=None
-#         if X_test_ is not None:
-#             X_test = X_test_.copy()
-            
-#         assert 'streck' in list(X_.columns), 'streck saknas i learn X'
-#         if params==None:
-#             #read params from file
-#             with open(self.pref+'optimera/params_'+self.name+'.json', 'rb') as f:
-#                 params = json.load(f)
-#                 params = params['params']
-
-#         iterations = params['iterations'] if 'iterations' in params else iterations
-#         params.pop('iterations')  # remove iterations from params
-#         model = xgb.XGBClassifier(**params,
-#             iterations=iterations,
-#             loss_function='Logloss', eval_metric='AUC', verbose=verbose)
-        
-#         X = self.prepare_for_model(X_)
-#         if not self.streck:
-#             X.drop('streck', axis=1, inplace=True)
-        
-#         if self.name.startswith('xgb'): 
-#             X, cat_features = prepare_for_xgboost(X,verbose=verbose)   
-        
-#         X = remove_features(X, remove_mer=['datum', 'avd','startnr'])
-        
-#         if X_test is None or y_test is None:
-#             model.fit(X, y)  # Ta bort early_stopping_rounds här
-#         else:
-#             X_test = self.prepare_for_model(X_test, verbose=verbose)
-#             if not self.streck:
-#                 X_test.drop('streck', axis=1, inplace=True)
-
-#             X_test, cat_feaatures = prepare_for_xgboost(X_test, verbose=verbose)
-#             X_test = remove_features(X_test, remove_mer=['datum', 'avd', 'startnr'])
-
-#             assert X.columns.tolist() == X_test.columns.tolist(), 'X and X_test have different columns'
-#             eval_pool = xgb.DMatrix(X_test, y_test)
-#             model.fit(X, y, cat_features= cat_features ,eval_set=eval_pool, use_best_model=True)  # Ta bort early_stopping_rounds här
-
-        
-#         if verbose:
-#             print('best score', model.best_score_)
-#         if save:
-#             self.save_model(model)
-#         return model
-
-# TODO: Ta bort denna metod
-#     def Learn_old(self, X, y=None, X_test=None, y_test=None, params=None, iterations=ITERATIONS, save=True, verbose=False):
-#         if self.name.startswith('cat'):
-#             model_name='catboost'
-#         elif self.name.startswith('xgb'):
-#             model_name='xgboost'
-#         else:
-#             raise Exception('unknown model type')
-            
-#         return self.learn_model(model_name, X, y, X_test, y_test, params, iterations, save, verbose)
-        
-        
+                
     def predict(self, X_,verbose=False,model=None):
         # X_ måste ha datum och avd
         assert 'streck' in list(X_.columns), f'streck saknas i predict X ({self.name})'
@@ -414,7 +298,7 @@ class Typ():
         if model_name == 'catboost':
             X, _ = prepare_for_catboost(X, verbose=verbose)
         elif model_name == 'xgboost':
-            X,_ = prepare_for_xgboost(X, model.feature_names_)
+            X,_ = prepare_for_xgboost(X,ohe=True, pred=True, pref=self.pref)
         else:
             raise Exception('unknown model type')    
     
@@ -431,8 +315,8 @@ class Typ():
             print('predict '+self.name)
          # Create DMatrices for the training and testing data
      
-        fit_pool = xgb.DMatrix(X, enable_categorical=True)
-        return model.predict_proba(fit_pool)[:, 1]
+        # fit_pool = xgb.DMatrix(X, enable_categorical=False)
+        return model.predict_proba(X)[:, 1]
     
     # method that retruns all the self variables
     def get_params(self):

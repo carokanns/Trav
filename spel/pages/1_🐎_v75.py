@@ -156,11 +156,12 @@ def lägg_in_diff_motståndare(X_, motståndare):
 
 #%%
 # skapa modeller
-#               name,   #häst  #motst,  motst_diff, streck, test,  pref
-test1 = tp.Typ('test1', False,   3,     False,       True,  True,  pref=pref)
-test2 = tp.Typ('test2', False,   3,     True,       False,  True,  pref=pref)
-test3 = tp.Typ('test3', True,    0,     False,      True,   False, pref=pref)
-test4 = tp.Typ('test4', True,    3,     True,       False,  False, pref=pref)
+# TODO: Uppdatera med nya modeller
+#               name,   #häst  #motst,  motst_diff, streck,   pref
+test1 = tp.Typ('test1', False,   3,     False,       True,  pref=pref)
+test2 = tp.Typ('test2', False,   3,     True,       False,  pref=pref)
+test3 = tp.Typ('test3', True,    0,     False,      True,   pref=pref)
+test4 = tp.Typ('test4', True,    3,     True,       False,  pref=pref)
 
 modeller = [test1, test2, test3, test4]
 

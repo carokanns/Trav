@@ -1,10 +1,5 @@
 import streamlit as st
 
-from sklearn.linear_model import RidgeClassifier # TODO: Ta bort
-from sklearn.ensemble import RandomForestClassifier # TODO: Ta bort
-from sklearn.ensemble import ExtraTreesClassifier # TODO: Ta bort
-import lightgbm as lgb   # TODO: Ta bort
-from sklearn.neighbors import KNeighborsClassifier  # TODO: Ta bort
 import sys
 sys.path.append('C:\\Users\\peter\\Documents\\MyProjects\\PyProj\\Trav\\spel\\')
 
@@ -152,7 +147,9 @@ def kelly_old(proba, streck, odds):  # proba = prob winning, streck i % = streck
 
 ##### RidgeClassifier (meta model) #####
 def learn_meta_ridge_model(X, y, save=True):
-
+    # import the RIdgeClassifier module
+    from sklearn.linear_model import RidgeClassifier
+    
     with open(pref+'optimera/params_meta_ridge.json', 'r') as f:
         params = json.load(f)['params']
         # st.write(params)
@@ -169,7 +166,9 @@ def learn_meta_ridge_model(X, y, save=True):
 
 ##### RandomForestClassifier (meta model) #####
 def learn_meta_rf_model(X, y, save=True):
-
+    # import the RIdgeClassifier module
+    from sklearn.ensemble import RandomForestClassifier
+    
     with open(pref+'optimera/params_meta_rf.json', 'r') as f:
         params = json.load(f)
         params = params['params']
@@ -193,6 +192,9 @@ def learn_meta_rf_model(X, y, save=True):
 
 ##### KNeighborsClassifier (meta model) #####
 def learn_meta_knn_model(X, y, save=True):
+    # import the Knn module
+    from sklearn.neighbors import KNeighborsClassifier
+    
     with open(pref+'optimera/params_meta_knn.json', 'r') as f:
         params = json.load(f)
         params = params['params']
@@ -209,6 +211,9 @@ def learn_meta_knn_model(X, y, save=True):
 
 
 def learn_meta_et_model(X, y, save=True):
+    # import the ExtraTreesClassifier module
+    from sklearn.ensemble import ExtraTreesClassifier
+    
     with open(pref+'optimera/params_meta_et.json', 'r') as f:
         params = json.load(f)
         params = params['params']
@@ -222,6 +227,9 @@ def learn_meta_et_model(X, y, save=True):
 
     return et_model
 def learn_meta_lgb_model(X, y, save=True):
+    # import the lightGBM module
+    from lightgbm import LGBMClassifier as lgb
+    
     with open(pref+'optimera/params_meta_lgm.json', 'r') as f:
         params = json.load(f)
         params = params['params']
