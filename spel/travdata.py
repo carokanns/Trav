@@ -127,7 +127,14 @@ class v75():
 
         return self.work_df
 
-    def förbered_data(self, missing_num=True, extra=False,missing_cat=True, remove=True, cardinality_list=[], target_encode_list=[], encoder=None, remove_mer=[]):
+    def förbered_data(self, extra=False,        # Add extra features
+                      missing_num=True,         # Handle missing numerics
+                      missing_cat=True,         # Handle missing categoricals
+                      cardinality_list=[],      # Handle high cardinality
+                      target_encode_list=[],    # Use this list for Target encoding (creating encoder)
+                      encoder=None,             # Use this encoder for Target encoding (transform)  
+                      remove=True,              # Remove default features
+                      remove_mer=[]):           # Remove more features not default
         """ En komplett förberedelse innan ML
         Returns:
             self.work_df: Färdig df att användas för ML

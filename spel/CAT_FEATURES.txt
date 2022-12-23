@@ -1,0 +1,14 @@
+bana
+häst
+kusk
+kön
+h1_kusk
+h1_bana
+h2_kusk
+h2_bana
+h3_kusk
+h3_bana
+h4_kusk
+h4_bana
+h5_kusk
+h5_bana
