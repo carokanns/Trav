@@ -4,7 +4,7 @@
 """
 import pandas as pd
 import numpy as np
-from category_encoders import TargetEncoder
+from category_encoders import TargetEncoder, CatBoostEncoder
 from IPython.display import display
 
 
@@ -16,7 +16,6 @@ class v75():
         print(self.filnamn)
         self.df = self.load_df()        # kan uppdateras enbart med concat av ny data
         self.work_df = self.df.copy()   # arbetskopia att köra all ML mot
-
         
     #################### Ta bort oanvändbara omgångar #######################################
     def _rensa_saknade_avd(self):
@@ -101,9 +100,21 @@ class v75():
         new_column=self.work_df[column].apply(lambda x: x if x in categories_list else 'Other')
         self.work_df[column]=new_column
 
+    def _catboost_encode(self, columns):
+        """ catboost encode måste ha y i work_df """
+        y = self.work_df.pop('y')
+        encoder = CatBoostEncoder(cols=columns).fit(self.work_df, y)
+        
+        self.work_df= encoder.transform(self.work_df)
+        
+        self.work_df['y'] = y
+        
+        print('CatBoost encoding done')
+        # display(self.work_df.head())
+        return encoder  
     
     def _target_encode(self, columns):
-        """ target encode måste y i work_df """
+        """ target encode måste ha y i work_df """
         y = self.work_df.pop('y')
         encoder = TargetEncoder(cols=columns, min_samples_leaf=20, smoothing=10).fit(self.work_df, y)
         
@@ -112,7 +123,7 @@ class v75():
         self.work_df['y'] = y
         
         print('Target encoding done')
-        display(self.work_df.head())
+        # display(self.work_df.head())
         return encoder  
         
     #################### Features som inte används ##########################################
@@ -132,13 +143,15 @@ class v75():
                       missing_cat=True,         # Handle missing categoricals
                       cardinality_list=[],      # Handle high cardinality
                       target_encode_list=[],    # Use this list for Target encoding (creating encoder)
-                      encoder=None,             # Use this encoder for Target encoding (transform)  
+                      catboost_encode_list=[],  # Use this list for CatBoost encoding (creating encoder)
+                      encoder=None,             # Use this encoder for transform with CatBoost encoding  
                       remove=True,              # Remove default features
                       remove_mer=[]):           # Remove more features not default
         """ En komplett förberedelse innan ML
         Returns:
             self.work_df: Färdig df att användas för ML
         """
+        assert len(target_encode_list) == 0 or len(catboost_encode_list) == 0, 'Only one encoding method can be used'
         self.work_df = self.df.copy()
         # rensa omgångar som saknar avdelningar
         self._rensa_saknade_avd()
@@ -182,7 +195,7 @@ class v75():
             _ = self.test_lägg_till_kolumner()
             
         if len(target_encode_list)>0 and encoder:
-            display("WARNING: Don't give both encoder and target_encode_list - the list ignored" )    
+            display("WARNING: Don't provide both encoder and target_encode_list - the list is ignored" )    
             
         if encoder:
             print('Using existing encoder for encoding')
@@ -191,10 +204,24 @@ class v75():
             self.work_df = encoder.transform(self.work_df[cols])          
             # self.work_df['y'] = y      
             
+        elif len(catboost_encode_list) > 0:
+            print('Creating new catboost encoder')
+            for col in catboost_encode_list:
+                assert col in self.work_df.columns, f'catboost_encode_list: {col} is not in work_df'
+            
+            # kopiera häst och kusk till nya kolumner för att spara orginalvärden
+            self.work_df['häst_namn'] = self.work_df['häst'].copy()
+            self.work_df['kusk_namn'] = self.work_df['kusk'].copy()
+            
+            encoder = self._catboost_encode(catboost_encode_list)
         elif len(target_encode_list) > 0:
-            print('Creating new encoder')
+            print('Creating new target encoder')
             for col in target_encode_list:
                 assert col in self.work_df.columns, f'target_encode_list: {col} is not in work_df'
+            
+            # kopiera häst och kusk till nya kolumner för att spara orginalvärden
+            self.work_df['häst_namn'] = self.work_df['häst'].copy()
+            self.work_df['kusk_namn'] = self.work_df['kusk'].copy()
             
             encoder = self._target_encode(target_encode_list)
 
