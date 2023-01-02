@@ -19,50 +19,52 @@ def remove_features(df_, remove_mer=[]):
 
 # remove NaN for cat_features in X and return (X, cat_features)
 # ta bort alla features som inte används innan call
-def prepare_for_catboost(X_, features=[],remove=True, verbose=False):
+def prepare_for_catboost(X_, verbose=False):
     X = X_.copy()
-    
-    if remove:
-        Xtemp = remove_features(X, remove_mer=['avd', 'datum'])
-    else:
-        Xtemp = X.copy()    
+         
+    return X
 
-    if len(features) > 0:
-        Xtemp = Xtemp[features]
+
+def _catboost_encode(X_, y, columns):   # Används av XGBoost
+        """ catboost encode måste ha y i work_df """
+        from category_encoders import CatBoostEncoder
+        X = X_.copy()
+        # kopiera häst och kusk till nya kolumner för att spara orginalvärden
+        X['häst_namn'] = X['häst'].copy()
+        X['kusk_namn'] = X['kusk'].copy()
+        encoder = CatBoostEncoder(cols=columns).fit(X[columns], y)
         
-    # get numerical features and cat_features
-    num_features = list(Xtemp.select_dtypes(include=[np.number]).columns)
-    cat_features = list(Xtemp.select_dtypes(include=['object']).columns)
-
-    # check cat_features isna
-    if verbose:
-        print('Number of NaN in cat before:', X[cat_features].isna().sum()[
-          X[cat_features].isna().sum() > 0].sort_values(ascending=False).sum())
-
-    # impute 'missing' for all NaN in cat_features
-    X[cat_features] = X[cat_features].fillna('missing')
-    if verbose:
-        print('Number of NaN in cat after:', X[cat_features].isna().sum().sum())
-    return X, cat_features
-
-# behålla alla NaN
-# ta bort alla features som inte används innan call
-def prepare_for_xgboost(X_, ohe=True, pred=False, features=[],remove=True, verbose=False, pref=''):
+        X[columns] = encoder.transform(X[columns])
+        
+        print('CatBoost encoding done')
+        
+        return X, encoder
+      
+def prepare_for_xgboost(X_, y=None, cat_features=None, encoder=None, pred=False, verbose=False, pref=''):
+    if encoder is not None:
+        assert y is None and cat_features is None, 'encoder is not None, then y and num_features must be None'
+    else:
+        assert y is not None and cat_features is not None, 'encoder is None, then y and num_features must be set'    
+        
     X = X_.copy()
-    
-    if remove:
-        Xtemp = remove_features(X, remove_mer=['avd', 'datum'])
-    else:
-        Xtemp = X.copy()    
+    bool_features = list(X.select_dtypes(include=['bool']).columns)
+    X[bool_features] = X[bool_features].astype('int')    
 
-    if len(features) > 0:
-        Xtemp = Xtemp[features]
+    if encoder is not None:
+        print('THE ENCODER',encoder)
+        ENC = encoder
+        cat_features_ = encoder.get_feature_names()
+        X['häst_namn'] = X['häst'].copy()
+        X['kusk_namn'] = X['kusk'].copy()
+        X[cat_features_] = encoder.transform(X[cat_features_])
+    else:    
+        X, ENC = _catboost_encode(X, y, cat_features)
         
-    # get numerical features and cat_features
-    cat_features = list(Xtemp.select_dtypes(include=['object']).columns)
-    num_features = list(set(Xtemp.columns) - set(cat_features))
-    
-    return X, cat_features
+        # save encoder
+        with open(pref + 'xgb_encoder.pkl', 'wb') as f:
+            pickle.dump(ENC, f)
+    assert 'streck' in X.columns, 'streck not in X.columns'
+    return X, ENC
 
 
 def lägg_in_antal_hästar(df_):
@@ -177,23 +179,36 @@ class Typ():
 
         return X
     
-    # Ny Learn metod som tar hänsyn till att vi kan ha CayBoost eller XGBoost
+    # Ny Learn metod som tar hänsyn till att vi kan ha CatBoost eller XGBoost
     def learn(self, X_, y=None, X_test_=None, y_test=None, params=None, iterations=ITERATIONS, save=True, verbose=False):
-        assert X_ is not None, 'X är None'
+        assert X_ is not None, 'X skall inte vara None'
+        assert 'streck' in list(X_.columns), 'streck saknas i learn X'
+
         if self.name.startswith('cat'):
-            model_name = 'catboost'
+            model_type = 'catboost'
         elif self.name.startswith('xgb'):
-            model_name = 'xgboost'
+            model_type = 'xgboost'
         else:
             raise Exception('unknown model type')
-        
-        print('Learning', self.name, 'with', model_name)
+                
+        print('Learning', self.name, 'with', model_type)
         X = X_.copy()
         X_test = None
         if X_test_ is not None:
             X_test = X_test_.copy()
-
-        assert 'streck' in list(X_.columns), 'streck saknas i learn X'
+        
+        # läs in CAT_FEATURES.txt till cat_features
+        with open(self.pref+'CAT_FEATURES.txt', 'r', encoding='utf-8') as f:
+            cat_features = f.read().split()        
+            
+        # läs in NUM_FEATURES.txt till num_features
+        with open(self.pref+'NUM_FEATURES.txt', 'r', encoding='utf-8') as f:
+            num_features = f.read().split()    
+        
+        use_features = cat_features + num_features
+        
+        ENC = None
+        
         if params is None:
             # Läs in parametrar från fil
             with open(self.pref+'optimera/params_'+self.name+'.json', 'rb') as f:
@@ -203,64 +218,60 @@ class Typ():
         iterations = params['iterations'] if 'iterations' in params else iterations
         params.pop('iterations')  # Ta bort iterations från params
 
-        X = self.prepare_for_model(X_)
+        X = self.prepare_for_model(X)
+        
         if not self.streck:
-            X.drop('streck', axis=1, inplace=True)
+            # X.drop('streck', axis=1, inplace=True)
+            use_features.remove('streck')
 
-        if model_name == 'catboost':
-            X, cat_features = prepare_for_catboost(X, verbose=verbose)
-            assert X[cat_features].isnull().sum().sum(
-            ) == 0, 'there are NaN values in cat_features'
+        assert X[cat_features].isnull().sum().sum() == 0, 'there are NaN values in cat_features'
+        
+        if model_type == 'catboost':
+            X = prepare_for_catboost(X, verbose=verbose)
             model = CatBoostClassifier(**params,
                                     iterations=iterations,
                                     loss_function='Logloss', eval_metric='AUC', verbose=verbose)
-        elif model_name == 'xgboost':
-            X, cat_features = prepare_for_xgboost(X, ohe=True, verbose=verbose, pref=self.pref)
+        elif model_type == 'xgboost':
+            X, ENC = prepare_for_xgboost(X, y, cat_features, encoder=ENC, verbose=verbose, pref=self.pref)
             model = xgb.XGBClassifier(**params,
                                     iterations=iterations,
                                     early_stopping_rounds=Typ.EARLY_STOPPING_ROUNDS,
-                                    loss_function='Logloss', eval_metric='AUC', verbose=verbose)
+                                    loss_function='Logloss', eval_metric='auc', verbose=verbose)
         else:
             raise Exception('unknown model type')    
 
-        X = remove_features(X, remove_mer=['datum', 'avd', 'startnr'])
 
         if X_test is None or y_test is None:
-            model.fit(X, y)
+            model.fit(X[use_features], y)
         else:
-            X_test = self.prepare_for_model(X_test, verbose=verbose)
-            if not self.streck:
-                X_test.drop('streck', axis=1, inplace=True)
+            X_test = self.prepare_for_model(X_test) 
+                                     
+            # if not self.streck:  Görs ovan
+            #     # remove streck from use_features
+            #     use_features.remove('streck')
+            #     # X_test.drop('streck', axis=1, inplace=True)
 
-            if model_name == 'catboost':
-                X_test, _ = prepare_for_catboost(X_test, verbose=verbose)
-            elif model_name == 'xgboost':
-                X_test, cat_features = prepare_for_xgboost(X_test, ohe=True, verbose=verbose, pref=self.pref)
+            if model_type == 'catboost':
+                X_test = prepare_for_catboost(X_test, verbose=verbose)
+            elif model_type == 'xgboost':
+                
+                X_test,_ = prepare_for_xgboost(X_test, encoder=ENC, verbose=verbose, pref=self.pref)
             else:
                 raise Exception('unknown model type')    
-
-            X_test = remove_features(X_test, remove_mer=['datum', 'avd', 'startnr'])
-
-            # Get the list of column names that are present in X.columns but not in X_test.columns
-            the_diff1 = list(set(X.columns.tolist()).difference(set(X_test.columns.tolist())))
-            assert len(the_diff1) == 0, f'1. features in X and X_test not equal: {the_diff1} in X.columns'
-            # Get the list of column names that are present in X_test.columns but not in X.columns
-            the_diff2 = list(set(X_test.columns.tolist()).difference(set(X.columns.tolist())))
-            assert len(the_diff2) == 0, f'2. features in X and X_test not equal: {the_diff2} in X_test.columns'
             
-            if model_name == 'catboost':
-                eval_pool = Pool(X_test, y_test, cat_features=cat_features)
-                model.fit(X, y, cat_features=cat_features, eval_set=eval_pool,
+            if model_type == 'catboost':
+                eval_pool = Pool(X_test[use_features], y_test, cat_features=cat_features)
+                model.fit(X[use_features], y, cat_features=cat_features, eval_set=eval_pool,
                         use_best_model=True, early_stopping_rounds=Typ.EARLY_STOPPING_ROUNDS)
-            elif model_name == 'xgboost':
-                assert X.columns.tolist() == X_test.columns.tolist(), 'X and X_test have different columns'
-                # Create DMatrices for the training and testing data
-                train_pool = xgb.DMatrix(X, y, enable_categorical=True)
-                eval_pool = xgb.DMatrix(X_test, y_test, enable_categorical=True)
-
+            elif model_type == 'xgboost':
+            
+                if set(X.columns.tolist()) != set(X_test.columns.tolist()):
+                    assert False , f'fit av {model.name}: X and X_test have different columns \nX     : {X.columns} \nX_test: {X_test.columns}'
+               
                 # Fit the model on the training data and evaluate on the testing data
-                model.fit(train_pool, eval_set=eval_pool, use_best_model=True)
-
+                model.fit(X[use_features], y, eval_set=[(X_test[use_features], y_test)])
+            else:
+                raise Exception('unknown model type')
 
         if verbose:
             print('best score', model.best_score_)
@@ -271,9 +282,10 @@ class Typ():
         return model
 
                 
-    def predict(self, X_,verbose=False,model=None):
+    def predict(self, X_, use_features_, verbose=False,model=None):
         # X_ måste ha datum och avd
-        assert 'streck' in list(X_.columns), f'streck saknas i predict X ({self.name})'
+        assert 'streck' in list(X_.columns), f'streck saknas i predict: X ({self.name})'
+        assert 'streck' in use_features_, f'streck saknas i predict: use_features ({self.name})'
         if self.name.startswith('cat'):
             model_name = 'catboost'
         elif self.name.startswith('xgb'):
@@ -283,6 +295,7 @@ class Typ():
 
         print('Learning', self.name, 'with', model_name)
         X = X_.copy()
+        use_features = use_features_.copy()
         
         X = self.prepare_for_model(X_)
         
@@ -293,30 +306,23 @@ class Typ():
     
         if not self.streck:
             print('drop streck')
-            X.drop('streck', axis=1, inplace=True)
+            use_features.remove('streck')
         
         if model_name == 'catboost':
-            X, _ = prepare_for_catboost(X, verbose=verbose)
+            X  = prepare_for_catboost(X, verbose=verbose)
         elif model_name == 'xgboost':
-            X,_ = prepare_for_xgboost(X,ohe=True, pred=True, pref=self.pref)
+            # xgb_encoder till ENC
+            with open(self.pref+'xgb_encoder.pkl', 'rb') as f:
+                ENC = pickle.load(f)        
+                
+            X,_ = prepare_for_xgboost(X, encoder=ENC, pred=True, pref=self.pref)
         else:
             raise Exception('unknown model type')    
     
-        X = remove_features(X, remove_mer=['datum', 'avd', 'startnr'])
-        # Get the list of column names that are present in model.feature_names_ but not in X.columns
-        the_diff1 = list(set(model.feature_names_).difference(set(X.columns.tolist())))
-        # Get the list of column names that are present in X.columns but not in the model.feature_names_
-        the_diff2 = list(set(X.columns.tolist()).difference(set(model.feature_names_)))
-        assert len(the_diff1) == 0, f'1. features in model and in X not equal {the_diff1} in model.feature_names_ when predict {self.name}'
-        assert len(the_diff2) == 0, f'2. features in model and in X not equal {the_diff2} in X.columns when predict {self.name}'
-        
-        X = X[model.feature_names_]
         if verbose:
-            print('predict '+self.name)
-         # Create DMatrices for the training and testing data
-     
-        # fit_pool = xgb.DMatrix(X, enable_categorical=False)
-        return model.predict_proba(X)[:, 1]
+            print('predict '+self.name, 'with streck', self.streck, "found streck in use_features", 'streck' in use_features, "\nuse_features", use_features)
+        
+        return model.predict_proba(X[use_features])[:, 1]
     
     # method that retruns all the self variables
     def get_params(self):

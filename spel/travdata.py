@@ -103,14 +103,14 @@ class v75():
     def _catboost_encode(self, columns):
         """ catboost encode måste ha y i work_df """
         y = self.work_df.pop('y')
-        encoder = CatBoostEncoder(cols=columns).fit(self.work_df, y)
+        encoder = CatBoostEncoder(cols=columns).fit(self.work_df[columns], y)
         
-        self.work_df= encoder.transform(self.work_df)
+        self.work_df[columns]= encoder.transform(self.work_df[columns])
         
         self.work_df['y'] = y
         
         print('CatBoost encoding done')
-        # display(self.work_df.head())
+
         return encoder  
     
     def _target_encode(self, columns):
@@ -123,7 +123,7 @@ class v75():
         self.work_df['y'] = y
         
         print('Target encoding done')
-        # display(self.work_df.head())
+    
         return encoder  
         
     #################### Features som inte används ##########################################
