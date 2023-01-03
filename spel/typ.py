@@ -51,7 +51,7 @@ def prepare_for_xgboost(X_, y=None, cat_features=None, encoder=None, pred=False,
     X[bool_features] = X[bool_features].astype('int')    
 
     if encoder is not None:
-        print('THE ENCODER',encoder)
+        # print('THE ENCODER',encoder)
         ENC = encoder
         cat_features_ = encoder.get_feature_names()
         X['häst_namn'] = X['häst'].copy()
@@ -183,6 +183,7 @@ class Typ():
     def learn(self, X_, y=None, X_test_=None, y_test=None, params=None, iterations=ITERATIONS, save=True, verbose=False):
         assert X_ is not None, 'X skall inte vara None'
         assert 'streck' in list(X_.columns), 'streck saknas i learn X'
+        assert verbose==False, 'verbose=True är inte implementerat i learn'
 
         if self.name.startswith('cat'):
             model_type = 'catboost'
@@ -236,12 +237,17 @@ class Typ():
             model = xgb.XGBClassifier(**params,
                                     iterations=iterations,
                                     early_stopping_rounds=Typ.EARLY_STOPPING_ROUNDS,
-                                    loss_function='Logloss', eval_metric='auc', verbose=verbose)
+                                    loss_function='logloss', eval_metric='auc', verbose=0)
         else:
             raise Exception('unknown model type')    
 
 
         if X_test is None or y_test is None:
+            # check that all columns in X are numericals
+            # Skapa en lista med kolumner som inte är numeriska i X_test
+            non_numeric_columns = [c for c in X.columns if X[c].dtype.name == 'object']      
+            assert len(non_numeric_columns) == 0, f'X innehåller non-numeric columns: {non_numeric_columns}'
+
             model.fit(X[use_features], y)
         else:
             X_test = self.prepare_for_model(X_test) 
@@ -293,7 +299,7 @@ class Typ():
         else:
             raise Exception('unknown model type')
 
-        print('Learning', self.name, 'with', model_name)
+        print('Predicting', self.name, 'with', model_name)
         X = X_.copy()
         use_features = use_features_.copy()
         
