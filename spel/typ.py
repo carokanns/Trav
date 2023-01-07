@@ -114,8 +114,7 @@ def lägg_in_diff_motståndare(X_, ant_motståndare):
 
     for i in range(2, ant_motståndare+1):
         # set X['motståndare'+str(i)] to ith largest streck in every avd
-        X['diff' +
-            str(i)] = grouped.transform(lambda x: x.nlargest(i).min()) - X.streck
+        X['diff' + str(i)] = grouped.transform(lambda x: x.nlargest(i).min()) - X.streck
 
     return X
 
@@ -200,8 +199,7 @@ class Typ():
         assert X_ is not None, 'X skall inte vara None'
         assert 'streck' in list(X_.columns), 'streck saknas i learn X'
         assert verbose == False, 'verbose=True är inte implementerat i learn'
-        assert 'datum' in list(
-            X_.columns), 'datum saknas i learn X_ i början av learn'
+        assert 'datum' in X_.columns, 'datum saknas i learn X_ i början av learn'
 
         if self.name.startswith('cat'):
             model_type = 'catboost'
@@ -240,16 +238,14 @@ class Typ():
         iterations = params['iterations'] if 'iterations' in params else iterations
         params.pop('iterations')  # Ta bort iterations från params
 
-        assert 'datum' in list(
-            X.columns), 'datum saknas i learn X before prepare_for_model'
+        assert 'datum' in X.columns, 'datum saknas i learn X before prepare_for_model'
         X = self.prepare_for_model(X)
 
         if not self.streck:
             # X.drop('streck', axis=1, inplace=True)
             use_features.remove('streck')
 
-        assert X[cat_features].isnull().sum().sum(
-        ) == 0, 'there are NaN values in cat_features'
+        assert X[cat_features].isnull().sum().sum() == 0, 'there are NaN values in cat_features'
 
         if model_type == 'catboost':
             X = prepare_for_catboost(X, verbose=verbose)
@@ -267,9 +263,9 @@ class Typ():
                 non_numeric_columns) == 0, f'X innehåller non-numeric columns: {non_numeric_columns.columns}'
 
             model = xgb.XGBClassifier(**params,
-                                      iterations=iterations,
+                                      #   iterations=iterations,
                                       early_stopping_rounds=Typ.EARLY_STOPPING_ROUNDS if X_test is not None else None,
-                                      loss_function='logloss', eval_metric='auc', verbose=0)
+                                      objective='binary:logistic', eval_metric='auc')
         else:
             raise Exception('unknown model type')
 
@@ -282,8 +278,7 @@ class Typ():
                 raise Exception('unknown model type')
 
         else:
-            assert 'datum' in list(
-                X_test.columns), 'datum saknas i learn X_test'
+            assert 'datum' in X_test.columns, 'datum saknas i learn X_test'
             X_test = self.prepare_for_model(X_test)
 
             if model_type == 'catboost':
@@ -303,15 +298,13 @@ class Typ():
                 # Kolla att alla kolumner är numeriska i use_features
                 non_numeric_columns = [
                     c for c in X_test[use_features].columns if X_test[c].dtype.name == 'object']
-                assert len(
-                    non_numeric_columns) == 0, f'X innehåller non-numeric columns: {non_numeric_columns.columns}'
+                assert len(non_numeric_columns) == 0, f'X innehåller non-numeric columns: {non_numeric_columns.columns}'
 
                 if set(X.columns.tolist()) != set(X_test.columns.tolist()):
                     assert False, f'fit av {model.name}: X and X_test have different columns \nX     : {X.columns} \nX_test: {X_test.columns}'
 
                 # Fit the model on the training data and evaluate on the testing data
-                model.fit(X[use_features], y, eval_set=[
-                          (X_test[use_features], y_test)], verbose=0)
+                model.fit(X[use_features], y, eval_set=[(X_test[use_features], y_test)], verbose=0)
             else:
                 raise Exception('unknown model type')
 
@@ -325,8 +318,7 @@ class Typ():
 
     def predict(self, X_, use_features_, verbose=False, model=None):
         # X_ måste ha datum och avd
-        assert 'streck' in list(
-            X_.columns), f'streck saknas i predict: X ({self.name})'
+        assert 'streck' in X_.columns, f'streck saknas i predict: X ({self.name})'
         assert 'streck' in use_features_, f'streck saknas i predict: use_features ({self.name})'
         if self.name.startswith('cat'):
             model_name = 'catboost'
@@ -340,9 +332,7 @@ class Typ():
         use_features = use_features_.copy()
 
         X = self.prepare_for_model(X_)
-
-        assert 'streck' in list(
-            X.columns), f'streck saknas efter prepare_for_model i predict X ({self.name})'
+        assert 'streck' in X.columns, f'streck saknas efter prepare_for_model i predict X ({self.name})'
 
         if model == None:
             model = self.load_model()
@@ -366,7 +356,7 @@ class Typ():
         if verbose:
             print('predict '+self.name, 'with streck', self.streck, "found streck in use_features",
                   'streck' in use_features, "\nuse_features", use_features)
-
+            
         return model.predict_proba(X[use_features])[:, 1]
 
     # method that retruns all the self variables

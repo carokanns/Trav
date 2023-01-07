@@ -1,4 +1,0 @@
-cat1_L2
-cat2_L2
-xgb1_L2
-xgb1_L2
