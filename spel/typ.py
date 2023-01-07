@@ -10,7 +10,7 @@ def remove_features(df_, remove_mer=[]):
     df = df_.copy()
     print(type(df))
     if 'vodds' in df.columns:
-        df.drop([ 'vodds', 'podds', 'bins', 'h1_dat',
+        df.drop(['vodds', 'podds', 'bins', 'h1_dat',
                 'h2_dat', 'h3_dat', 'h4_dat', 'h5_dat'], axis=1, inplace=True)
     if remove_mer and 'avd' in df.columns:
         df.drop(remove_mer, axis=1, inplace=True)
@@ -19,36 +19,39 @@ def remove_features(df_, remove_mer=[]):
 
 # remove NaN for cat_features in X and return (X, cat_features)
 # ta bort alla features som inte används innan call
+
+
 def prepare_for_catboost(X_, verbose=False):
     X = X_.copy()
-         
+
     return X
 
 
 def _catboost_encode(X_, y, columns):   # Används av XGBoost
-        """ catboost encode måste ha y i work_df """
-        from category_encoders import CatBoostEncoder
-        X = X_.copy()
-        # kopiera häst och kusk till nya kolumner för att spara orginalvärden
-        X['häst_namn'] = X['häst'].copy()
-        X['kusk_namn'] = X['kusk'].copy()
-        encoder = CatBoostEncoder(cols=columns).fit(X[columns], y)
-        
-        X[columns] = encoder.transform(X[columns])
-        
-        print('CatBoost encoding done')
-        
-        return X, encoder
-      
+    """ catboost encode måste ha y i work_df """
+    from category_encoders import CatBoostEncoder
+    X = X_.copy()
+    # kopiera häst och kusk till nya kolumner för att spara orginalvärden
+    X['häst_namn'] = X['häst'].copy()
+    X['kusk_namn'] = X['kusk'].copy()
+    encoder = CatBoostEncoder(cols=columns).fit(X[columns], y)
+
+    X[columns] = encoder.transform(X[columns])
+
+    print('CatBoost encoding done')
+
+    return X, encoder
+
+
 def prepare_for_xgboost(X_, y=None, cat_features=None, encoder=None, pred=False, verbose=False, pref=''):
     if encoder is not None:
         assert y is None and cat_features is None, 'encoder is not None, then y and num_features must be None'
     else:
-        assert y is not None and cat_features is not None, 'encoder is None, then y and num_features must be set'    
-        
+        assert y is not None and cat_features is not None, 'encoder is None, then y and num_features must be set'
+
     X = X_.copy()
     bool_features = list(X.select_dtypes(include=['bool']).columns)
-    X[bool_features] = X[bool_features].astype('int')    
+    X[bool_features] = X[bool_features].astype('int')
 
     if encoder is not None:
         # print('THE ENCODER',encoder)
@@ -57,9 +60,9 @@ def prepare_for_xgboost(X_, y=None, cat_features=None, encoder=None, pred=False,
         X['häst_namn'] = X['häst'].copy()
         X['kusk_namn'] = X['kusk'].copy()
         X[cat_features_] = encoder.transform(X[cat_features_])
-    else:    
+    else:
         X, ENC = _catboost_encode(X, y, cat_features)
-        
+
         # save encoder
         with open(pref + 'xgb_encoder.pkl', 'wb') as f:
             pickle.dump(ENC, f)
@@ -74,6 +77,8 @@ def lägg_in_antal_hästar(df_):
     return df
 
 # mest streck per avdeling
+
+
 def mest_streck(X_, i, datum, avd):
     X = X_.copy()
     X.sort_values(by=['datum', 'avd', 'streck'], ascending=[
@@ -81,6 +86,8 @@ def mest_streck(X_, i, datum, avd):
     return X.loc[(X.datum == datum) & (X.avd == avd), 'streck'].iloc[i]
 
 # n flest streck per avd som features
+
+
 def lägg_in_motståndare(X_, ant_motståndare):
     X = X_.copy()
 
@@ -96,6 +103,8 @@ def lägg_in_motståndare(X_, ant_motståndare):
     return X
 
 # som föregående men med diff istf faktiska värden
+
+
 def lägg_in_diff_motståndare(X_, ant_motståndare):
     X = X_.copy()
 
@@ -115,31 +124,34 @@ class Typ():
     ITERATIONS = 1000
     EARLY_STOPPING_ROUNDS = 50
     #                  name,   #häst      #motst,  motst_diff, streck, pref
+
     def __init__(self, name, ant_hästar, motst_ant, motst_diff, streck, pref=''):
         assert (motst_diff == False and motst_ant == 0) or (motst_ant > 0)
-        
+
         self.name = name                # string - används för filnamn mm
 
-        
         # Dessa features läggs till av travdata.py men kan ev selekteras bort i prepare_for_model
-        
+
         self.ant_hästar = ant_hästar    # bool - skapa kol med antal hästar per avdelning
-        self.motst_ant = motst_ant      # int  - inkludera n features med bästa motståndare (streck)
-        self.motst_diff = motst_diff    # bool - ovanstående med diff (streck) istf fasta värden
+        # int  - inkludera n features med bästa motståndare (streck)
+        self.motst_ant = motst_ant
+        # bool - ovanstående med diff (streck) istf fasta värden
+        self.motst_diff = motst_diff
         self.streck = streck            # bool - inkludera streck som feature
-        print('streck:', self.streck,'i init för', self.name)
+        print('streck:', self.streck, 'i init för', self.name)
         self.rel_kr = True              # bool - skapa kol med relativt kr gentemot motståndarna
-        self.rel_rank = True            # bool - skapa kol med relativ rank gentemot motståndarna
-        self.streck_avst = True         # bool - skapa kol med streck avstånd gentemot motståndarna
+        # bool - skapa kol med relativ rank gentemot motståndarna
+        self.rel_rank = True
+        # bool - skapa kol med streck avstånd gentemot motståndarna
+        self.streck_avst = True
         self.hx_samma_bana = True       # bool - skapa kol med hx.bana som bana
         self.hx_sammam_kusk = True      # bool - skapa kol med hx.kusk som kusk
-            
+
         self.pref = pref                # string - prefix för map/filnamn
-        
-        
+
     def get_name(self):
         return self.name
-    
+
     def load_model(self):
         with open(self.pref+'modeller/'+self.name+'.model', 'rb') as f:
             print('Loading model:', self.name)
@@ -151,7 +163,7 @@ class Typ():
         with open(self.pref+'modeller/'+self.name+'.model', 'wb') as f:
             pickle.dump(model, f)
 
-    def prepare_for_model(self, X_,verbose=False):
+    def prepare_for_model(self, X_, verbose=False):
         # X_ måste ha datum och avd
         X = X_.copy()
         if verbose:
@@ -172,18 +184,24 @@ class Typ():
         if not self.streck_avst:
             columns_to_drop.append("streck_avst")
         if not self.hx_samma_bana:
-            columns_to_drop += ["h1_samma_bana", "h2_samma_bana", "h3_samma_bana"]
+            columns_to_drop += ["h1_samma_bana",
+                                "h2_samma_bana", "h3_samma_bana"]
         if not self.hx_sammam_kusk:
-            columns_to_drop += ["h1_samma_kusk", "h2_samma_kusk", "h3_samma_kusk"]
+            columns_to_drop += ["h1_samma_kusk",
+                                "h2_samma_kusk", "h3_samma_kusk"]
         X = X.drop(columns_to_drop, axis=1)
 
         return X
-    
+
     # Ny Learn metod som tar hänsyn till att vi kan ha CatBoost eller XGBoost
-    def learn(self, X_, y=None, X_test_=None, y_test=None, params=None, iterations=ITERATIONS, save=True, verbose=False):
+    # TODO "Anpassa Learn till metamodellerna. Behöver inte prepareras igen"
+
+    def learn(self, X_, y=None, X_test_=None, y_test=None, params=None, use_L2_features=None, iterations=ITERATIONS, save=True, verbose=False):
         assert X_ is not None, 'X skall inte vara None'
         assert 'streck' in list(X_.columns), 'streck saknas i learn X'
-        assert verbose==False, 'verbose=True är inte implementerat i learn'
+        assert verbose == False, 'verbose=True är inte implementerat i learn'
+        assert 'datum' in list(
+            X_.columns), 'datum saknas i learn X_ i början av learn'
 
         if self.name.startswith('cat'):
             model_type = 'catboost'
@@ -191,25 +209,28 @@ class Typ():
             model_type = 'xgboost'
         else:
             raise Exception('unknown model type')
-                
+
         print('Learning', self.name, 'with', model_type)
         X = X_.copy()
         X_test = None
         if X_test_ is not None:
             X_test = X_test_.copy()
-        
+
         # läs in CAT_FEATURES.txt till cat_features
         with open(self.pref+'CAT_FEATURES.txt', 'r', encoding='utf-8') as f:
-            cat_features = f.read().split()        
-            
+            cat_features = f.read().split()
+
         # läs in NUM_FEATURES.txt till num_features
         with open(self.pref+'NUM_FEATURES.txt', 'r', encoding='utf-8') as f:
-            num_features = f.read().split()    
-        
-        use_features = cat_features + num_features
-        
+            num_features = f.read().split()
+
+        if use_L2_features is None:
+            use_features = cat_features + num_features
+        else:
+            use_features = use_L2_features
+
         ENC = None
-        
+
         if params is None:
             # Läs in parametrar från fil
             with open(self.pref+'optimera/params_'+self.name+'.json', 'rb') as f:
@@ -219,78 +240,93 @@ class Typ():
         iterations = params['iterations'] if 'iterations' in params else iterations
         params.pop('iterations')  # Ta bort iterations från params
 
+        assert 'datum' in list(
+            X.columns), 'datum saknas i learn X before prepare_for_model'
         X = self.prepare_for_model(X)
-        
+
         if not self.streck:
             # X.drop('streck', axis=1, inplace=True)
             use_features.remove('streck')
 
-        assert X[cat_features].isnull().sum().sum() == 0, 'there are NaN values in cat_features'
-        
+        assert X[cat_features].isnull().sum().sum(
+        ) == 0, 'there are NaN values in cat_features'
+
         if model_type == 'catboost':
             X = prepare_for_catboost(X, verbose=verbose)
             model = CatBoostClassifier(**params,
-                                    iterations=iterations,
-                                    loss_function='Logloss', eval_metric='AUC', verbose=verbose)
+                                       iterations=iterations,
+                                       loss_function='Logloss', eval_metric='AUC', verbose=verbose)
         elif model_type == 'xgboost':
-            X, ENC = prepare_for_xgboost(X, y, cat_features, encoder=ENC, verbose=verbose, pref=self.pref)
-            model = xgb.XGBClassifier(**params,
-                                    iterations=iterations,
-                                    early_stopping_rounds=Typ.EARLY_STOPPING_ROUNDS,
-                                    loss_function='logloss', eval_metric='auc', verbose=0)
-        else:
-            raise Exception('unknown model type')    
+            X, ENC = prepare_for_xgboost(
+                X, y, cat_features, encoder=ENC, verbose=verbose, pref=self.pref)
 
+            # Kolla att alla kolumner är numeriska i use_features
+            non_numeric_columns = [
+                c for c in X[use_features].columns if X[c].dtype.name == 'object']
+            assert len(
+                non_numeric_columns) == 0, f'X innehåller non-numeric columns: {non_numeric_columns.columns}'
+
+            model = xgb.XGBClassifier(**params,
+                                      iterations=iterations,
+                                      early_stopping_rounds=Typ.EARLY_STOPPING_ROUNDS if X_test is not None else None,
+                                      loss_function='logloss', eval_metric='auc', verbose=0)
+        else:
+            raise Exception('unknown model type')
 
         if X_test is None or y_test is None:
-            # check that all columns in X are numericals
-            # Skapa en lista med kolumner som inte är numeriska i X_test
-            non_numeric_columns = [c for c in X.columns if X[c].dtype.name == 'object']      
-            assert len(non_numeric_columns) == 0, f'X innehåller non-numeric columns: {non_numeric_columns}'
+            if model_type == 'catboost':
+                model.fit(X[use_features], y, cat_features=cat_features)
+            elif model_type == 'xgboost':
+                model.fit(X[use_features], y, verbose=0)
+            else:
+                raise Exception('unknown model type')
 
-            model.fit(X[use_features], y)
         else:
-            X_test = self.prepare_for_model(X_test) 
-                                     
-            # if not self.streck:  Görs ovan
-            #     # remove streck from use_features
-            #     use_features.remove('streck')
-            #     # X_test.drop('streck', axis=1, inplace=True)
+            assert 'datum' in list(
+                X_test.columns), 'datum saknas i learn X_test'
+            X_test = self.prepare_for_model(X_test)
 
             if model_type == 'catboost':
                 X_test = prepare_for_catboost(X_test, verbose=verbose)
             elif model_type == 'xgboost':
-                
-                X_test,_ = prepare_for_xgboost(X_test, encoder=ENC, verbose=verbose, pref=self.pref)
+                X_test, _ = prepare_for_xgboost(
+                    X_test, encoder=ENC, verbose=verbose, pref=self.pref)
             else:
-                raise Exception('unknown model type')    
-            
+                raise Exception('unknown model type')
+
             if model_type == 'catboost':
-                eval_pool = Pool(X_test[use_features], y_test, cat_features=cat_features)
+                eval_pool = Pool(X_test[use_features],
+                                 y_test, cat_features=cat_features)
                 model.fit(X[use_features], y, cat_features=cat_features, eval_set=eval_pool,
-                        use_best_model=True, early_stopping_rounds=Typ.EARLY_STOPPING_ROUNDS)
+                          use_best_model=True, early_stopping_rounds=Typ.EARLY_STOPPING_ROUNDS)
             elif model_type == 'xgboost':
-            
+                # Kolla att alla kolumner är numeriska i use_features
+                non_numeric_columns = [
+                    c for c in X_test[use_features].columns if X_test[c].dtype.name == 'object']
+                assert len(
+                    non_numeric_columns) == 0, f'X innehåller non-numeric columns: {non_numeric_columns.columns}'
+
                 if set(X.columns.tolist()) != set(X_test.columns.tolist()):
-                    assert False , f'fit av {model.name}: X and X_test have different columns \nX     : {X.columns} \nX_test: {X_test.columns}'
-               
+                    assert False, f'fit av {model.name}: X and X_test have different columns \nX     : {X.columns} \nX_test: {X_test.columns}'
+
                 # Fit the model on the training data and evaluate on the testing data
-                model.fit(X[use_features], y, eval_set=[(X_test[use_features], y_test)])
+                model.fit(X[use_features], y, eval_set=[
+                          (X_test[use_features], y_test)], verbose=0)
             else:
                 raise Exception('unknown model type')
 
         if verbose:
             print('best score', model.best_score_)
-            
+
         if save:
             self.save_model(model)
-            
+
         return model
 
-                
-    def predict(self, X_, use_features_, verbose=False,model=None):
+    def predict(self, X_, use_features_, verbose=False, model=None):
         # X_ måste ha datum och avd
-        assert 'streck' in list(X_.columns), f'streck saknas i predict: X ({self.name})'
+        assert 'streck' in list(
+            X_.columns), f'streck saknas i predict: X ({self.name})'
         assert 'streck' in use_features_, f'streck saknas i predict: use_features ({self.name})'
         if self.name.startswith('cat'):
             model_name = 'catboost'
@@ -302,34 +338,37 @@ class Typ():
         print('Predicting', self.name, 'with', model_name)
         X = X_.copy()
         use_features = use_features_.copy()
-        
+
         X = self.prepare_for_model(X_)
-        
-        assert 'streck' in list(X.columns), f'streck saknas efter prepare_for_model i predict X ({self.name})'
-        
-        if model==None:
+
+        assert 'streck' in list(
+            X.columns), f'streck saknas efter prepare_for_model i predict X ({self.name})'
+
+        if model == None:
             model = self.load_model()
-    
+
         if not self.streck:
             print('drop streck')
             use_features.remove('streck')
-        
+
         if model_name == 'catboost':
-            X  = prepare_for_catboost(X, verbose=verbose)
+            X = prepare_for_catboost(X, verbose=verbose)
         elif model_name == 'xgboost':
             # xgb_encoder till ENC
             with open(self.pref+'xgb_encoder.pkl', 'rb') as f:
-                ENC = pickle.load(f)        
-                
-            X,_ = prepare_for_xgboost(X, encoder=ENC, pred=True, pref=self.pref)
+                ENC = pickle.load(f)
+
+            X, _ = prepare_for_xgboost(
+                X, encoder=ENC, pred=True, pref=self.pref)
         else:
-            raise Exception('unknown model type')    
-    
+            raise Exception('unknown model type')
+
         if verbose:
-            print('predict '+self.name, 'with streck', self.streck, "found streck in use_features", 'streck' in use_features, "\nuse_features", use_features)
-        
+            print('predict '+self.name, 'with streck', self.streck, "found streck in use_features",
+                  'streck' in use_features, "\nuse_features", use_features)
+
         return model.predict_proba(X[use_features])[:, 1]
-    
+
     # method that retruns all the self variables
     def get_params(self):
-        return {k:v for k,v in self.__dict__.items() if k[0]!='_'}  
+        return {k: v for k, v in self.__dict__.items() if k[0] != '_'}

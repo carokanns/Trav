@@ -97,21 +97,25 @@ def prepare_L2_input_data(L2_input_data_, y, use_L2features):
 
 
 def learn_L2_modeller(L2_modeller, L2_input_data, use_L2features, save=True):
+    print('Starting "learn_L2_modeller"')
+    print('use_L2features', use_L2features)
+    print('L2_modeller', L2_modeller)
     assert 'y' in L2_input_data.columns, 'y is missing in L2_input_data'
     
     y_meta = L2_input_data.pop('y').astype(int)
+    assert 'datum' in L2_input_data.columns, f'datum is missing in L2_input_data innan Learn av L2_modeller'
     X_meta = prepare_L2_input_data(L2_input_data, y_meta, use_L2features)  # gör inget särskilt just nu
-
+    assert 'datum' in X_meta.columns, f'datum is missing in X_meta innan efter prepare_L2_input_data'
     for model_name, model in L2_modeller.items():
 
         with open(pref+'optimera/params_'+model_name+'.json', 'r') as f:
             params = json.load(f)
             params = params['params']
 
-        print(f'# learn {model_name} Layer2 på L2_input_data (stack-data)')
+        display(f'# learn {model_name} Layer2 på L2_input_data (stack-data)')
 
         assert 'streck' in use_L2features, f'streck is missing in use_features innan Learn med {model.name}'
-        my_meta = model.learn(X_meta[use_L2features], y_meta, params=params, save=save)
+        my_meta = model.learn(X_meta, y_meta, params=params, save=save)
         assert 'streck' in use_L2features, f'streck is missing in use_features efter Learn med {model.name}'
 
         L2_modeller[model_name] = my_meta
@@ -398,8 +402,6 @@ def TimeSeries_learning(df_ny_, L1_modeller, L2_modeller, n_splits=5, val_fracti
             L1_output_data = pd.concat([L1_output_data, temp_stack], ignore_index=True)
 
         L1_output_data.y = L1_output_data.y.astype(int)
-
-
     
     L1_output_data.head(10).to_csv('L1_output_data.csv', index=False)
 
@@ -414,12 +416,13 @@ def TimeSeries_learning(df_ny_, L1_modeller, L2_modeller, n_splits=5, val_fracti
     st.write('Learning L2 models')
     use_L2features = use_features + proba_features
 
+    assert 'datum' in L1_output_data, 'datum is missing in L1_output_data'
     L2_modeller = learn_L2_modeller(L2_modeller, L1_output_data, use_L2features)
 
     ###############################################################################
     #         Step 3: learn models on all of X - what iteration to use?           #
     ###############################################################################
-    st.write('Learn models on all of Train')
+    st.write('Learn models on all of X')
 
     my_bar2 = st.progress(0)
     ant_meta_models = 4
@@ -427,13 +430,14 @@ def TimeSeries_learning(df_ny_, L1_modeller, L2_modeller, n_splits=5, val_fracti
     steps = 0.0
     my_bar2.progress(steps)
 
-    for model in L1_modeller:
+    for model_name, model in L1_modeller.items():
         steps += step
         my_bar2.progress(steps)
-        with open(pref+'optimera/params_'+model.name+'.json', 'r') as f:
+        with open(pref+'optimera/params_'+model_name+'.json', 'r') as f:
             params = json.load(f)
-
-        params = params['params']
+            params = params['params']
+        
+        assert 'datum' in X, 'datum is missing in X before learn L1_model on all of X'
         tot_mod = model.learn(X, y, None, None,
                                 iterations=500,
                                 params=params,
@@ -442,6 +446,7 @@ def TimeSeries_learning(df_ny_, L1_modeller, L2_modeller, n_splits=5, val_fracti
     my_bar2.progress(1.0)
     st.empty()
 
+    assert 'datum' in L1_output_data, 'datum is missing in L1_output_data that will be returned'
     return L1_output_data
 
 
@@ -816,8 +821,7 @@ with buttons:
             st.write('TimeSeries learning for validation')
             fraction = st.session_state.fraction
             df_ny = st.session_state.df_ny
-            st.write(
-                f'learn models and meta models on first {(1-fraction)*100} % of the data')
+            st.write(f'learn models and meta models on first {(1-fraction)*100} % of the data')
 
             stacked_data = TimeSeries_learning(df_ny,
                                                L1_modeller, L2_modeller,
