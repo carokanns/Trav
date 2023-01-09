@@ -114,7 +114,8 @@ def lägg_in_diff_motståndare(X_, ant_motståndare):
 
     for i in range(2, ant_motståndare+1):
         # set X['motståndare'+str(i)] to ith largest streck in every avd
-        X['diff' + str(i)] = grouped.transform(lambda x: x.nlargest(i).min()) - X.streck
+        X['diff' +
+            str(i)] = grouped.transform(lambda x: x.nlargest(i).min()) - X.streck
 
     return X
 
@@ -245,7 +246,8 @@ class Typ():
             # X.drop('streck', axis=1, inplace=True)
             use_features.remove('streck')
 
-        assert X[cat_features].isnull().sum().sum() == 0, 'there are NaN values in cat_features'
+        assert X[cat_features].isnull().sum().sum(
+        ) == 0, 'there are NaN values in cat_features'
 
         if model_type == 'catboost':
             X = prepare_for_catboost(X, verbose=verbose)
@@ -268,6 +270,10 @@ class Typ():
                                       objective='binary:logistic', eval_metric='auc')
         else:
             raise Exception('unknown model type')
+
+        if self.name[-2:] == 'L1':
+            assert len([col for col in X.columns if 'proba' in col]
+                       ) == 0, f'X innehåller proba-kolumner för L1-modell {self.name}'
 
         if X_test is None or y_test is None:
             if model_type == 'catboost':
@@ -298,13 +304,15 @@ class Typ():
                 # Kolla att alla kolumner är numeriska i use_features
                 non_numeric_columns = [
                     c for c in X_test[use_features].columns if X_test[c].dtype.name == 'object']
-                assert len(non_numeric_columns) == 0, f'X innehåller non-numeric columns: {non_numeric_columns.columns}'
+                assert len(
+                    non_numeric_columns) == 0, f'X innehåller non-numeric columns: {non_numeric_columns.columns}'
 
                 if set(X.columns.tolist()) != set(X_test.columns.tolist()):
                     assert False, f'fit av {model.name}: X and X_test have different columns \nX     : {X.columns} \nX_test: {X_test.columns}'
 
                 # Fit the model on the training data and evaluate on the testing data
-                model.fit(X[use_features], y, eval_set=[(X_test[use_features], y_test)], verbose=0)
+                model.fit(X[use_features], y, eval_set=[
+                          (X_test[use_features], y_test)], verbose=0)
             else:
                 raise Exception('unknown model type')
 
@@ -356,7 +364,16 @@ class Typ():
         if verbose:
             print('predict '+self.name, 'with streck', self.streck, "found streck in use_features",
                   'streck' in use_features, "\nuse_features", use_features)
-            
+
+        if self.name[-2:] == 'L1':
+            assert len([col for col in X.columns if 'proba' in col]
+                       ) == 0, f'X innehåller proba-kolumner för L1-modell {self.name}'
+            assert len([col for col in use_features if 'proba' in col]
+                       ) == 0, f'use_features innehåller proba-kolumner för L1-modell {self.name}'
+        # check that ther are no doubles in X.columns
+        assert len(set(X.columns.tolist())) == len(X.columns.tolist()), f'X.columns has doubles: {X.columns.tolist()}'
+        assert len(set(use_features)) == len(use_features), f'use_features has doubles: {use_features}'
+
         return model.predict_proba(X[use_features])[:, 1]
 
     # method that retruns all the self variables

@@ -139,10 +139,7 @@ def normal_learn_meta_models(meta_modeller, L2_input_data, save=True):
     y = L2_input_data.y.astype(int)
     meta_features = L2_input_data.drop(
         ['datum', 'avd', 'y'], axis=1).columns.to_list()
-    X_meta, ENC = prepare_L2_input_data(L2_input_data[meta_features], y)
-
-    with open(pref+'modeller/meta_encoder.pkl', 'wb') as f:
-        pickle.dump(ENC, f)
+    X_meta = prepare_L2_input_data(L2_input_data[meta_features], y)
 
     y_meta = y
     for key, items in meta_modeller.items():
@@ -310,7 +307,6 @@ def TimeSeries_learning(df_ny_, L1_modeller, L2_modeller, n_splits=5, val_fracti
         validation_text = f', Validation: {X_val.datum.iloc[0]} - {X_val.datum.iloc[-1]}'
         print('start datum i X_val:', X_val.datum.min())
 
-
     st.info(f'Train: {X.datum.iloc[0]} - {X.datum.iloc[-1]} {validation_text}')
 
     ts = TimeSeriesSplit(n_splits=n_splits)
@@ -327,7 +323,8 @@ def TimeSeries_learning(df_ny_, L1_modeller, L2_modeller, n_splits=5, val_fracti
     steps = 0.0
 
     for enum, (train_index, test_index) in enumerate(ts.split(X, y)):
-        print(f"enum: {enum}, shape of X: {X.shape}, shape of X_train: {X.iloc[train_index].shape}, shape of X_test: {X.iloc[test_index].shape}")
+        print(
+            f"enum: {enum}, shape of X: {X.shape}, shape of X_train: {X.iloc[train_index].shape}, shape of X_test: {X.iloc[test_index].shape}")
         X_train = X.iloc[train_index]
         y_train = y.iloc[train_index]
         X_test = X.iloc[test_index]
@@ -338,7 +335,7 @@ def TimeSeries_learning(df_ny_, L1_modeller, L2_modeller, n_splits=5, val_fracti
 
         print('start datum i X_train:', X_train.datum.min())
         print('start datum i X_test:', X_test.datum.min())
-      
+
         ###### Learn L1-modeller #######
 
         for model_name, model in L1_modeller.items():
@@ -348,33 +345,34 @@ def TimeSeries_learning(df_ny_, L1_modeller, L2_modeller, n_splits=5, val_fracti
             my_bar.progress(steps)
 
             with open(pref+'optimera/params_'+model_name+'.json', 'r') as f:
-                params=json.load(f)
-                params=params['params']
+                params = json.load(f)
+                params = params['params']
 
             print(f'# learn {model_name} Layer1 på X_train-delen')
 
-            my_model=model.learn(X_train, y_train, X_test,
-                                   y_test, params = params, save = save)
+            my_model = model.learn(X_train, y_train, X_test,
+                                   y_test, params=params, save=save)
 
             print(
                 f'# predict the new fitted {model_name} Layer1 on X_test-delen')
-            nr= model.name[2:]
+            nr = model.name[2:]
 
-            this_proba = model.predict(X_test, use_features, verbose =False)
+            this_proba = model.predict(X_test, use_features, verbose=False)
             assert 'streck' in use_features, f'streck is missing in use_features efter predict med {model_name}'
 
             # Bygg up meta-kolumnen proba för denns modell
-            temp_stack['proba'+nr]= this_proba
+            temp_stack['proba'+nr] = this_proba
 
         if L1_output_data.empty:  # Första gången
-            L1_output_data= temp_stack.copy()
+            L1_output_data = temp_stack.copy()
         else:
-            L1_output_data = pd.concat([L1_output_data, temp_stack.copy()], ignore_index =True)
+            L1_output_data = pd.concat(
+                [L1_output_data, temp_stack.copy()], ignore_index=True)
 
-        L1_output_data.y= L1_output_data.y.astype(int)
+        L1_output_data.y = L1_output_data.y.astype(int)
 
     # create a list with all column names that includes 'proba'
-    proba_features= [col for col in L1_output_data.columns if 'proba' in col]
+    proba_features = [col for col in L1_output_data.columns if 'proba' in col]
 
     my_bar.progress(1.0)
 
@@ -382,31 +380,32 @@ def TimeSeries_learning(df_ny_, L1_modeller, L2_modeller, n_splits=5, val_fracti
     #         Step 2:       Learn Layer2                                          #
     ###############################################################################
     st.write('Learning L2 models')
-    use_L2features= use_features + proba_features
+    use_L2features = use_features + proba_features
 
     assert 'datum' in L1_output_data, 'datum is missing in L1_output_data'
-    L2_modeller= learn_L2_modeller(L2_modeller, L1_output_data, use_L2features)
+    L2_modeller = learn_L2_modeller(
+        L2_modeller, L1_output_data, use_L2features)
 
     ###############################################################################
     #         Step 3: learn models on all of X - what iteration to use?           #
     ###############################################################################
     st.write('Learn models on all of X - why not plus X_test as well?')
     print('Starting to learn models on all of X')
-    my_bar2= st.progress(0)
-    ant_meta_models= 4
-    step= 1/(ant_meta_models) - 0.0000001
-    steps= 0.0
+    my_bar2 = st.progress(0)
+    ant_meta_models = 4
+    step = 1/(ant_meta_models) - 0.0000001
+    steps = 0.0
     my_bar2.progress(steps)
 
     for model_name, model in L1_modeller.items():
         steps += step
         my_bar2.progress(steps)
         with open(pref+'optimera/params_'+model_name+'.json', 'r') as f:
-            params= json.load(f)
-            params= params['params']
+            params = json.load(f)
+            params = params['params']
 
         assert 'datum' in X, 'datum is missing in X before learn L1_model on all of X'
-        tot_mod= model.learn(X, y, None, None,
+        tot_mod = model.learn(X, y, None, None,
                               iterations=500,
                               params=params,
                               save=save)
@@ -423,16 +422,18 @@ def validate_skapa_stack_learning(X_, y, use_features):
     X = X_.copy()
     # print(X.shape)
     # print(len(meta_features))
-    stacked_data = X[meta_features].copy()
-    for model in L1_modeller:
-        part = model.name[3:]
+    stacked_data = X.copy()
+    for model_name, model in L1_modeller.items():
+        part = model_name[2:]
         stacked_data['proba'+part] = model.predict(X, use_features)
-        meta_features += ['proba'+part]
 
-    print('meta_features', meta_features)
-    assert list(stacked_data.columns) == meta_features, f'columns in stacked_data is wrong {list(stacked_data.columns)} \n {meta_features}'
-    assert len(stacked_data) == len( y), f'stacked_data {len(stacked_data)} and y {len(y)} should have same length'
-    return stacked_data, meta_features, y
+    use_features += stacked_data.columns.to_list()
+
+    missing_items = [item for item in use_features if item not in stacked_data.columns]
+    assert not missing_items, f"The following items in 'use_features' are not found in 'std_columns': {missing_items}"
+
+    assert len(stacked_data) == len(y), f'stacked_data {len(stacked_data)} and y {len(y)} should have same length'
+    return stacked_data, use_features, y
 
 
 # %%
@@ -441,29 +442,25 @@ def validate_skapa_stack_learning(X_, y, use_features):
 ##############################################################
 
 
-def predict_meta_models(meta_modeller, stack_data, meta_features, mean_type='geometric'):
+def predict_meta_models(L2_modeller, stack_data, use_features, mean_type='geometric'):
     """
     TODO: Ändra till Layer2 predict
-    Predicts the meta models på stack_data och beräknar meta_proba med mean_type
+    Predicts med L2_modeller på stack_data och beräknar meta_proba med mean_type
 
     Args:
-        meta_modeller (_type_): Dict definierad från start
+        L2_modeller (_type_): Dict definierad från start
         stack_data (_type_): Dataframe från L1-modellers input data plus deras resp predict_proba  
-        meta_features (_type_): Allt utom datum, avd och y
+        use_features (_type_): Allt utom datum, avd och y
         mean_type (str, optional): 'arithmetic' or 'geometric'. Defaults to 'geometric'.
 
     Returns:
-        preds: Dataframe med meta_modellers prediktioner
+        preds: Dataframe med L2_modellers prediktioner
     """
 
     assert 'y' not in stack_data.columns, f'y skall inte finnas i stack_data'
-    preds = pd.DataFrame(columns=list(meta_modeller.keys())+['meta'])
+    preds = pd.DataFrame(columns=list(L2_modeller.keys())+['meta'])
 
-    # load ENC
-    with open(pref+'modeller/meta_encoder.pkl', 'rb') as f:
-        ENC = pickle.load(f)
-
-    stack_data, _ = prepare_L2_input_data(stack_data, None,  meta_features)
+    stack_data = prepare_L2_input_data(stack_data, None,  use_features)
     temp = stack_data.copy()
 
     # dirty trick to init preds.meta with the number of rows
@@ -473,25 +470,26 @@ def predict_meta_models(meta_modeller, stack_data, meta_features, mean_type='geo
     else:
         preds['meta'] = 1
 
-    for key, values in meta_modeller.items():
-        print(f'{key} predicts')
+    for model_name, model in L2_modeller.items():
+        print(f'{model_name} predicts')
         # meta_model = values['model']
 
-        fn = f'predict_{key}_model(temp)'
+        fn = f'predict_{model_name}_model(temp)'
 
-        preds[key] = eval(fn)[:, 1]
-
+        # preds[model_name] = eval(fn)[:, 1]
+        preds[model_name] = model.predict(temp, use_features)
+    
         if mean_type == 'arithmetic':
-            preds['meta'] += preds[key]
+            preds['meta'] += preds[model_name]
         else:
-            preds['meta'] *= preds[key]
+            preds['meta'] *= preds[model_name]
 
     if mean_type == 'arithmetic':
         # aritmetisk medelvärde
-        preds['meta'] /= len(meta_modeller)
+        preds['meta'] /= len(L2_modeller)
     else:
         # geometriskt medelvärde
-        preds['meta'] = preds['meta'] ** (1/len(meta_modeller))
+        preds['meta'] = preds['meta'] ** (1/len(L2_modeller))
 
     return preds
 
@@ -574,7 +572,7 @@ def plot_confusion_matrix(y_true, y_pred, typ, fr=0.0, to=0.9, margin=0.001):
         pickle.dump(meta_scores, f)
 
 
-def validate(meta_modeller, fraction=None):
+def validate(L2_modeller, fraction=None):
     # Skapa v75-instans
     v75 = td.v75(pref=pref)
 
@@ -599,17 +597,18 @@ def validate(meta_modeller, fraction=None):
     # läs in NUM_FEATURES.txt till num_features
     with open(pref+'NUM_FEATURES.txt', 'r', encoding='utf-8') as f:
         num_features = f.read().split()
-    use_features = cat_features + num_features
 
-    stacked_val, meta_features, y_val = validate_skapa_stack_learning(X_val, y_val, use_features)
+    use_features = cat_features + num_features
+    print('use_features innan validate_skapa_stack', use_features)
+    stacked_val, use_features, y_val = validate_skapa_stack_learning(X_val, y_val, use_features)
 
     ##############################################################
-    #                          Meta models                       #
+    #                          L2 models                         #
     ##############################################################
 
     y_true = y_val.values
 
-    y_preds = predict_meta_models(meta_modeller, stacked_val, use_features)
+    y_preds = predict_meta_models(L2_modeller, stacked_val, use_features)
 
     ############## write y_true to file for testing ##############
     # first make y_true a dataframe
@@ -785,7 +784,8 @@ with buttons:
 
             assert 'datum' in stacked_data.columns, 'datum saknas i stacked_data'
             assert 'streck' in stacked_data.columns, 'datum saknas i stacked_data'
-            assert len([col for col in stacked_data.columns if 'proba' in col]) == 4, 'proba saknas i stacked_data'
+            assert len([col for col in stacked_data.columns if 'proba' in col]
+                       ) == 4, 'proba saknas i stacked_data'
             st.success('✔️ TimeSeries learning done')
 
         if st.sidebar.button('Validate'):

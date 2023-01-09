@@ -414,6 +414,9 @@ if 'datum' in st.session_state:
 def prepare_stack_data(stack_data_):
     """Hantera missing values, NaN, etc för meta-modellerna"""
     assert 'y' not in stack_data_.columns, "y shouldn't be in stack_data"
+    
+    if 'y' in stack_data_.columns:  # fejkad test!!
+        raise Exception('uppdatera/tabort prepare_stack_data')
 
     stack_data = stack_data_.copy()
         
@@ -432,7 +435,7 @@ def prepare_stack_data(stack_data_):
     # cardinality_list=['häst','kusk','h1_kusk','h2_kusk','h3_kusk','h4_kusk','h5_kusk']
     
     # läs in encoder till ENC
-    with open(pref+'modeller/meta_encoder.pkl', 'rb') as f:
+    with open(pref+'modeller/xgb_encoder.pkl', 'rb') as f:
         ENC = pickle.load(f)
 
     df = stack_data.drop(columns=['startnr', 'datum', 'avd'])
