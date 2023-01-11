@@ -98,31 +98,30 @@ def prepare_L2_input_data(L2_input_data_, y, use_L2features):
 
 
 def learn_L2_modeller(L2_modeller, L2_input_data, use_L2features, save=True):
-    print('Starting "learn_L2_modeller"')
+    display('Starting "learn_L2_modeller"')
+    assert 'streck' in use_L2features, f'streck is missing in use_L2features direkt i början'
+    
     assert 'y' in L2_input_data.columns, 'y is missing in L2_input_data'
-
     y_meta = L2_input_data.pop('y').astype(int)
 
     X_meta = prepare_L2_input_data(L2_input_data, y_meta, use_L2features)
     assert 'datum' in X_meta.columns, f'datum is missing in X_meta efter prepare_L2_input_data'
-    for model_name, model in L2_modeller.items():
-
+    assert 'streck' in X_meta.columns, f'streck is missing in X_meta efter prepare_L2_input_data'
+    assert 'streck' in use_L2features, f'streck is missing in use_L2features efter prepare_L2_input_data'
+ 
+    for enum,(model_name, model) in enumerate(L2_modeller.items()):
+        display(f'#### learn {model_name} Layer2 på L2_input_data (stack-data)')        
+        print  (f'#### learn {model_name} Layer2 på L2_input_data (stack-data)')
         with open(pref+'optimera/params_'+model_name+'.json', 'r') as f:
             params = json.load(f)
             params = params['params']
 
-        display(f'# learn {model_name} Layer2 på L2_input_data (stack-data)')
-
-        assert 'streck' in use_L2features, f'streck is missing in use_features innan Learn med {model.name}'
-        my_meta = model.learn(X_meta, y_meta, params=params, save=save)
+        assert 'streck' in use_L2features, f'{enum} streck is missing in use_L2features innan learn för {model_name}'
+        my_meta = model.learn(X_meta, y_meta,use_L2_features_=use_L2features, params=params, save=save)
 
         L2_modeller[model_name] = my_meta
 
         if save:
-            # # Save the model to a pckle file
-            # with open(pref+'modeller/'+model_name+'.model', 'wb') as f:
-            #     pickle.dump(model, f)
-
             # Save the list of column names to a JSON file
             with open(pref+'modeller/'+model_name+'_columns.json', "w") as f:
                 json.dump(X_meta.columns.tolist(), f)
@@ -314,7 +313,7 @@ def TimeSeries_learning(df_ny_, L1_modeller, L2_modeller, n_splits=5, val_fracti
     L1_output_data = pd.DataFrame()
 
     ########################################################################################
-    #         Step 1: Learn the Layer1 on splitted X_train and predict on splitted X_test  #
+    #         Step 1: Learn the Layer1 on ts X_train and predict on ts X_test              #
     ########################################################################################
     st.write('Skapar stacked_data till Layer2')
     my_bar = st.progress(0)
@@ -357,6 +356,7 @@ def TimeSeries_learning(df_ny_, L1_modeller, L2_modeller, n_splits=5, val_fracti
                 f'# predict the new fitted {model_name} Layer1 on X_test-delen')
             nr = model.name[2:]
 
+            assert 'streck' in use_features, f'streck is missing in use_features before predict med {model_name}'
             this_proba = model.predict(X_test, use_features, verbose=False)
             assert 'streck' in use_features, f'streck is missing in use_features efter predict med {model_name}'
 
@@ -370,10 +370,12 @@ def TimeSeries_learning(df_ny_, L1_modeller, L2_modeller, n_splits=5, val_fracti
                 [L1_output_data, temp_stack.copy()], ignore_index=True)
 
         L1_output_data.y = L1_output_data.y.astype(int)
+        assert 'streck' in L1_output_data, f'streck is missing in L1_output_data efter predict med {model_name}'
 
     # create a list with all column names that includes 'proba'
     proba_features = [col for col in L1_output_data.columns if 'proba' in col]
-
+    assert len(proba_features) == 4, f'proba-kolumner saknas i L1_output_data'
+    
     my_bar.progress(1.0)
 
     ###############################################################################
@@ -381,10 +383,14 @@ def TimeSeries_learning(df_ny_, L1_modeller, L2_modeller, n_splits=5, val_fracti
     ###############################################################################
     st.write('Learning L2 models')
     use_L2features = use_features + proba_features
+    assert 'streck' in use_L2features, f'streck is missing in use_L2features innan learn L2_modeller'
 
     assert 'datum' in L1_output_data, 'datum is missing in L1_output_data'
-    L2_modeller = learn_L2_modeller(
-        L2_modeller, L1_output_data, use_L2features)
+    L2_modeller = learn_L2_modeller(L2_modeller, L1_output_data, use_L2features)
+    # loop all L2-modeller
+    for model_name, model in L2_modeller.items():
+        assert len([col for col in use_L2features if 'proba' in col]) == 4,f' proba-kolumner saknas för L2-modell {model_name}'
+        
 
     ###############################################################################
     #         Step 3: learn models on all of X - what iteration to use?           #
@@ -422,12 +428,16 @@ def validate_skapa_stack_learning(X_, y, use_features):
     X = X_.copy()
     # print(X.shape)
     # print(len(meta_features))
+    assert len(set(use_features)) == len(use_features), f' 0a use_features has doubles: {use_features}'
+    temp_use_features = use_features.copy()
     stacked_data = X.copy()
     for model_name, model in L1_modeller.items():
         part = model_name[2:]
         stacked_data['proba'+part] = model.predict(X, use_features)
-
-    use_features += stacked_data.columns.to_list()
+        temp_use_features.append('proba'+part)
+        
+    use_features = temp_use_features.copy()
+    assert len(set(use_features)) == len(use_features), f' 0b use_features has doubles: {use_features}'
 
     missing_items = [item for item in use_features if item not in stacked_data.columns]
     assert not missing_items, f"The following items in 'use_features' are not found in 'std_columns': {missing_items}"
@@ -474,8 +484,13 @@ def predict_meta_models(L2_modeller, stack_data, use_features, mean_type='geomet
         print(f'{model_name} predicts')
         # meta_model = values['model']
 
-        fn = f'predict_{model_name}_model(temp)'
-
+        
+        assert len(set(temp.columns.tolist())) == len(temp.columns.tolist()), f'temp.columns has doubles: {temp.columns.tolist()}'
+        assert len(set(use_features)) == len(use_features), f'use_features has doubles: {use_features}'
+    
+        missing_items2 = [item for item in use_features if item not in model.get_booster().feature_names]
+        assert len(missing_items2) == 0, f"The following items in 'use_features' are not found in modellens features': {missing_items2}"
+    
         # preds[model_name] = eval(fn)[:, 1]
         preds[model_name] = model.predict(temp, use_features)
     
@@ -577,7 +592,7 @@ def validate(L2_modeller, fraction=None):
     v75 = td.v75(pref=pref)
 
     base_features = v75.get_df().columns.to_list()
-
+    
     # Hämta data från v75
     _ = v75.förbered_data(missing_num=False)  # num hanteras av catboost
     df_work = v75.test_lägg_till_kolumner()
@@ -599,9 +614,14 @@ def validate(L2_modeller, fraction=None):
         num_features = f.read().split()
 
     use_features = cat_features + num_features
-    print('use_features innan validate_skapa_stack', use_features)
+    assert len(set(use_features)) == len(use_features), f' 1 use_features has doubles: {use_features}'
+
+    # print('use_features innan validate_skapa_stack', use_features)
     stacked_val, use_features, y_val = validate_skapa_stack_learning(X_val, y_val, use_features)
 
+    assert len(set(stacked_val.columns.tolist())) == len(stacked_val.columns.tolist()), f'stacked_val.columns has doubles: {stacked_val.columns.tolist()}'
+    assert len(set(use_features)) == len(use_features), f'2 use_features has doubles: {use_features}'
+    
     ##############################################################
     #                          L2 models                         #
     ##############################################################
