@@ -14,6 +14,7 @@ from sklearn.neighbors import KNeighborsClassifier
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.ensemble import ExtraTreesClassifier
 from catboost import CatBoostClassifier, Pool
+import xgboost as xgb
 from sklearn.linear_model import RidgeClassifier
 from sklearn.linear_model import Lasso
 from sklearn.model_selection import TimeSeriesSplit
@@ -50,30 +51,39 @@ pref=''   # '../'
 ###########################################################################
 #                       skapa modellerna                                  #
 ###########################################################################
-#              name, ant_hästar, proba, kelly, motst_ant, motst_diff,  ant_favoriter, only_clear, streck
-typ6 = tp.Typ('typ6', True,       True, False,     0,      False,          0,            False,    True,  pref)
-typ1 = tp.Typ('typ1', False,      True, False,     2,      True,           2,            True,     False, pref)
-typ9 = tp.Typ('typ9', True,       True, True,      2,      True,           2,            True,     True,  pref)
-# typ16 = tp.Typ('typ16', True,      True, True,      2, True,           2,            False,    True,  pref)
+print('Skapar dict med modeller')
+# skapar dict med modeller
+modell_dict = {'cat1': {'#hästar': False, '#motst': 3, 'motst_diff': True, 'streck': False},
+               'cat2': {'#hästar': True,  '#motst': 3, 'motst_diff': True, 'streck': True},
+               'xgb1': {'#hästar': False, '#motst': 3, 'motst_diff': True, 'streck': False},
+               'xgb2': {'#hästar': True,  '#motst': 3, 'motst_diff': True, 'streck': True}
+               }
 
-typer = [typ6, typ1, typ9]  # , typ16]
+L1_modeller = dict()
+L2_modeller = dict()
 
-    
+for key, value in modell_dict.items():
+    L1_key = key + 'L1'
+    model = tp.Typ(L1_key, value['#hästar'], value['#motst'],
+                   value['motst_diff'], value['streck'])
+    L1_modeller[L1_key] = model
 
-#%%
-# Kelly-värde baserat på streck omvandlat till odds
-def kelly(proba, streck, odds):  # proba = prob winning, streck i % = streck
-    with open(pref+'rf_streck_odds.pkl', 'rb') as f:
-        rf = pickle.load(f)
+    L2_key = key + 'L2'
+    model = tp.Typ(L2_key, value['#hästar'], value['#motst'],
+                   value['motst_diff'], value['streck'])
+    L2_modeller[L2_key] = model
 
-    if odds is None:
-        o = rf.predict(streck.copy())
-    else:
-        o = rf.predict(streck.copy())
+print('keys and names i modeller')
+# print keys in dict modeller
+for key, value in L1_modeller.items():
+    assert key == value.name, "key and value.name should be the same in modeller"
+    print(key)
 
-    # for each values > 40 in odds set to 1
-    o[o > 40] = 1
-    return (o*proba - (1-proba))/o
+print('keys and names i meta_modeller')
+for key, value in L2_modeller.items():
+    assert key == value.name, "key and value.name should be the same in meta_modeller"
+    print(key)
+
 
 def skapa_stack(X_, y):
     X=X_.copy()
@@ -81,10 +91,9 @@ def skapa_stack(X_, y):
         meta_features = f.read().splitlines()
         
     stacked_data = pd.DataFrame(columns=meta_features)
-    for typ in typer:
-            nr = typ.name[3:]
+    for model_name, typ in L1_modeller.items():
+            nr = model_name[2:]
             stacked_data['proba'+nr] = typ.predict(X)
-            # stacked_data['kelly' + nr] = kelly(stacked_data['proba' + nr], X[['streck']], None)
 
     assert list(stacked_data.columns) == meta_features, f'columns in stacked_data is wrong {list(stacked_data.columns)}'
     assert len(stacked_data) == len(y), f'stacked_data {len(stacked_data)} and y {len(y)} should have same length'
@@ -151,25 +160,6 @@ def plot_confusion_matrix(y_true, y_pred, typ, fr=0.05, to=0.3, step=0.001):
     #### print scores ####
     display_scores(y_true, y_pred, f'spelade per lopp: {round(12 * sum(y_pred)/len(y_pred),4)}' )
 #%%
-def prepare_for_KNN(v75):  # as model
-    df = v75.förbered_data()
-    X = df.drop(['avd','datum','streck'], axis=1).copy()
-    y = df['y'].copy()
-    cat_features = list(X.select_dtypes(include=['object']).columns)
-    num_features = list(X.select_dtypes(include=[np.number]).columns)
-    
-    X[cat_features] = X[cat_features].fillna('missing')
-    X[num_features] = X[num_features].fillna(0)
-    
-    X[cat_features] = X[cat_features].astype('category')
-
-    # make categorical features numeric
-    for col in cat_features:
-        X[col] = X[col].cat.codes
-    
-    return X, y
-
-
 def prepare_for_meta(v75, name):
     df = v75.förbered_data()
     X,y = skapa_stack(df.drop(['y'],axis=1), df.y.copy())
@@ -245,7 +235,7 @@ def gridsearch_knn(v75, params, folds=5,randomsearch=True, save=False):
     return d
 
     
-def gridsearch_typ(v75, typ, params, save=False):
+def gridsearch_typ(v75, typ, params, folds=5, save=False):
     """ 
     Sätt upp en gridsearch för att optimera parametrar för typ
     presentera resultat
@@ -262,45 +252,92 @@ def gridsearch_typ(v75, typ, params, save=False):
     return d
 
 def create_grid_search(v75, typ, params, randomsearch=False, verbose=False):
-    df=v75.förbered_data()
+        
+    # Läs in NUM_FEATURES.txt och CAT_FEATURES.txt
+    with open(pref+'CAT_FEATURES.txt', 'r', encoding='utf-8') as f:
+        cat_features = f.read().split()
+
+    # läs in NUM_FEATURES.txt till num_features
+    with open(pref+'NUM_FEATURES.txt', 'r', encoding='utf-8') as f:
+        num_features = f.read().split()
+    use_features = cat_features + num_features
     
-    # remove features
-    X = typ.prepare_for_model(df.drop(['y'],axis=1))
-    y = df.y.copy()
     if not typ.streck:
-        X.drop('streck', axis=1, inplace=True)
+        print('remove streck')
+        use_features.remove('streck')
+        
+    if 'cat' in typ.name:
+        df,_=v75.förbered_data(extra=True)
+        X = typ.prepare_for_model(df.drop(['y'],axis=1))
+        y = df.y.copy()
+        X = tp.prepare_for_catboost(X)
+        # print('cat_features\n', cat_features)
+        # num_features = list(X.select_dtypes(include=[np.number]).columns)
+        # cat_features = list(X.select_dtypes(include=['object']).columns)
+        assert X[cat_features].isnull().sum().sum() == 0, 'there are NaN values in cat_features'
+        
+        tscv = TimeSeriesSplit(n_splits=5)
 
-    X, cat_features = tp.prepare_for_catboost(X, remove=False)
-    print('cat_features\n', cat_features)
-    num_features = list(X.select_dtypes(include=[np.number]).columns)
-    cat_features = list(X.select_dtypes(include=['object']).columns)
-    assert X[cat_features].isnull().sum().sum() == 0, 'there are NaN values in cat_features'
+        model = CatBoostClassifier(iterations=500, loss_function='Logloss', eval_metric='AUC',
+                                use_best_model=False, early_stopping_rounds=100, verbose=verbose,)
+        
+        grid = eval(params)  # str -> dict
     
-    tscv = TimeSeriesSplit(n_splits=5)
-
-    model = CatBoostClassifier(iterations=500, loss_function='Logloss', eval_metric='AUC',
-                               use_best_model=False, early_stopping_rounds=100, verbose=verbose,)
-    
-    grid = eval(params)  # str -> dict
-    
-    if randomsearch:
-        st.info(f'Randomized search')
-        grid_search_result = model.randomized_search(grid,
-                                           X=Pool(X, y, cat_features=cat_features),
-                                           cv=tscv.split(X),
-                                           shuffle=False,
-                                           search_by_train_test_split=False,
-                                           verbose=verbose,
-                                           plot=True)
-    else:
-        st.info(f'Grid search')
-        grid_search_result = model.grid_search(grid,
-                                            X=Pool(X, y, cat_features=cat_features),
+        if randomsearch:
+            st.info(f'Randomized search')
+            grid_search_result = model.randomized_search(grid,
+                                            X=Pool(X[use_features], y, cat_features=cat_features),
                                             cv=tscv.split(X),
                                             shuffle=False,
                                             search_by_train_test_split=False,
                                             verbose=verbose,
                                             plot=True)
+        else:
+            st.info(f'Grid search')
+            grid_search_result = model.grid_search(grid,
+                                                X=Pool(X[use_features], y, cat_features=cat_features),
+                                                cv=tscv.split(X),
+                                                shuffle=False,
+                                                search_by_train_test_split=False,
+                                                verbose=verbose,
+                                                plot=True)
+    elif 'xgb' in typ.name:
+        df,_=v75.förbered_data(extra=True)
+        X = typ.prepare_for_model(df.drop(['y'],axis=1))
+        y = df.y.copy()
+        X = tp.prepare_for_xgboost(X, cat_features=cat_features)
+        
+        assert X[cat_features].isnull().sum().sum() == 0, 'there are NaN values in cat_features'
+
+        tscv = TimeSeriesSplit(n_splits=5)
+
+        model = xgb.XGBClassifier(**params,
+                        #   iterations=iterations,
+                        early_stopping_rounds=Typ.EARLY_STOPPING_ROUNDS if X_test is not None else None,
+                        objective='binary:logistic', eval_metric='auc')
+
+        grid = eval(params)  # str -> dict
+
+        if randomsearch:
+            st.info(f'Randomized search')
+            grid_search_result = model.randomized_search(grid,
+                                                         X=Pool(
+                                                             X[use_features], y, cat_features=cat_features),
+                                                         cv=tscv.split(X),
+                                                         shuffle=False,
+                                                         search_by_train_test_split=False,
+                                                         verbose=verbose,
+                                                         plot=True)
+        else:
+            st.info(f'Grid search')
+            grid_search_result = model.grid_search(grid,
+                                                   X=Pool(
+                                                       X[use_features], y, cat_features=cat_features),
+                                                   cv=tscv.split(X),
+                                                   shuffle=False,
+                                                   search_by_train_test_split=False,
+                                                   verbose=verbose,
+                                                   plot=True)
     
     return grid_search_result
 
@@ -340,7 +377,7 @@ if st.session_state['loaded'] == False:
 ###########################################
 
 def optimera_model(v75,typ,folds):
-    name= 'knn_model' if typ=='knn' else typ.name
+    name= typ.name
     st.info(name)
     start_time = time.time()
     try:
@@ -361,10 +398,7 @@ def optimera_model(v75,typ,folds):
     opt_params = st.text_area(f'Parametrar att optimera för {name}', params['params'], height=110)
     
     if st.button('run'):
-        if typ=='knn':
-            result = gridsearch_knn(v75, opt_params,folds=folds)
-        else:
-            result = gridsearch_typ(v75,typ,opt_params,folds=folds)
+        result = gridsearch_typ(v75,typ,opt_params,folds=folds)
         
         st.write(result)
 
@@ -421,23 +455,16 @@ with buttons:
     st.session_state['folds'] = folds
     if st.sidebar.radio('Välj optimering:', ['model', 'meta-model', ]) == 'model':
         st.sidebar.write('---')
-        opt = st.sidebar.radio('Optimera model parms', ['typ6', 'typ1', 'typ9', 'knn model'])
-        if opt=='knn model':
-            optimera_model(st.session_state.v75, 'knn',folds)
-        for typ in typer:
+        opt = st.sidebar.radio('Optimera model parms', ['cat1L1', 'cat2L1', 'xgb1L1', 'xgb2L1'])
+        
+        for model_name,typ in L1_modeller.items():
             if opt == typ.name:
                 optimera_model(st.session_state.v75,typ,folds=folds)
                 break
     else:        
         st.sidebar.write('---')
-        meta = st.sidebar.radio('Optimera meta parms', ['rf', 'ridge', 'lasso', 'knn_meta', 'et', 'lgbm'])
-        if st.session_state.meta:
-            optimera_meta(st.session_state.v75,meta,folds=folds)
-            # df = st.session_state.df
-            # stacked_data = TimeSeries_learning(df, typer, n_splits=3, meta_fraction=0.2, meta='rf', save=True, learn_models=True)
-            # st.success(f'✔️ {meta} optimering done')
-            # st.dataframe(load_data())
-            
+        st.warning('Meta-models not implemented yet')
+        
     st.sidebar.write('---')
     if st.sidebar.button('start allover'):
         st.session_state.clear()

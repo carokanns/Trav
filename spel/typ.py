@@ -66,6 +66,7 @@ def prepare_for_xgboost(X_, y=None, cat_features=None, encoder=None, pred=False,
         # save encoder
         with open(pref + 'xgb_encoder.pkl', 'wb') as f:
             pickle.dump(ENC, f)
+            
     assert 'streck' in X.columns, 'streck not in X.columns'
     return X, ENC
 
