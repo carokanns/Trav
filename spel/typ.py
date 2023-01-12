@@ -45,9 +45,9 @@ def _catboost_encode(X_, y, columns):   # Används av XGBoost
 
 def prepare_for_xgboost(X_, y=None, cat_features=None, encoder=None, pred=False, verbose=False, pref=''):
     if encoder is not None:
-        assert y is None and cat_features is None, 'encoder is not None, then y and num_features must be None'
+        assert y is None and cat_features is None, 'encoder is not None, then y and cat_features must be None'
     else:
-        assert y is not None and cat_features is not None, 'encoder is None, then y and num_features must be set'
+        assert y is not None and cat_features is not None, 'encoder is None, then y and cat_features must be set'
 
     X = X_.copy()
     bool_features = list(X.select_dtypes(include=['bool']).columns)

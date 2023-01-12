@@ -242,8 +242,28 @@ def gridsearch_typ(v75, typ, params, folds=5, save=False):
     spara resultat
     """
     res = create_grid_search(v75, typ, params, randomsearch=True)
+    display(type(res))
+    try:
+        display("Bästa AUC-poäng: ", res.best_score_)
+    except:
+        display("Bästa AUC-poäng funkar inte ")  
+    try:      
+        display("Bästa parametrar: ", res.best_params_)
+        bp = res.best_params_
+        print(bp)
+    except:
+        display("Bästa parametrar funkar inte ")    
+        
+    display(res)
     
-    d = {'params': res['params'], 'AUC': round(max(res['cv_results']['test-AUC-mean']),5), 'Logloss': round(min(res['cv_results']['test-Logloss-mean']),5)}
+    print()
+    print("-------------")
+    try:
+        d = {'params': res['params'], 'AUC': round(max(res['cv_results']['test-AUC-mean']),5), 'Logloss': round(min(res['cv_results']['test-Logloss-mean']),5)}
+    except:
+        display("d funkar inte")   
+        display(res)
+        raise Exception("d funkar inte - kör ipynb") 
 
     if save:
         with open('optimera/params_'+typ.name+'.json', 'w') as f:
@@ -271,15 +291,13 @@ def create_grid_search(v75, typ, params, randomsearch=False, verbose=False):
         X = typ.prepare_for_model(df.drop(['y'],axis=1))
         y = df.y.copy()
         X = tp.prepare_for_catboost(X)
-        # print('cat_features\n', cat_features)
-        # num_features = list(X.select_dtypes(include=[np.number]).columns)
-        # cat_features = list(X.select_dtypes(include=['object']).columns)
+        
         assert X[cat_features].isnull().sum().sum() == 0, 'there are NaN values in cat_features'
         
         tscv = TimeSeriesSplit(n_splits=5)
 
         model = CatBoostClassifier(iterations=500, loss_function='Logloss', eval_metric='AUC',
-                                use_best_model=False, early_stopping_rounds=100, verbose=verbose,)
+                                use_best_model=False, early_stopping_rounds=200, verbose=verbose,)
         
         grid = eval(params)  # str -> dict
     
@@ -305,39 +323,39 @@ def create_grid_search(v75, typ, params, randomsearch=False, verbose=False):
         df,_=v75.förbered_data(extra=True)
         X = typ.prepare_for_model(df.drop(['y'],axis=1))
         y = df.y.copy()
-        X = tp.prepare_for_xgboost(X, cat_features=cat_features)
+        # xgb_encoder till ENC
+        with open(pref+'xgb_encoder.pkl', 'rb') as f:
+            ENC = pickle.load(f)
+            
+        X, ENC = tp.prepare_for_xgboost(X, encoder=ENC)
         
         assert X[cat_features].isnull().sum().sum() == 0, 'there are NaN values in cat_features'
 
         tscv = TimeSeriesSplit(n_splits=5)
 
-        model = xgb.XGBClassifier(**params,
-                        #   iterations=iterations,
-                        early_stopping_rounds=Typ.EARLY_STOPPING_ROUNDS if X_test is not None else None,
-                        objective='binary:logistic', eval_metric='auc')
+        model = xgb.XGBClassifier(early_stopping_rounds=200,
+                                    objective='binary:logistic', eval_metric='auc')
 
         grid = eval(params)  # str -> dict
 
         if randomsearch:
-            st.info(f'Randomized search')
-            grid_search_result = model.randomized_search(grid,
-                                                         X=Pool(
-                                                             X[use_features], y, cat_features=cat_features),
+            st.info(f'XGB Randomized search')
+            grid_search_result = RandomizedSearchCV(model, param_distributions=grid,
                                                          cv=tscv.split(X),
-                                                         shuffle=False,
-                                                         search_by_train_test_split=False,
-                                                         verbose=verbose,
-                                                         plot=True)
+                                                         scoring='auc',
+                                                         random_state=2023,
+                                                         verbose=verbose)
         else:
             st.info(f'Grid search')
             grid_search_result = model.grid_search(grid,
                                                    X=Pool(
                                                        X[use_features], y, cat_features=cat_features),
                                                    cv=tscv.split(X),
-                                                   shuffle=False,
                                                    search_by_train_test_split=False,
                                                    verbose=verbose,
                                                    plot=True)
+    else:
+        raise ValueError('typ.name must include cat or xgb')
     
     return grid_search_result
 
