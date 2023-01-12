@@ -487,11 +487,10 @@ def predict_meta_models(L2_modeller, stack_data, use_features, mean_type='geomet
         
         assert len(set(temp.columns.tolist())) == len(temp.columns.tolist()), f'temp.columns has doubles: {temp.columns.tolist()}'
         assert len(set(use_features)) == len(use_features), f'use_features has doubles: {use_features}'
-    
-        missing_items2 = [item for item in use_features if item not in model.get_booster().feature_names]
-        assert len(missing_items2) == 0, f"The following items in 'use_features' are not found in modellens features': {missing_items2}"
-    
-        # preds[model_name] = eval(fn)[:, 1]
+        missing_items = [item for item in use_features if item not in temp.columns]
+        
+        assert len(missing_items)==0, f' {missing_items} in use_features not in temp.columns {temp.columns}'
+        
         preds[model_name] = model.predict(temp, use_features)
     
         if mean_type == 'arithmetic':
@@ -588,6 +587,8 @@ def plot_confusion_matrix(y_true, y_pred, typ, fr=0.0, to=0.9, margin=0.001):
 
 
 def validate(L2_modeller, fraction=None):
+    display(L1_modeller)
+    display(L2_modeller)
     # Skapa v75-instans
     v75 = td.v75(pref=pref)
 
@@ -657,9 +658,9 @@ def validate(L2_modeller, fraction=None):
     #                         proba bas-modeller                   #
     ################################################################
     st.write('\n')
-    for typ in L1_modeller:
+    for model_name in L1_modeller:
         st.write('\n')
-        name = 'proba' + typ.name[3:]
+        name = 'proba' + model_name[2:]
         y_pred = stacked_val[name]
         plot_confusion_matrix(y_true, y_pred, name, fr=0.0, to=0.9)
 
