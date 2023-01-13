@@ -195,8 +195,6 @@ class Typ():
         return X
 
     # Ny Learn metod som tar hänsyn till att vi kan ha CatBoost eller XGBoost
-    # TODO "Anpassa Learn till metamodellerna. Behöver inte prepareras igen"
-
     def learn(self, X_, y=None, X_test_=None, y_test=None, params=None, use_L2_features_=None, iterations=ITERATIONS, save=True, verbose=False):
         assert X_ is not None, 'X skall inte vara None'
         assert 'streck' in list(X_.columns), 'streck saknas i learn X'

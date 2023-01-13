@@ -210,30 +210,6 @@ def gridsearch_meta(v75, meta_name, params, folds=5,randomsearch=True, save=Fals
 
     return d
 
-# KNN as model
-def gridsearch_knn(v75, params, folds=5,randomsearch=True, save=False):  
-    from sklearn.model_selection import RandomizedSearchCV
-    from sklearn.neighbors import KNeighborsClassifier
-    # from sklearn.metrics import roc_auc_score, f1_score, accuracy_score, mean_absolute_error
-    X,y = prepare_for_KNN(v75)
-    
-    knn = KNeighborsClassifier(n_jobs=4)
-    tscv = TimeSeriesSplit(n_splits=folds)
-
-    grid_params = eval(params)  # str -> dict
-    grid = RandomizedSearchCV(knn, grid_params, cv=tscv.split(X), scoring='roc_auc', 
-                              return_train_score=False, refit =True, verbose=5, n_jobs=4)
-    
-    # fitting the grid search
-    res = grid.fit(X, y)
-    d = {'params': res.best_params_, 'AUC': round(res.best_score_,5)}
-
-    if save:
-        with open('optimera/params_'+'knn_model'+'.json', 'w') as f:
-            json.dump(d, f)
-            
-    return d
-
     
 def gridsearch_typ(v75, typ, params, folds=5, save=False):
     """ 
@@ -241,35 +217,14 @@ def gridsearch_typ(v75, typ, params, folds=5, save=False):
     presentera resultat
     spara resultat
     """
-    res = create_grid_search(v75, typ, params, randomsearch=True)
-    display(type(res))
-    try:
-        display("Bästa AUC-poäng: ", res.best_score_)
-    except:
-        display("Bästa AUC-poäng funkar inte ")  
-    try:      
-        display("Bästa parametrar: ", res.best_params_)
-        bp = res.best_params_
-        print(bp)
-    except:
-        display("Bästa parametrar funkar inte ")    
-        
-    display(res)
-    
+    res = create_grid_search(v75, typ, params, randomsearch=True)  
     print()
-    print("-------------")
-    try:
-        d = {'params': res['params'], 'AUC': round(max(res['cv_results']['test-AUC-mean']),5), 'Logloss': round(min(res['cv_results']['test-Logloss-mean']),5)}
-    except:
-        display("d funkar inte")   
-        display(res)
-        raise Exception("d funkar inte - kör ipynb") 
-
+    print(res)
     if save:
         with open('optimera/params_'+typ.name+'.json', 'w') as f:
-            json.dump(d, f)
+            json.dump(res, f)
     
-    return d
+    return res
 
 def create_grid_search(v75, typ, params, randomsearch=False, verbose=False):
         
@@ -319,6 +274,15 @@ def create_grid_search(v75, typ, params, randomsearch=False, verbose=False):
                                                 search_by_train_test_split=False,
                                                 verbose=verbose,
                                                 plot=True)
+            
+        best_params = grid_search_result.best_params_
+        AUC = grid_search_result.best_score_
+        ix = grid_search_result.best_index_
+        Logloss = grid_search_result['cv_results']['test-Logloss-mean'][ix]
+        
+        assert AUC==grid_search_result.cv_results_['mean_test_roc_auc'][ix], f'AUC != mean_test_roc_auc[{ix}]'
+        grid_search_result = {'params': best_params, 'AUC': round(AUC,5), 'Logloss': round(Logloss,5)}    
+            
     elif 'xgb' in typ.name:
         df,_=v75.förbered_data(extra=True)
         X = typ.prepare_for_model(df.drop(['y'],axis=1))
@@ -333,29 +297,43 @@ def create_grid_search(v75, typ, params, randomsearch=False, verbose=False):
 
         tscv = TimeSeriesSplit(n_splits=5)
 
-        model = xgb.XGBClassifier(early_stopping_rounds=200,
-                                    objective='binary:logistic', eval_metric='auc')
+        model = xgb.XGBClassifier(
+            objective='binary:logistic', eval_metric='auc', random_state=2023)
 
         grid = eval(params)  # str -> dict
 
         if randomsearch:
             st.info(f'XGB Randomized search')
             grid_search_result = RandomizedSearchCV(model, param_distributions=grid,
-                                                         cv=tscv.split(X),
-                                                         scoring='auc',
-                                                         random_state=2023,
-                                                         verbose=verbose)
+                                                    cv=tscv.split(X[use_features]),
+                                                    scoring=['roc_auc','neg_log_loss'],
+                                                    random_state=2023,
+                                                    refit='roc_auc',
+                                                    n_jobs=-1,
+                                                    verbose=1)
+            grid_search_result.fit(X[use_features], y)
+            
         else:
             st.info(f'Grid search')
             grid_search_result = model.grid_search(grid,
                                                    X=Pool(
-                                                       X[use_features], y, cat_features=cat_features),
+                                                   X[use_features], y, cat_features=cat_features),
                                                    cv=tscv.split(X),
                                                    search_by_train_test_split=False,
                                                    verbose=verbose,
                                                    plot=True)
+            
+        best_params = grid_search_result.best_params_
+        AUC = grid_search_result.best_score_
+        ix = grid_search_result.best_index_
+        Logloss = -grid_search_result.cv_results_['mean_test_neg_log_loss'][ix]
+        assert AUC==grid_search_result.cv_results_['mean_test_roc_auc'][ix], f'AUC != mean_test_roc_auc[{ix}]'
+        
+        grid_search_result = {'params': best_params, 'AUC': round(AUC,5), 'Logloss': round(Logloss,5)}    
     else:
         raise ValueError('typ.name must include cat or xgb')
+    
+    
     
     return grid_search_result
 
@@ -383,7 +361,7 @@ def load_data():
     v75 = td.v75(pref=pref)
     st.session_state['v75'] = v75
     DATA = v75.get_work_df()
-    st.info(f'Data loaded in real: {len(DATA)}')
+    st.info(f'Total Data loaded: {len(DATA)}')
     return DATA
     
 if st.session_state['loaded'] == False:
@@ -427,7 +405,7 @@ def optimera_model(v75,typ,folds):
         
         st.write(f'res {result["AUC"]} {result["Logloss"] if "Logloss" in result else ""}')
         if result["AUC"] > params["AUC"]:
-            with open('optimera/params_'+name+'.json', 'w') as f:
+            with open(pref+'optimera/params_'+name+'.json', 'w') as f:
                 json.dump(result, f)
             st.success(f'✔️ {name} optimering saved')
             
@@ -435,7 +413,7 @@ def optimera_model(v75,typ,folds):
 
 def optimera_meta(v75, name,folds=5):
     try:
-        with open('optimera/params_'+name+'.json', 'r') as f:
+        with open(pref+'optimera/params_'+name+'.json', 'r') as f:
             params = json.load(f)
         info = f' AUC = {params["AUC"]}'
         if 'Logloss' in params:
@@ -445,7 +423,7 @@ def optimera_meta(v75, name,folds=5):
         for key, value in params['params'].items():
             params['params'][key] = [value]
     except:
-        st.info('params_'+name+'.json'+' not found')
+        st.info(pref+'params_'+name+'.json'+' not found')
         params = {'params': {'depth': [4], 'parm2': [
             1, 2, 3]}, 'AUC': 0, 'Logloss': 999}
 
@@ -464,7 +442,7 @@ def optimera_meta(v75, name,folds=5):
 
         st.write(f'res {result["AUC"]} {result["Logloss"] if "Logloss" in result else ""}')
         if result["AUC"] > params["AUC"]:
-            with open('optimera/params_'+name+'.json', 'w') as f:
+            with open(pref+'optimera/params_'+name+'.json', 'w') as f:
                 json.dump(result, f)
             st.success(f'✔️ {name} optimering saved')
 
