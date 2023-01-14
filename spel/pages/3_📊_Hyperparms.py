@@ -39,8 +39,6 @@ from IPython.display import display
 sys.path.append(
     'C:\\Users\\peter\\Documents\\MyProjects\\PyProj\\Trav\\spel\\')
 
-# sys.path.append('C:\\Users\\peter\\Documents\\MyProjects\\PyProj\\Trav\\spel\\modeller\\')
-# import V75_scraping as vs
 import typ as tp
 import travdata as td
 
@@ -159,76 +157,64 @@ def plot_confusion_matrix(y_true, y_pred, typ, fr=0.05, to=0.3, step=0.001):
 
     #### print scores ####
     display_scores(y_true, y_pred, f'spelade per lopp: {round(12 * sum(y_pred)/len(y_pred),4)}' )
-#%%
-def prepare_for_meta(v75, name):
-    df = v75.förbered_data()
-    X,y = skapa_stack(df.drop(['y'],axis=1), df.y.copy())
-    return X, y
-
 
 #%%
-def gridsearch_meta(v75, meta_name, params, folds=5,randomsearch=True, save=False):
-    
-    X, y = prepare_for_meta(v75, meta_name)
-
-    with open(pref+'META_FEATURES.txt', 'r', encoding='utf-8') as f:
-        meta_features = f.read().splitlines()
-    assert meta_features == list(X.columns), f'X.columns {list(X.columns)} is not the same as meta_features {meta_features}'
-    
-    print(meta_name)
-    scoring='roc_auc'
-    params = None if len(params)==0 else eval(params)
-    
-    if meta_name == 'knn_meta':
-        meta = KNeighborsClassifier(n_jobs=-1)
-    elif meta_name == 'ridge':
-        meta = RidgeClassifier(random_state=2022)
-    elif meta_name == 'lasso':
-        scoring = None
-        meta = Lasso(random_state=2022)
-    elif meta_name == 'rf':
-        meta = RandomForestClassifier(n_jobs=-1,random_state=2022)  
-    elif meta_name == 'et':
-        meta = ExtraTreesClassifier(n_jobs=-1,random_state=2022)  
-    elif meta_name == 'lgbm':
-        meta = lgb.LGBMClassifier(n_jobs=-1, random_state=2022)
-    else:
-        assert False, f'{meta_name} is not a valid meta-model'
-            
-    tscv = TimeSeriesSplit(n_splits=folds)
-    
-    grid = RandomizedSearchCV(meta, params, cv=tscv.split(X), scoring=scoring,
-                              return_train_score=False, refit=True, verbose=5, n_jobs=4)
-
-    # fitting the grid search
-    res = grid.fit(X, y)
-    d = {'params': res.best_params_, 'AUC': round(res.best_score_,6)}
-
-    if save:
-        with open('optimera/params_'+meta_name+'.json', 'w') as f:
-            json.dump(d, f)
-
-    return d
-
 def create_L2_input(X_, L1_features) :
     X = X_.copy()
+    print(f'X.shape {X.shape} before adding proba_data')
+    print('X before adding proba\n', X[['bana','kusk']].head(1))
+    X = X.reset_index(drop=True)
     proba_data = pd.DataFrame()
     for model_name, typ in L1_modeller.items():
         proba_data['proba_'+model_name] = typ.predict(X, L1_features)  
-          
-    X = pd.concat([X, proba_data], axis=1)   
+    
+    proba_data = proba_data.reset_index(drop=True)
+    proba_data.to_csv('xxx_proba_data.csv', index=False)
+    
+    print('X.shape', X.shape, 'proba_data.shape', proba_data.shape, 'before concat')      
+        
+    X_na = X.isna()
+    X_missing = X[X_na.any(axis=1)]
+    proba_data_na = proba_data.isna()
+    proba_data_missing = proba_data[proba_data_na.any(axis=1)]
+    
+    if X_missing.shape[0] > 0:
+        X_missing.to_csv('xxx_X_missing.csv', index=False)
+    else:
+        print('X har inga NaN') 
+    
+    if proba_data_missing.shape[0] > 0:
+        proba_data_missing.to_csv('xxx_proba_data_missing.csv', index=False) 
+    else:
+        print('proba_data har inga NaN')
+        
+    assert X.shape[0] == proba_data.shape[0], f'X.shape[0] != proba_data.shape[0] {X.shape[0]} != {proba_data.shape[0]}'
+    
+    assert len(proba_data) == len(X), f'proba_data {len(proba_data)} is not the same length as X {len(X)} innan concat'
+    assert 'bana' in X.columns, f'bana not in X.columns {X.columns} innan concat'
+    X = pd.concat([X, proba_data], axis=1, ignore_index=False) # eftersom index är kolumn-namn (axis=1)   
+    assert len(proba_data) == len(X), f'proba_data {len(proba_data)} is not the same length as X {len(X)} efter concat'
+    assert 'bana' in X.columns, f'bana not in X.columns {X.columns} efter concat'
+    
+    print(f'X.shape {X.shape} and proba_data.shape {proba_data.shape} after concat')
+    print('X after adding proba\n', X[['bana', 'kusk', 'kön']].head(1))
+
+    assert X.shape[0] == proba_data.shape[0], f'X.shape[0] != proba_data.shape[0] {X.shape[0]} != {proba_data.shape[0]}'
     return X   
 
-def gridsearch_typ(v75, typ, params, proba_kolumner=[], folds=5, save=False):
+def gridsearch_typ(typ, params, proba_kolumner=[], folds=5, save=False):
     """ 
     Sätt upp en gridsearch för att optimera parametrar för typ
     presentera resultat
     spara resultat
     """
-    df, _ = v75.förbered_data(extra=True)
-    X = typ.prepare_for_model(df.drop(['y'], axis=1))
-    y = df.y.copy()
-    
+    global DATA
+    try :
+        print(type(DATA))
+    except:
+        print('DATA is not defined')
+        DATA = None
+            
     # Läs in NUM_FEATURES.txt och CAT_FEATURES.txt
     with open(pref+'CAT_FEATURES.txt', 'r', encoding='utf-8') as f:
         cat_features = f.read().split()
@@ -238,14 +224,60 @@ def gridsearch_typ(v75, typ, params, proba_kolumner=[], folds=5, save=False):
         num_features = f.read().split()
     L1_features = cat_features + num_features
     
+    if DATA is None:
+        print('DATA is None, load_data')
+        DATA=load_data()
+        print('DATA.shape', DATA.shape)
+        
+    df = DATA.copy()
+    X = typ.prepare_for_model(df.drop(['y'], axis=1))
+    y = df.y.copy()
+    print('X.shape', X.shape)
+    assert X.shape[0] == DATA.shape[0], 'X.shape[0] != DATA.shape[0]'
+    assert X[cat_features].isna().sum().sum()==0, 'cat_features contains NaN i början gridsearch_typ'
+    
+    print('============================================================')
+    print('no NaN in X[cat_features] i början gridsearch_typ')
+    
+    print('============================================================')
+    print('------------------------------------------------------------')
+    print('X i början av gridsearch_typ', X.shape)
+    print(X[cat_features[:4]].head(1))
+    print('------------------------------------------------------------')
+    print('======== i början gridsearch_typ ===========================')
+ 
+    assert X[cat_features].isnull().sum().sum() == 0, 'there are NaN values in cat_features'
+    print('no NaN in X[cat_features] i början gridsearch_typ')
+    print('------------------------------------------------------------')
+    print('======== i början gridsearch_typ ===========================')
+
     use_features = L1_features
     if len(proba_kolumner) > 0:
+        print('============= proba_kolumner - kör L2 ======================')
+        print('------------------------------------------------------------')
+        assert X[cat_features].isnull().sum().sum() == 0, 'there are NaN values in cat_features before create_L2_input'
+        print('------------------------------------------------------------')
+        print('============= innan create_L2 ==============================')
+        X.to_csv('X_innan_create_L2.csv', index=False)
+        print(X.index)
         X = create_L2_input(X, L1_features)
+        X.to_csv('X_efter_create_L2.csv', index=False)
+        print('============= efter create_L2 ==============================')
+        print('------------------------------------------------------------')
+        assert X[cat_features].isnull().sum().sum() == 0, 'there are NaN values in cat_features after create_L2_input'
+        print('------------------------------------------------------------')
+        print('======== No NaN in cat_features efter create_L2_input ======')
         use_features += proba_kolumner
-    
+        print('use_features - kolla att det finns proba\n', use_features[-10:])
+        print()
+    else:
+        print('------------------------------------------------------------')
+        print('============ inga proba kolumner - kör L1 ==================')        
+        print()
+        
     assert X[cat_features].isnull().sum().sum() == 0, 'there are NaN values in cat_features'
     
-    res = do_grid_search(X, y, typ, params, use_features=use_features, folds=folds, randomsearch=True)  
+    res = do_grid_search(X, y, typ, params, use_features, cat_features, folds=folds, randomsearch=True)  
     
     print()
     print(res)
@@ -255,7 +287,7 @@ def gridsearch_typ(v75, typ, params, proba_kolumner=[], folds=5, save=False):
     
     return res
 
-def do_grid_search(X,y, typ, params, use_features, folds=5,randomsearch=False, verbose=False):
+def do_grid_search(X,y, typ, params, use_features, cat_features, folds=5,randomsearch=False, verbose=False):
      
     tscv = TimeSeriesSplit(n_splits=folds)
     grid = eval(params)  # str -> dict
@@ -306,6 +338,7 @@ def do_grid_search(X,y, typ, params, use_features, folds=5,randomsearch=False, v
         
         model = xgb.XGBClassifier(objective='binary:logistic', eval_metric='auc', random_state=2023)
 
+        assert X[cat_features].isnull().sum().sum() == 0, 'there are NaN values in cat_features inna xgb gridsearch'
         if randomsearch:
             st.info(f'Randomized search {typ.name}')
             grid_search_result = RandomizedSearchCV(model, param_distributions=grid,
@@ -370,8 +403,12 @@ def load_data():
     global DATA
     v75 = td.v75(pref=pref)
     st.session_state['v75'] = v75
-    DATA = v75.get_work_df()
+    DATA,_ = v75.förbered_data(extra=True)
     st.info(f'Total Data loaded: {len(DATA)}')
+    with open(pref+'CAT_FEATURES.txt', 'r', encoding='utf-8') as f:
+        cat_features = f.read().split()
+    assert DATA[cat_features].isna().sum().sum()==0, 'cat_features contains NaN'
+    print('no NaN in DATA[cat_features]')
     return DATA
     
 if st.session_state['loaded'] == False:
@@ -382,7 +419,7 @@ if st.session_state['loaded'] == False:
 # control flow with buttons               #
 ###########################################
     
-def optimera_model(v75,typ, folds, proba_kolumner = []):
+def optimera_model(typ, folds, proba_kolumner = []):
     name= typ.name
     st.info(name)
     start_time = time.time()
@@ -401,14 +438,14 @@ def optimera_model(v75,typ, folds, proba_kolumner = []):
             params['params'][key] = [value]
             
     except:
-        st.info('params_'+name+'.json'+' not found')
+        st.info('params_'+name+'.json'+' not found start a new one')
         params={'params':{'depth':[4], 'parm2': [1,2,3]} , 'AUC': 0, 'Logloss': 999}
         
     opt_params = st.text_area(f'Parametrar att optimera för {name}', params['params'], height=110)
     
     if st.button('run'):
         
-        result = gridsearch_typ(v75,typ,opt_params,proba_kolumner=proba_kolumner,folds=folds)
+        result = gridsearch_typ(typ,opt_params,proba_kolumner=proba_kolumner,folds=folds)
         
         st.write(result)
 
@@ -432,7 +469,7 @@ with buttons:
         
         for L1_name,L1_typ in L1_modeller.items():
             if opt == L1_typ.name:
-                optimera_model(st.session_state.v75,L1_typ,folds=folds)
+                optimera_model(L1_typ,folds=folds)
                 break
     else:        
         st.sidebar.write('---')
@@ -440,7 +477,7 @@ with buttons:
         proba_kolumner = ['proba_cat1L1', 'proba_cat2L1', 'proba_xgb1L1', 'proba_xgb2L1']
         for model_name, L2_typ in L2_modeller.items():
             if opt == L2_typ.name:
-                optimera_model(st.session_state.v75, L2_typ, folds=folds, proba_kolumner=proba_kolumner)
+                optimera_model(L2_typ, folds=folds, proba_kolumner=proba_kolumner)
                 break
         
     st.sidebar.write('---')

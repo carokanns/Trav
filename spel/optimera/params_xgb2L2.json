@@ -1,1 +1,1 @@
-{"params": {"max_depth": 5, "subsample": 0.7, "colsample_bytree":0.7, "iterations": 500, "learning_rate": 0.008},"AUC": 0.0,"Logloss": 1.0}
+{"params": {"subsample": 1, "reg_lambda": 0.1, "n_estimators": 200, "max_depth": 4, "learning_rate": 0.1}, "AUC": 0.92257, "Logloss": 0.17428}

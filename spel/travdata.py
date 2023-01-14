@@ -181,9 +181,11 @@ class v75():
             print('No plac in df')
             
         if missing_cat:
+            print('Handling missing categoricals')
             self._handle_missing_cat()
             
         if missing_num:
+            print('Handling missing numerics')
             self._handle_missing_num()    
             
         if cardinality_list:
