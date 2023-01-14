@@ -210,14 +210,43 @@ def gridsearch_meta(v75, meta_name, params, folds=5,randomsearch=True, save=Fals
 
     return d
 
-    
-def gridsearch_typ(v75, typ, params, folds=5, save=False):
+def create_L2_input(X_, L1_features) :
+    X = X_.copy()
+    proba_data = pd.DataFrame()
+    for model_name, typ in L1_modeller.items():
+        proba_data['proba_'+model_name] = typ.predict(X, L1_features)  
+          
+    X = pd.concat([X, proba_data], axis=1)   
+    return X   
+
+def gridsearch_typ(v75, typ, params, proba_kolumner=[], folds=5, save=False):
     """ 
     Sätt upp en gridsearch för att optimera parametrar för typ
     presentera resultat
     spara resultat
     """
-    res = create_grid_search(v75, typ, params, randomsearch=True)  
+    df, _ = v75.förbered_data(extra=True)
+    X = typ.prepare_for_model(df.drop(['y'], axis=1))
+    y = df.y.copy()
+    
+    # Läs in NUM_FEATURES.txt och CAT_FEATURES.txt
+    with open(pref+'CAT_FEATURES.txt', 'r', encoding='utf-8') as f:
+        cat_features = f.read().split()
+
+    # läs in NUM_FEATURES.txt till num_features
+    with open(pref+'NUM_FEATURES.txt', 'r', encoding='utf-8') as f:
+        num_features = f.read().split()
+    L1_features = cat_features + num_features
+    
+    use_features = L1_features
+    if len(proba_kolumner) > 0:
+        X = create_L2_input(X, L1_features)
+        use_features += proba_kolumner
+    
+    assert X[cat_features].isnull().sum().sum() == 0, 'there are NaN values in cat_features'
+    
+    res = do_grid_search(X, y, typ, params, use_features=use_features, folds=folds, randomsearch=True)  
+    
     print()
     print(res)
     if save:
@@ -226,45 +255,29 @@ def gridsearch_typ(v75, typ, params, folds=5, save=False):
     
     return res
 
-def create_grid_search(v75, typ, params, randomsearch=False, verbose=False):
-        
-    # Läs in NUM_FEATURES.txt och CAT_FEATURES.txt
-    with open(pref+'CAT_FEATURES.txt', 'r', encoding='utf-8') as f:
-        cat_features = f.read().split()
+def do_grid_search(X,y, typ, params, use_features, folds=5,randomsearch=False, verbose=False):
+     
+    tscv = TimeSeriesSplit(n_splits=folds)
+    grid = eval(params)  # str -> dict
 
-    # läs in NUM_FEATURES.txt till num_features
-    with open(pref+'NUM_FEATURES.txt', 'r', encoding='utf-8') as f:
-        num_features = f.read().split()
-    use_features = cat_features + num_features
-    
     if not typ.streck:
         print('remove streck')
         use_features.remove('streck')
         
     if 'cat' in typ.name:
-        df,_=v75.förbered_data(extra=True)
-        X = typ.prepare_for_model(df.drop(['y'],axis=1))
-        y = df.y.copy()
         X = tp.prepare_for_catboost(X)
         
-        assert X[cat_features].isnull().sum().sum() == 0, 'there are NaN values in cat_features'
-        
-        tscv = TimeSeriesSplit(n_splits=5)
-
         model = CatBoostClassifier(iterations=500, loss_function='Logloss', eval_metric='AUC',
                                 use_best_model=False, early_stopping_rounds=200, verbose=verbose,)
-        
-        grid = eval(params)  # str -> dict
-    
         if randomsearch:
-            st.info(f'Randomized search')
+            st.info(f'Randomized search {typ.name}')
             grid_search_result = model.randomized_search(grid,
                                             X=Pool(X[use_features], y, cat_features=cat_features),
                                             cv=tscv.split(X),
                                             shuffle=False,
                                             search_by_train_test_split=False,
                                             verbose=verbose,
-                                            plot=True)
+                                            plot=True)           
         else:
             st.info(f'Grid search')
             grid_search_result = model.grid_search(grid,
@@ -275,35 +288,26 @@ def create_grid_search(v75, typ, params, randomsearch=False, verbose=False):
                                                 verbose=verbose,
                                                 plot=True)
             
-        best_params = grid_search_result.best_params_
-        AUC = grid_search_result.best_score_
-        ix = grid_search_result.best_index_
-        Logloss = grid_search_result['cv_results']['test-Logloss-mean'][ix]
+        best_params = grid_search_result['params']
+        AUC = max(grid_search_result['cv_results']['test-AUC-mean'])
         
-        assert AUC==grid_search_result.cv_results_['mean_test_roc_auc'][ix], f'AUC != mean_test_roc_auc[{ix}]'
+        Logloss = min(grid_search_result['cv_results']['test-Logloss-mean'])
+        ix = np.argmax(grid_search_result['cv_results']['test-AUC-mean'])
+
+        assert AUC==grid_search_result['cv_results']['test-AUC-mean'][ix], f'AUC != mean_test_roc_auc[{ix}]'
         grid_search_result = {'params': best_params, 'AUC': round(AUC,5), 'Logloss': round(Logloss,5)}    
             
     elif 'xgb' in typ.name:
-        df,_=v75.förbered_data(extra=True)
-        X = typ.prepare_for_model(df.drop(['y'],axis=1))
-        y = df.y.copy()
         # xgb_encoder till ENC
         with open(pref+'xgb_encoder.pkl', 'rb') as f:
             ENC = pickle.load(f)
             
         X, ENC = tp.prepare_for_xgboost(X, encoder=ENC)
         
-        assert X[cat_features].isnull().sum().sum() == 0, 'there are NaN values in cat_features'
-
-        tscv = TimeSeriesSplit(n_splits=5)
-
-        model = xgb.XGBClassifier(
-            objective='binary:logistic', eval_metric='auc', random_state=2023)
-
-        grid = eval(params)  # str -> dict
+        model = xgb.XGBClassifier(objective='binary:logistic', eval_metric='auc', random_state=2023)
 
         if randomsearch:
-            st.info(f'XGB Randomized search')
+            st.info(f'Randomized search {typ.name}')
             grid_search_result = RandomizedSearchCV(model, param_distributions=grid,
                                                     cv=tscv.split(X[use_features]),
                                                     scoring=['roc_auc','neg_log_loss'],
@@ -333,7 +337,13 @@ def create_grid_search(v75, typ, params, randomsearch=False, verbose=False):
     else:
         raise ValueError('typ.name must include cat or xgb')
     
-    
+    print('---------------------------------------')
+    display(AUC, Logloss)
+    print('---------------------------------------')
+    display(ix)
+    print('---------------------------------------')
+    display(best_params)
+    print('---------------------------------------')
     
     return grid_search_result
 
@@ -371,22 +381,25 @@ if st.session_state['loaded'] == False:
 ###########################################
 # control flow with buttons               #
 ###########################################
-
-def optimera_model(v75,typ,folds):
+    
+def optimera_model(v75,typ, folds, proba_kolumner = []):
     name= typ.name
     st.info(name)
     start_time = time.time()
     try:
         with open('optimera/params_'+name+'.json', 'r') as f:
             params = json.load(f)
+            
         info = f' AUC = {params["AUC"]}'
         if 'Logloss' in params:
             info += f', Logloss = {params["Logloss"]}'
+            
         st.info(f"Current values: {info}")
         
         # loop over all keys and items in prms
         for key, value in params['params'].items():
             params['params'][key] = [value]
+            
     except:
         st.info('params_'+name+'.json'+' not found')
         params={'params':{'depth':[4], 'parm2': [1,2,3]} , 'AUC': 0, 'Logloss': 999}
@@ -394,7 +407,8 @@ def optimera_model(v75,typ,folds):
     opt_params = st.text_area(f'Parametrar att optimera för {name}', params['params'], height=110)
     
     if st.button('run'):
-        result = gridsearch_typ(v75,typ,opt_params,folds=folds)
+        
+        result = gridsearch_typ(v75,typ,opt_params,proba_kolumner=proba_kolumner,folds=folds)
         
         st.write(result)
 
@@ -409,57 +423,25 @@ def optimera_model(v75,typ,folds):
                 json.dump(result, f)
             st.success(f'✔️ {name} optimering saved')
             
-
-
-def optimera_meta(v75, name,folds=5):
-    try:
-        with open(pref+'optimera/params_'+name+'.json', 'r') as f:
-            params = json.load(f)
-        info = f' AUC = {params["AUC"]}'
-        if 'Logloss' in params:
-            info += f', Logloss: = {params["Logloss"]}'
-        st.info(f"Current values: {info}")
-        
-        for key, value in params['params'].items():
-            params['params'][key] = [value]
-    except:
-        st.info(pref+'params_'+name+'.json'+' not found')
-        params = {'params': {'depth': [4], 'parm2': [
-            1, 2, 3]}, 'AUC': 0, 'Logloss': 999}
-
-    opt_params = st.text_area(f'params att optimera för {name}', params['params'], height=110)
-
-    if st.button('run'):
-        start_time = time.time()
-        result = gridsearch_meta(v75, name, opt_params,folds=folds)
-
-        st.write(result)
-        
-        elapsed = round(time.time() - start_time)
-        minutes, seconds = divmod(elapsed, 60)
-        
-        st.info(f'✔️ {name} optimering done in {minutes}: {seconds}')
-
-        st.write(f'res {result["AUC"]} {result["Logloss"] if "Logloss" in result else ""}')
-        if result["AUC"] > params["AUC"]:
-            with open(pref+'optimera/params_'+name+'.json', 'w') as f:
-                json.dump(result, f)
-            st.success(f'✔️ {name} optimering saved')
-
 with buttons:
     folds = st.sidebar.number_input('Folds', 3, 15, 5)
     st.session_state['folds'] = folds
     if st.sidebar.radio('Välj optimering:', ['model', 'meta-model', ]) == 'model':
         st.sidebar.write('---')
-        opt = st.sidebar.radio('Optimera model parms', ['cat1L1', 'cat2L1', 'xgb1L1', 'xgb2L1'])
+        opt = st.sidebar.radio('Optimera L1 parms', ['cat1L1', 'cat2L1', 'xgb1L1', 'xgb2L1'])
         
-        for model_name,typ in L1_modeller.items():
-            if opt == typ.name:
-                optimera_model(st.session_state.v75,typ,folds=folds)
+        for L1_name,L1_typ in L1_modeller.items():
+            if opt == L1_typ.name:
+                optimera_model(st.session_state.v75,L1_typ,folds=folds)
                 break
     else:        
         st.sidebar.write('---')
-        st.warning('Meta-models not implemented yet')
+        opt = st.sidebar.radio('Optimera L2 parms', ['cat1L2', 'cat2L2', 'xgb1L2', 'xgb2L2'])
+        proba_kolumner = ['proba_cat1L1', 'proba_cat2L1', 'proba_xgb1L1', 'proba_xgb2L1']
+        for model_name, L2_typ in L2_modeller.items():
+            if opt == L2_typ.name:
+                optimera_model(st.session_state.v75, L2_typ, folds=folds, proba_kolumner=proba_kolumner)
+                break
         
     st.sidebar.write('---')
     if st.sidebar.button('start allover'):
