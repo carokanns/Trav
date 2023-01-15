@@ -1,1 +1,1 @@
-{"params": {"depth": 6, "l2_leaf_reg": 3, "iterations": 400, "subsample": 0.8, "learning_rate": 0.05}, "AUC": 0.92665, "Logloss": 0.1706}
+{"params": {"border_count": 64, "subsample": 1, "random_strength": 5, "depth": 6, "l2_leaf_reg": 2, "iterations": 600, "learning_rate": 0.05}, "AUC": 0.92687, "Logloss": 0.17055}

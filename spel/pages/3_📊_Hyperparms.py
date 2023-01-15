@@ -46,6 +46,8 @@ pref=''   # '../'
 
 
 #%%
+# TODO Rens borta alla onödig print och ge statusuppdateringar med st.write eller st.info
+
 ###########################################################################
 #                       skapa modellerna                                  #
 ###########################################################################
@@ -169,7 +171,6 @@ def create_L2_input(X_, L1_features) :
         proba_data['proba_'+model_name] = typ.predict(X, L1_features)  
     
     proba_data = proba_data.reset_index(drop=True)
-    proba_data.to_csv('xxx_proba_data.csv', index=False)
     
     print('X.shape', X.shape, 'proba_data.shape', proba_data.shape, 'before concat')      
         
@@ -179,12 +180,12 @@ def create_L2_input(X_, L1_features) :
     proba_data_missing = proba_data[proba_data_na.any(axis=1)]
     
     if X_missing.shape[0] > 0:
-        X_missing.to_csv('xxx_X_missing.csv', index=False)
+        print('NaNs i X', X_missing)
     else:
         print('X har inga NaN') 
     
     if proba_data_missing.shape[0] > 0:
-        proba_data_missing.to_csv('xxx_proba_data_missing.csv', index=False) 
+        print('NaNs i proba_data_missing', proba_data_missing)
     else:
         print('proba_data har inga NaN')
         
@@ -258,10 +259,10 @@ def gridsearch_typ(typ, params, proba_kolumner=[], folds=5, save=False):
         assert X[cat_features].isnull().sum().sum() == 0, 'there are NaN values in cat_features before create_L2_input'
         print('------------------------------------------------------------')
         print('============= innan create_L2 ==============================')
-        X.to_csv('X_innan_create_L2.csv', index=False)
+    
         print(X.index)
         X = create_L2_input(X, L1_features)
-        X.to_csv('X_efter_create_L2.csv', index=False)
+        
         print('============= efter create_L2 ==============================')
         print('------------------------------------------------------------')
         assert X[cat_features].isnull().sum().sum() == 0, 'there are NaN values in cat_features after create_L2_input'

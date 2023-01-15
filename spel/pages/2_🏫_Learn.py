@@ -36,7 +36,7 @@ st.set_page_config(page_title="V75 Learning", page_icon="🏫")
 st.markdown("# 🏫 V75 Learning")
 st.sidebar.header("🏫 V75 Learning")
 # %%
-print('Skapar dict med modeller')
+print('Initierar dict med modeller')
 # skapar dict med modeller
 modell_dict = {'cat1': {'#hästar': False, '#motst': 3, 'motst_diff': True, 'streck': False},
                'cat2': {'#hästar': True,  '#motst': 3, 'motst_diff': True, 'streck': True},
@@ -187,7 +187,6 @@ def normal_skapa_stack_data(model, name, X_meta, stack_data, use_features):
     """Skapa stack_data"""
     assert 'y' in stack_data.columns, 'y is missing in stack_data'
     this_proba = model.predict(X_meta, use_features)
-    # print(f'X_meta.shape = {X_meta.shape} this_proba.shape={this_proba.shape}')
 
     # Bygg up meta-kolumnerna (proba) för denns modell
     nr = name[3:]
@@ -426,8 +425,7 @@ def TimeSeries_learning(df_ny_, L1_modeller, L2_modeller, n_splits=5, val_fracti
 def validate_skapa_stack_learning(X_, y, use_features):
     # För validate
     X = X_.copy()
-    # print(X.shape)
-    # print(len(meta_features))
+   
     assert len(set(use_features)) == len(use_features), f' 0a use_features has doubles: {use_features}'
     temp_use_features = use_features.copy()
     stacked_data = X.copy()
@@ -602,7 +600,6 @@ def validate(L2_modeller, fraction=None):
 
     _, _, X_val, y_val = hold_out_val_data(df_work, fraction)
     st.info(f'Validerar på:  {X_val.datum.iloc[0]} - -{X_val.datum.iloc[-1]}')
-    # print(f'Validerar på:  {X_val.datum.iloc[0]} - -{X_val.datum.iloc[-1]}')
 
     # # create the stack from validation data
 
@@ -617,7 +614,7 @@ def validate(L2_modeller, fraction=None):
     use_features = cat_features + num_features
     assert len(set(use_features)) == len(use_features), f' 1 use_features has doubles: {use_features}'
 
-    # print('use_features innan validate_skapa_stack', use_features)
+
     stacked_val, use_features, y_val = validate_skapa_stack_learning(X_val, y_val, use_features)
 
     assert len(set(stacked_val.columns.tolist())) == len(stacked_val.columns.tolist()), f'stacked_val.columns has doubles: {stacked_val.columns.tolist()}'

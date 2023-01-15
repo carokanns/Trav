@@ -364,12 +364,7 @@ class Typ():
             missing_items2 = [item for item in use_features if item not in model.get_booster().feature_names]
             assert len(missing_items2) == 0, f"The following items in 'use_features' are not found in modellens features': {missing_items2}"
     
-            print("---------------------------------------------------")
-            print("---------------------------------------------------")            
-            print(f'modellens sista features i predict {self.name} ***********\n',(model.get_booster().feature_names)[-5:])
-            print(f'sista use_features i predict {self.name} ***************\n',use_features[-5:])
-            print("---------------------------------------------------")
-            print("---------------------------------------------------")
+            
         else:
             raise Exception('unknown model type')
 
