@@ -1,5 +1,3 @@
-v75:2023-01-16 16:56:54,342 - INFO - Startar
-v75:2023-01-16 16:56:54,342 - DEBUG - Detta är ett test debug-mess.
-v75:2023-01-16 16:56:54,342 - WARNING - Detta är ett test warning-mess.
-v75:2023-01-16 16:56:54,342 - ERROR - Detta är ett test error-mess.
-v75:2023-01-16 16:56:54,342 - CRITICAL - Detta är ett test critical-mess.
+v75:2023-01-16 21:20:18,771 - INFO - Startar
+v75:2023-01-16 21:20:18,772 - INFO - skapa_modeller . Initierar dict med modeller
+v75:2023-01-16 21:20:18,778 - INFO - Modeller skapade

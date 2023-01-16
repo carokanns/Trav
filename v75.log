@@ -1,0 +1,5 @@
+Learn:2023-01-16 21:02:59,554 - INFO - Startar
+Learn:2023-01-16 21:02:59,554 - DEBUG - Detta är ett test debug-mess.
+Learn:2023-01-16 21:02:59,554 - WARNING - Detta är ett test warning-mess.
+Learn:2023-01-16 21:02:59,554 - ERROR - Detta är ett test error-mess.
+Learn:2023-01-16 21:02:59,554 - CRITICAL - Detta är ett test critical-mess.

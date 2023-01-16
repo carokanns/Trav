@@ -1,4 +1,5 @@
-# %%
+
+#%%
 # from sklearn.model_selection import TimeSeriesSplit
 # from sklearn.ensemble import RandomForestClassifier
 import numpy as np
@@ -24,6 +25,7 @@ sys.path.append('C:\\Users\\peter\\Documents\\MyProjects\\PyProj\\Trav\\spel\\mo
 import V75_scraping as vs
 import typ as tp
 import travdata as td
+import skapa_modeller as mod
 pref = ''
 import logging
     
@@ -33,11 +35,6 @@ import logging
 logging.basicConfig(level=logging.DEBUG, filemode='w' , filename='v75.log', force=True, encoding='utf-8', format='v75:' '%(asctime)s - %(levelname)s - %(message)s')
 logging.info('Startar')
    
-logging.debug("Detta är ett test debug-mess.")
-logging.warning("Detta är ett test warning-mess.")
-logging.error("Detta är ett test error-mess.")
-logging.critical("Detta är ett test critical-mess.")
-
 #%%
 st.set_page_config(page_title="v75 Spel", page_icon="🐎")
 
@@ -160,32 +157,9 @@ def lägg_in_diff_motståndare(X_, motståndare):
 # TODO: Bryta ut Layer1 och Layer2 kod till egna filer med unittester? Testa att de funkar i Hyperparms och Learn
 
 # 
-#               name,   #häst  #motst,  motst_diff, streck,   pref
-test1 = tp.Typ('test1', False,   3,     False,       True,  pref=pref)
-test2 = tp.Typ('test2', False,   3,     True,       False,  pref=pref)
-test3 = tp.Typ('test3', True,    0,     False,      True,   pref=pref)
-test4 = tp.Typ('test4', True,    3,     True,       False,  pref=pref)
 
-modeller = [test1, test2, test3, test4]
-
-
-
-# #             name,  ant_ästar,  proba, kelly, motst_ant,   motst_diff,  ant_favoriter,  only_clear, streck
-# typ6 = tp.Typ('typ6', True,       True, False,     0,          False,          0,            False,    True)
-# typ1 = tp.Typ('typ1', False,      True, False,     2,          True,           2,            True,     False)
-# typ9 = tp.Typ('typ9', True,       True, True,      2,          True,           2,            True,     True)
-# # typ16= tp.Typ('typ16', True,      True, True,      2,          True,          2,            False,    True)
-
-# typer = [typ6, typ1, typ9]  # load a file with pickl
-
-# with open('modeller\\meta_rf.model', 'rb') as f:
-#     meta_model = pickle.load(f)
-
-# with open('modeller\\meta_ridge_model.model', 'rb') as f:
-#    meta_model = pickle.load(f)
-
-# with open('modeller\\meta_lasso_model.model', 'rb') as f:
-#     meta_model = pickle.load(f)
+L1_modeller, L2_modeller = mod.skapa_modeller()
+logging.info('Modeller skapade')
 
 def förbered_data(df_ny):
     class v75_ny(td.v75):  # used for newly scraped data in order to reuse functions in v75
