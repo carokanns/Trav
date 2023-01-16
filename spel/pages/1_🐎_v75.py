@@ -9,6 +9,7 @@ import concurrent.futures
 import time
 import datetime
 import sklearn
+import logging
 
 pd.set_option('display.width', 200)
 pd.set_option('display.max_columns', 200)
@@ -25,10 +26,19 @@ import typ as tp
 import travdata as td
 pref = ''
 import logging
-logging.basicConfig(filename='app.log', filemode='w',
-                    format='%(name)s - %(message)s', level=logging.INFO)
-
+    
+    
 # %%
+
+logging.basicConfig(level=logging.DEBUG, filemode='w' , filename='v75.log', force=True, encoding='utf-8', format='v75:' '%(asctime)s - %(levelname)s - %(message)s')
+logging.info('Startar')
+   
+logging.debug("Detta är ett test debug-mess.")
+logging.warning("Detta är ett test warning-mess.")
+logging.error("Detta är ett test error-mess.")
+logging.critical("Detta är ett test critical-mess.")
+
+#%%
 st.set_page_config(page_title="v75 Spel", page_icon="🐎")
 
 # st.markdown("# 🐎 V75 Spel")
@@ -65,20 +75,6 @@ def v75_scraping(full=True):
     # Ta fram rader för varje modell enligt test-resultaten innan
     # låt meta_model välja mellan modellerna tills max insats, sorterat på meta_proba
 
-# Funktioner för att prioritera mellan hästar
-# Skapa ett Kelly-värde baserat på streck omvandlat till odds
-def kelly_old(proba, streck, odds):  # proba = prob winning, streck i % = streck
-    with open('rf_streck_odds.pkl', 'rb') as f:
-        rf = pickle.load(f)
-
-    if odds is None:
-        o = rf.predict(streck.copy())
-    else:
-        o = rf.predict(streck.copy())
-
-    # for each values > 40 in odds set to 1
-    o[o > 40] = 1
-    return (o*proba - (1-proba))/o
 
 # för en omgång (ett datum) ta ut största diff för streck per avd
 # om only_clear=True, enbart för diff >= 25
@@ -157,6 +153,13 @@ def lägg_in_diff_motståndare(X_, motståndare):
 #%%
 # skapa modeller
 # TODO: Uppdatera med nya modeller
+# TODO: Ta bort alla gamla meta-modeller
+# TODO: Ta bort valet av meta-modeller i streamlit
+# TODO: Inför val mellan matematiskt eller geometriskt medelvärde
+# TODO: Hämta Layer1 och Layer2 kod från Hyperparms/Learn 
+# TODO: Bryta ut Layer1 och Layer2 kod till egna filer med unittester? Testa att de funkar i Hyperparms och Learn
+
+# 
 #               name,   #häst  #motst,  motst_diff, streck,   pref
 test1 = tp.Typ('test1', False,   3,     False,       True,  pref=pref)
 test2 = tp.Typ('test2', False,   3,     True,       False,  pref=pref)

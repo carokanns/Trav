@@ -5,18 +5,9 @@
 
 import json
 import matplotlib.pyplot as plt
-import seaborn as sns
-
-import lightgbm as lgb
 from sklearn.model_selection import RandomizedSearchCV
-from sklearn.neighbors import KNeighborsClassifier
-        
-from sklearn.ensemble import RandomForestClassifier
-from sklearn.ensemble import ExtraTreesClassifier
 from catboost import CatBoostClassifier, Pool
 import xgboost as xgb
-from sklearn.linear_model import RidgeClassifier
-from sklearn.linear_model import Lasso
 from sklearn.model_selection import TimeSeriesSplit
 from sklearn.metrics import accuracy_score, f1_score, roc_auc_score, confusion_matrix, mean_absolute_error
 import streamlit as st
@@ -24,6 +15,18 @@ import sys
 import pandas as pd
 import numpy as np
 import time
+
+import logging
+    
+# %%
+
+logging.basicConfig(level=logging.DEBUG, filemode='w' , filename='v75.log', force=True, encoding='utf-8', format='Hyperparms:' '%(asctime)s - %(levelname)s - %(message)s')
+logging.info('Startar')
+   
+logging.debug("Detta är ett test debug-mess.")
+logging.warning("Detta är ett test warning-mess.")
+logging.error("Detta är ett test error-mess.")
+logging.critical("Detta är ett test critical-mess.")
 
 pd.set_option('display.max_colwidth', None)
 pd.set_option('display.width', 260)
@@ -46,12 +49,12 @@ pref=''   # '../'
 
 
 #%%
-# TODO Rens borta alla onödig print och ge statusuppdateringar med st.write eller st.info
 
 ###########################################################################
 #                       skapa modellerna                                  #
 ###########################################################################
 print('Skapar dict med modeller')
+#TODO: Egen funktion i py-fil
 # skapar dict med modeller
 modell_dict = {'cat1': {'#hästar': False, '#motst': 3, 'motst_diff': True, 'streck': False},
                'cat2': {'#hästar': True,  '#motst': 3, 'motst_diff': True, 'streck': True},
@@ -85,94 +88,18 @@ for key, value in L2_modeller.items():
     print(key)
 
 
-def skapa_stack(X_, y):
-    X=X_.copy()
-    with open(pref+'META_FEATURES.txt', 'r', encoding='utf-8') as f:
-        meta_features = f.read().splitlines()
-        
-    stacked_data = pd.DataFrame(columns=meta_features)
-    for model_name, typ in L1_modeller.items():
-            nr = model_name[2:]
-            stacked_data['proba'+nr] = typ.predict(X)
-
-    assert list(stacked_data.columns) == meta_features, f'columns in stacked_data is wrong {list(stacked_data.columns)}'
-    assert len(stacked_data) == len(y), f'stacked_data {len(stacked_data)} and y {len(y)} should have same length'
-    return stacked_data[meta_features],y   # enbart stack-info
-
-#%% 
-
-def confusion_matrix_graph(y_true, y_pred, title='Confusion matrix'):
-    # confusion matrix graph
-    from sklearn.metrics import confusion_matrix
-    cm = confusion_matrix(y_true=y_true, y_pred=y_pred)
-    # make a graph 
-    
-    import seaborn as sns
-    import matplotlib.pyplot as plt
-    fig, ax = plt.subplots()
-    sns.set(font_scale=2.0)
-    sns.heatmap(cm, annot=True, fmt=".2%", linewidths=.5, square=True, cmap='Blues_r')
-    
-    # plt.figure(figsize=(10,10))
-    #increase font size
-    plt.rcParams['font.size'] = 20
-    plt.ylabel('True label')
-    plt.xlabel('Predicted label')
-    plt.title(title)
-    st.write(fig)
-    # st.write(plt.show())
-    
-# write the scores    
-def display_scores(y_true, y_pred, spelade):    
-    st.write('AUC',round(roc_auc_score(y_true, y_pred),5),'F1',round(f1_score(y_true, y_pred),5),'Acc',round(accuracy_score(y_true, y_pred),5),'MAE',round(mean_absolute_error(y_true, y_pred),5), '\n', spelade)
-
-
-def plot_confusion_matrix(y_true, y_pred, typ, fr=0.05, to=0.3, step=0.001):
-
-    #### Först:  hitta ett treshold som tippar ca 2.5 hästar per avd ####
-    tresh = 0
-    for tresh in np.arange(fr, to, step):
-        cost = 12*sum(y_pred > tresh)/len(y_pred)
-        if cost < 2.5:
-            break
-    tresh = round(tresh, 4)
-    # print(f'Treshold: {tresh}\n')
-    y_pred = (y_pred > tresh).astype(int)
-    # confusion_matrix_graph(y_true, y_pred, f'{typ} treshold={tresh}')
-
-    #### Sedan: confusion matrix graph ####
-    title = f'{typ} treshold={tresh}'
-    cm = confusion_matrix(y_true=y_true, y_pred=y_pred)
-    fig, ax = plt.subplots()
-    sns.set(font_scale=2.0)
-    sns.heatmap(cm, annot=True, fmt=".2f", linewidths=.5,
-                square=True, cmap='Blues_r')
-
-    # increase font size
-    plt.rcParams['font.size'] = 20
-    plt.ylabel('True label')
-    plt.xlabel('Predicted label')
-    plt.title(title)
-    # plot fig
-    
-    st.write(fig)
-
-    #### print scores ####
-    display_scores(y_true, y_pred, f'spelade per lopp: {round(12 * sum(y_pred)/len(y_pred),4)}' )
-
 #%%
 def create_L2_input(X_, L1_features) :
+    #TODO: Egen funktion i py-fil
     X = X_.copy()
-    print(f'X.shape {X.shape} before adding proba_data')
-    print('X before adding proba\n', X[['bana','kusk']].head(1))
+    
     X = X.reset_index(drop=True)
     proba_data = pd.DataFrame()
     for model_name, typ in L1_modeller.items():
         proba_data['proba_'+model_name] = typ.predict(X, L1_features)  
     
     proba_data = proba_data.reset_index(drop=True)
-    
-    print('X.shape', X.shape, 'proba_data.shape', proba_data.shape, 'before concat')      
+
         
     X_na = X.isna()
     X_missing = X[X_na.any(axis=1)]
@@ -181,13 +108,10 @@ def create_L2_input(X_, L1_features) :
     
     if X_missing.shape[0] > 0:
         print('NaNs i X', X_missing)
-    else:
-        print('X har inga NaN') 
     
     if proba_data_missing.shape[0] > 0:
         print('NaNs i proba_data_missing', proba_data_missing)
-    else:
-        print('proba_data har inga NaN')
+    
         
     assert X.shape[0] == proba_data.shape[0], f'X.shape[0] != proba_data.shape[0] {X.shape[0]} != {proba_data.shape[0]}'
     
@@ -197,21 +121,19 @@ def create_L2_input(X_, L1_features) :
     assert len(proba_data) == len(X), f'proba_data {len(proba_data)} is not the same length as X {len(X)} efter concat'
     assert 'bana' in X.columns, f'bana not in X.columns {X.columns} efter concat'
     
-    print(f'X.shape {X.shape} and proba_data.shape {proba_data.shape} after concat')
-    print('X after adding proba\n', X[['bana', 'kusk', 'kön']].head(1))
-
     assert X.shape[0] == proba_data.shape[0], f'X.shape[0] != proba_data.shape[0] {X.shape[0]} != {proba_data.shape[0]}'
     return X   
 
 def gridsearch_typ(typ, params, proba_kolumner=[], folds=5, save=False):
     """ 
+    TODO: Ta bort alla onödiga print
     Sätt upp en gridsearch för att optimera parametrar för typ
     presentera resultat
     spara resultat
     """
     global DATA
     try :
-        print(type(DATA))
+        _=type(DATA)
     except:
         print('DATA is not defined')
         DATA = None
@@ -228,60 +150,33 @@ def gridsearch_typ(typ, params, proba_kolumner=[], folds=5, save=False):
     if DATA is None:
         print('DATA is None, load_data')
         DATA=load_data()
-        print('DATA.shape', DATA.shape)
         
     df = DATA.copy()
     X = typ.prepare_for_model(df.drop(['y'], axis=1))
     y = df.y.copy()
-    print('X.shape', X.shape)
+
     assert X.shape[0] == DATA.shape[0], 'X.shape[0] != DATA.shape[0]'
     assert X[cat_features].isna().sum().sum()==0, 'cat_features contains NaN i början gridsearch_typ'
-    
-    print('============================================================')
-    print('no NaN in X[cat_features] i början gridsearch_typ')
-    
-    print('============================================================')
-    print('------------------------------------------------------------')
-    print('X i början av gridsearch_typ', X.shape)
-    print(X[cat_features[:4]].head(1))
-    print('------------------------------------------------------------')
-    print('======== i början gridsearch_typ ===========================')
  
     assert X[cat_features].isnull().sum().sum() == 0, 'there are NaN values in cat_features'
-    print('no NaN in X[cat_features] i början gridsearch_typ')
-    print('------------------------------------------------------------')
-    print('======== i början gridsearch_typ ===========================')
 
     use_features = L1_features
     if len(proba_kolumner) > 0:
-        print('============= proba_kolumner - kör L2 ======================')
-        print('------------------------------------------------------------')
+        # Kör L2-modeller
         assert X[cat_features].isnull().sum().sum() == 0, 'there are NaN values in cat_features before create_L2_input'
-        print('------------------------------------------------------------')
-        print('============= innan create_L2 ==============================')
-    
-        print(X.index)
+      
         X = create_L2_input(X, L1_features)
-        
-        print('============= efter create_L2 ==============================')
-        print('------------------------------------------------------------')
+     
         assert X[cat_features].isnull().sum().sum() == 0, 'there are NaN values in cat_features after create_L2_input'
-        print('------------------------------------------------------------')
-        print('======== No NaN in cat_features efter create_L2_input ======')
+    
         use_features += proba_kolumner
-        print('use_features - kolla att det finns proba\n', use_features[-10:])
-        print()
-    else:
-        print('------------------------------------------------------------')
-        print('============ inga proba kolumner - kör L1 ==================')        
-        print()
+   
         
     assert X[cat_features].isnull().sum().sum() == 0, 'there are NaN values in cat_features'
     
     res = do_grid_search(X, y, typ, params, use_features, cat_features, folds=folds, randomsearch=True)  
     
-    print()
-    print(res)
+    print('reultat från gridsearch',res)
     if save:
         with open('optimera/params_'+typ.name+'.json', 'w') as f:
             json.dump(res, f)
@@ -374,11 +269,9 @@ def do_grid_search(X,y, typ, params, use_features, cat_features, folds=5,randoms
     print('---------------------------------------')
     display(AUC, Logloss)
     print('---------------------------------------')
-    display(ix)
-    print('---------------------------------------')
     display(best_params)
     print('---------------------------------------')
-    
+    print()
     return grid_search_result
 
 #%%
@@ -409,7 +302,7 @@ def load_data():
     with open(pref+'CAT_FEATURES.txt', 'r', encoding='utf-8') as f:
         cat_features = f.read().split()
     assert DATA[cat_features].isna().sum().sum()==0, 'cat_features contains NaN'
-    print('no NaN in DATA[cat_features]')
+    
     return DATA
     
 if st.session_state['loaded'] == False:
@@ -464,7 +357,7 @@ def optimera_model(typ, folds, proba_kolumner = []):
 with buttons:
     folds = st.sidebar.number_input('Folds', 3, 15, 5)
     st.session_state['folds'] = folds
-    if st.sidebar.radio('Välj optimering:', ['model', 'meta-model', ]) == 'model':
+    if st.sidebar.radio('Välj optimering:', ['L1-model', 'L2-model', ]) == 'L1-model':
         st.sidebar.write('---')
         opt = st.sidebar.radio('Optimera L1 parms', ['cat1L1', 'cat2L1', 'xgb1L1', 'xgb2L1'])
         

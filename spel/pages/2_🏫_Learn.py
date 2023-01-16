@@ -1,3 +1,4 @@
+import logging
 import numpy as np
 import pandas as pd
 import json
@@ -19,6 +20,17 @@ import sys
 sys.path.append(
     'C:\\Users\\peter\\Documents\\MyProjects\\PyProj\\Trav\\spel\\')
 
+
+# %%
+
+logging.basicConfig(level=logging.DEBUG, filemode='w', filename='v75.log', force=True,
+                    encoding='utf-8', format='Learn:' '%(asctime)s - %(levelname)s - %(message)s')
+logging.info('Startar')
+
+logging.debug("Detta är ett test debug-mess.")
+logging.warning("Detta är ett test warning-mess.")
+logging.error("Detta är ett test error-mess.")
+logging.critical("Detta är ett test critical-mess.")
 
 pd.set_option('display.max_colwidth', None)
 pd.set_option('display.width', 260)
@@ -453,6 +465,7 @@ def validate_skapa_stack_learning(X_, y, use_features):
 def predict_meta_models(L2_modeller, stack_data, use_features, mean_type='geometric'):
     """
     TODO: Ändra till Layer2 predict
+    TODO: Egen py-fil för detta 
     Predicts med L2_modeller på stack_data och beräknar meta_proba med mean_type
 
     Args:

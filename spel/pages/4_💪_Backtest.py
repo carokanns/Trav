@@ -27,6 +27,16 @@ pd.set_option('display.width', 260)
 pd.set_option('display.max_columns', 200)
 pd.set_option('display.max_rows', 120)
 
+import logging
+logging.basicConfig(level=logging.DEBUG, filemode='w' , filename='v75.log', force=True, encoding='utf-8', format='Backtest:' '%(asctime)s - %(levelname)s - %(message)s')
+logging.info('Startar')
+   
+logging.debug("Detta är ett test debug-mess.")
+logging.warning("Detta är ett test warning-mess.")
+logging.error("Detta är ett test error-mess.")
+logging.critical("Detta är ett test critical-mess.")
+
+
 st.set_page_config(page_title="Backtest av modeller + meta", page_icon="💪")
 
 st.markdown("# 💪 Backtest av modeller + meta")
