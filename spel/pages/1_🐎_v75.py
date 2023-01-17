@@ -34,7 +34,7 @@ import logging
 
 logging.basicConfig(level=logging.DEBUG, filemode='w' , filename='v75.log', force=True, encoding='utf-8', format='v75:' '%(asctime)s - %(levelname)s - %(message)s')
 logging.info('Startar')
-   
+
 #%%
 st.set_page_config(page_title="v75 Spel", page_icon="🐎")
 
@@ -148,8 +148,7 @@ def lägg_in_diff_motståndare(X_, motståndare):
 
 
 #%%
-# skapa modeller
-# TODO: Uppdatera med nya modeller
+# TODO: Implementera skapa_modeller i Learn och Hyperparms
 # TODO: Ta bort alla gamla meta-modeller
 # TODO: Ta bort valet av meta-modeller i streamlit
 # TODO: Inför val mellan matematiskt eller geometriskt medelvärde
@@ -628,6 +627,6 @@ if meta != st.session_state.meta:
         st.info('Datum: ' + df_scraped.datum.iloc[0])
         pass
   
-    df_stack = build_stack_df(df_scraped, modeller)
+    df_stack = build_stack_df(df_scraped, L1_modeller)
     df_stack.to_csv('sparad_stack.csv', index=False)
     use_meta(df_stack, meta)

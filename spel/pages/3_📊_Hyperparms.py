@@ -3,6 +3,7 @@
 #                               gridsearch för att optimera params                                                     #
 ########################################################################################################################
 
+import skapa_modeller as mod
 import json
 import matplotlib.pyplot as plt
 from sklearn.model_selection import RandomizedSearchCV
@@ -23,10 +24,6 @@ import logging
 logging.basicConfig(level=logging.DEBUG, filemode='w' , filename='v75.log', force=True, encoding='utf-8', format='Hyperparms:' '%(asctime)s - %(levelname)s - %(message)s')
 logging.info('Startar')
    
-logging.debug("Detta är ett test debug-mess.")
-logging.warning("Detta är ett test warning-mess.")
-logging.error("Detta är ett test error-mess.")
-logging.critical("Detta är ett test critical-mess.")
 
 pd.set_option('display.max_colwidth', None)
 pd.set_option('display.width', 260)
@@ -34,11 +31,8 @@ pd.set_option('display.max_columns', 200)
 pd.set_option('display.max_rows', 120)
 
 import pickle
-
 import datetime
-
 from IPython.display import display
-
 sys.path.append(
     'C:\\Users\\peter\\Documents\\MyProjects\\PyProj\\Trav\\spel\\')
 
@@ -55,74 +49,78 @@ pref=''   # '../'
 ###########################################################################
 print('Skapar dict med modeller')
 #TODO: Egen funktion i py-fil
-# skapar dict med modeller
-modell_dict = {'cat1': {'#hästar': False, '#motst': 3, 'motst_diff': True, 'streck': False},
-               'cat2': {'#hästar': True,  '#motst': 3, 'motst_diff': True, 'streck': True},
-               'xgb1': {'#hästar': False, '#motst': 3, 'motst_diff': True, 'streck': False},
-               'xgb2': {'#hästar': True,  '#motst': 3, 'motst_diff': True, 'streck': True}
-               }
+# # skapar dict med modeller
+# modell_dict = {'cat1': {'#hästar': False, '#motst': 3, 'motst_diff': True, 'streck': False},
+#                'cat2': {'#hästar': True,  '#motst': 3, 'motst_diff': True, 'streck': True},
+#                'xgb1': {'#hästar': False, '#motst': 3, 'motst_diff': True, 'streck': False},
+#                'xgb2': {'#hästar': True,  '#motst': 3, 'motst_diff': True, 'streck': True}
+#                }
 
-L1_modeller = dict()
-L2_modeller = dict()
+# L1_modeller = dict()
+# L2_modeller = dict()
 
-for key, value in modell_dict.items():
-    L1_key = key + 'L1'
-    model = tp.Typ(L1_key, value['#hästar'], value['#motst'],
-                   value['motst_diff'], value['streck'])
-    L1_modeller[L1_key] = model
+# for key, value in modell_dict.items():
+#     L1_key = key + 'L1'
+#     model = tp.Typ(L1_key, value['#hästar'], value['#motst'],
+#                    value['motst_diff'], value['streck'])
+#     L1_modeller[L1_key] = model
 
-    L2_key = key + 'L2'
-    model = tp.Typ(L2_key, value['#hästar'], value['#motst'],
-                   value['motst_diff'], value['streck'])
-    L2_modeller[L2_key] = model
+#     L2_key = key + 'L2'
+#     model = tp.Typ(L2_key, value['#hästar'], value['#motst'],
+#                    value['motst_diff'], value['streck'])
+#     L2_modeller[L2_key] = model
 
-print('keys and names i modeller')
-# print keys in dict modeller
-for key, value in L1_modeller.items():
-    assert key == value.name, "key and value.name should be the same in modeller"
-    print(key)
+# print('keys and names i modeller')
+# # print keys in dict modeller
+# for key, value in L1_modeller.items():
+#     assert key == value.name, "key and value.name should be the same in modeller"
+#     print(key)
 
-print('keys and names i meta_modeller')
-for key, value in L2_modeller.items():
-    assert key == value.name, "key and value.name should be the same in meta_modeller"
-    print(key)
+# print('keys and names i meta_modeller')
+# for key, value in L2_modeller.items():
+#     assert key == value.name, "key and value.name should be the same in meta_modeller"
+#     print(key)
 
+L1_modeller,L2_modeller = mod.skapa_modeller()
+logging.info('Modeller är nu skapade')
 
 #%%
-def create_L2_input(X_, L1_features) :
-    #TODO: Egen funktion i py-fil
-    X = X_.copy()
+# def create_L2_input(X_, L1_modeller, L1_features) :
+#     #TODO: Egen funktion i py-fil
+#     X = X_.copy()
     
-    X = X.reset_index(drop=True)
-    proba_data = pd.DataFrame()
-    for model_name, typ in L1_modeller.items():
-        proba_data['proba_'+model_name] = typ.predict(X, L1_features)  
+#     X = X.reset_index(drop=True)
+#     proba_data = pd.DataFrame()
+#     for model_name, typ in L1_modeller.items():
+#         proba_data['proba_'+model_name] = typ.predict(X, L1_features)  
     
-    proba_data = proba_data.reset_index(drop=True)
+#     proba_data = proba_data.reset_index(drop=True)
 
-        
-    X_na = X.isna()
-    X_missing = X[X_na.any(axis=1)]
-    proba_data_na = proba_data.isna()
-    proba_data_missing = proba_data[proba_data_na.any(axis=1)]
+#     ####### kolla om det finns NaNs i X eller proba_data
+#     X_na = X.isna()
+#     X_missing = X[X_na.any(axis=1)]
+#     proba_data_na = proba_data.isna()
+#     proba_data_missing = proba_data[proba_data_na.any(axis=1)]
     
-    if X_missing.shape[0] > 0:
-        print('NaNs i X', X_missing)
+#     if X_missing.shape[0] > 0:
+#         logging.warning(f'NaNs i X {X_missing}')
+#         print('NaNs i X', X_missing)
     
-    if proba_data_missing.shape[0] > 0:
-        print('NaNs i proba_data_missing', proba_data_missing)
+#     if proba_data_missing.shape[0] > 0:
+#         print(f'NaNs i proba_data_missing {proba_data_missing}')
+#         logging.warning(f'NaNs i proba_data_missing {proba_data_missing}')
+#     ####### slutkollat
     
-        
-    assert X.shape[0] == proba_data.shape[0], f'X.shape[0] != proba_data.shape[0] {X.shape[0]} != {proba_data.shape[0]}'
+#     assert X.shape[0] == proba_data.shape[0], f'X.shape[0] != proba_data.shape[0] {X.shape[0]} != {proba_data.shape[0]}'
     
-    assert len(proba_data) == len(X), f'proba_data {len(proba_data)} is not the same length as X {len(X)} innan concat'
-    assert 'bana' in X.columns, f'bana not in X.columns {X.columns} innan concat'
-    X = pd.concat([X, proba_data], axis=1, ignore_index=False) # eftersom index är kolumn-namn (axis=1)   
-    assert len(proba_data) == len(X), f'proba_data {len(proba_data)} is not the same length as X {len(X)} efter concat'
-    assert 'bana' in X.columns, f'bana not in X.columns {X.columns} efter concat'
+#     assert len(proba_data) == len(X), f'proba_data {len(proba_data)} is not the same length as X {len(X)} innan concat'
+#     assert 'bana' in X.columns, f'bana not in X.columns {X.columns} innan concat'
+#     X = pd.concat([X, proba_data], axis=1, ignore_index=False) # eftersom index är kolumn-namn (axis=1)   
+#     assert len(proba_data) == len(X), f'proba_data {len(proba_data)} is not the same length as X {len(X)} efter concat'
+#     assert 'bana' in X.columns, f'bana not in X.columns {X.columns} efter concat'
     
-    assert X.shape[0] == proba_data.shape[0], f'X.shape[0] != proba_data.shape[0] {X.shape[0]} != {proba_data.shape[0]}'
-    return X   
+#     assert X.shape[0] == proba_data.shape[0], f'X.shape[0] != proba_data.shape[0] {X.shape[0]} != {proba_data.shape[0]}'
+#     return X   
 
 def gridsearch_typ(typ, params, proba_kolumner=[], folds=5, save=False):
     """ 
@@ -165,8 +163,8 @@ def gridsearch_typ(typ, params, proba_kolumner=[], folds=5, save=False):
         # Kör L2-modeller
         assert X[cat_features].isnull().sum().sum() == 0, 'there are NaN values in cat_features before create_L2_input'
       
-        X = create_L2_input(X, L1_features)
-     
+        X = mod.create_L2_input(X, L1_modeller, L1_features)
+
         assert X[cat_features].isnull().sum().sum() == 0, 'there are NaN values in cat_features after create_L2_input'
     
         use_features += proba_kolumner
