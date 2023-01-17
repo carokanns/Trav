@@ -1,9 +1,11 @@
+import logging 
 import pandas as pd
 import numpy as np
 import pickle
 import json
 from catboost import CatBoostClassifier, Pool
 import xgboost as xgb
+
 
 
 def remove_features(df_, remove_mer=[]):
@@ -196,6 +198,7 @@ class Typ():
 
     # Ny Learn metod som tar hänsyn till att vi kan ha CatBoost eller XGBoost
     def learn(self, X_, y=None, X_test_=None, y_test=None, params=None, use_L2_features_=None, iterations=ITERATIONS, save=True, verbose=False):
+        logging.info(f'Typ: startar learn() för {self.name}')
         assert X_ is not None, 'X skall inte vara None'
         assert 'streck' in list(X_.columns), 'streck saknas i learn X'
         use_L2_features = None
@@ -210,7 +213,7 @@ class Typ():
         elif self.name.startswith('xgb'):
             model_type = 'xgboost'
         else:
-            raise Exception('unknown model type')
+            raise Exception(f'unknown model {self.name}')
 
         print('Learning', self.name, 'with', model_type)
         
@@ -242,8 +245,11 @@ class Typ():
                 params = json.load(f)
                 params = params['params']
 
-        iterations = params['iterations'] if 'iterations' in params else iterations
-        params.pop('iterations')  # Ta bort iterations från params
+        # print('params:', params)
+        # print('iterations:', iterations)
+        if 'iterations' in params:
+            iterations = params['iterations'] 
+            params.pop('iterations')
 
         assert 'datum' in X.columns, 'datum saknas i learn X before prepare_for_model'
         X = self.prepare_for_model(X)
@@ -327,9 +333,18 @@ class Typ():
         return model
 
     def predict(self, X_, use_features_, verbose=False, model=None):
-        # X_ måste ha datum och avd
-        assert 'streck' in X_.columns, f'streck saknas i predict: X ({self.name})'
+        logging.info(f'Typ: startar predict med {self.name}')
+        X = X_.copy()
+        if self.name[-2:] == 'L2':
+            assert len([col for col in X.columns if 'proba_' in col]) == 4, f'X saknar proba-kolumner för L2-modell {self.name}\n{X.columns}'
+            assert len([col for col in use_features_ if 'proba_' in col]) == 4, f'use_features_ saknar proba-kolumner för L2-modell {self.name}'
+        
+        # X måste ha datum och avd
+        assert 'datum' in X.columns, f'datum saknas i predict: X ({self.name})'
+        assert 'avd' in X.columns, f'avd saknas i predict: X ({self.name})'
+        assert 'streck' in X.columns, f'streck saknas i predict: X ({self.name})'
         assert 'streck' in use_features_, f'streck saknas i predict: use_features ({self.name})'
+        
         if self.name.startswith('cat'):
             model_name = 'catboost'
         elif self.name.startswith('xgb'):
@@ -338,7 +353,7 @@ class Typ():
             raise Exception('unknown model type')
 
         print('Predicting', self.name, 'with', model_name)
-        X = X_.copy()
+        
         use_features = use_features_.copy()
 
         X = self.prepare_for_model(X_)
@@ -364,7 +379,6 @@ class Typ():
             missing_items2 = [item for item in use_features if item not in model.get_booster().feature_names]
             assert len(missing_items2) == 0, f"The following items in 'use_features' are not found in modellens features': {missing_items2}"
     
-            
         else:
             raise Exception('unknown model type')
 
@@ -375,7 +389,9 @@ class Typ():
         if self.name[-2:] == 'L1':
             assert len([col for col in X.columns if 'proba' in col]) == 0, f'X innehåller proba-kolumner för L1-modell {self.name}'
             assert len([col for col in use_features if 'proba' in col]) == 0, f'use_features innehåller proba-kolumner för L1-modell {self.name}'
-        
+        elif self.name[-2:] == 'L2':
+            assert len([col for col in X.columns if 'proba_' in col]) == 4, f'X saknar proba-kolumner för L2-modell {self.name}\n{X.columns}'
+            assert len([col for col in use_features if 'proba_' in col]) == 4, f'use_features saknar proba-kolumner för L2-modell {self.name}'
         
         assert len(set(X.columns.tolist())) == len(X.columns.tolist()), f'X.columns has doubles: {X.columns.tolist()}'
         assert len(set(use_features)) == len(use_features), f'use_features has doubles: {use_features}'

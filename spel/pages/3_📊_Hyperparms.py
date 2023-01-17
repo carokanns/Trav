@@ -21,7 +21,8 @@ import logging
     
 # %%
 
-logging.basicConfig(level=logging.DEBUG, filemode='w' , filename='v75.log', force=True, encoding='utf-8', format='Hyperparms:' '%(asctime)s - %(levelname)s - %(message)s')
+logging.basicConfig(level=logging.DEBUG, filemode='w', filename='v75.log', force=True,
+                    encoding='utf-8', format='Hyperparms: %(asctime)s - %(levelname)s - %(lineno)d - %(message)s ')
 logging.info('Startar')
    
 

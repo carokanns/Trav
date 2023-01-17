@@ -32,7 +32,8 @@ import logging
     
 # %%
 
-logging.basicConfig(level=logging.DEBUG, filemode='w' , filename='v75.log', force=True, encoding='utf-8', format='v75:' '%(asctime)s - %(levelname)s - %(message)s')
+logging.basicConfig(level=logging.DEBUG, filemode='w', filename='v75.log', force=True,
+                    encoding='utf-8', format='v75:' '%(asctime)s - %(levelname)s - %(message)s - %(lineno)d')
 logging.info('Startar')
 
 #%%
