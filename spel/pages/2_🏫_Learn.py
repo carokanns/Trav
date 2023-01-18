@@ -67,48 +67,9 @@ def v75_scraping():
 #              LEARNING                       #
 ###############################################
 
-# TODO: Byt till logik i skapa_modeller.py
-# def prepare_L2_input_data_old(L2_input_data_, y, use_L2features):
-    # L2_input_data = L2_input_data_.copy(deep=True)
-    # assert 'y' not in L2_input_data.columns, "y shouldn't be in stack_data"
-    # assert len([item for item in L2_input_data.columns if 'proba' in item]
-    #            ) == 4, "4 proba should be in stack_data"
-    # return L2_input_data
+# TODO: egen funktion i skapa_modeller.py
 
 
-def learn_L2_modeller(L2_modeller, L2_input_data, use_L2features, save=True):
-    display('Starting "learn_L2_modeller"')
-    assert 'streck' in use_L2features, f'streck is missing in use_L2features direkt i början'
-    
-    assert 'y' in L2_input_data.columns, 'y is missing in L2_input_data'
-    y_meta = L2_input_data.pop('y').astype(int)
-
-    assert 'y' not in L2_input_data.columns, "y shouldn't be in stack_data"
-    assert len([item for item in L2_input_data.columns if 'proba_' in item]) == 4, "4 proba_ should be in stack_data"
-    
-    X_meta = L2_input_data.copy(deep=True)
-    assert 'datum' in X_meta.columns, f'datum is missing in X_meta efter prepare_L2_input_data'
-    assert 'streck' in X_meta.columns, f'streck is missing in X_meta efter prepare_L2_input_data'
-    assert 'streck' in use_L2features, f'streck is missing in use_L2features efter prepare_L2_input_data'
- 
-    for enum,(model_name, model) in enumerate(L2_modeller.items()):
-        display(f'#### learn {model_name} Layer2 på L2_input_data (stack-data)')        
-        logging.info(f'learn {model_name} Layer2 på L2_input_data (stack-data)')
-        with open(pref+'optimera/params_'+model_name+'.json', 'r') as f:
-            params = json.load(f)
-            params = params['params']
-
-        assert 'streck' in use_L2features, f'{enum} streck is missing in use_L2features innan learn för {model_name}'
-        my_meta = model.learn(X_meta, y_meta,use_L2_features_=use_L2features, params=params, save=save)
-
-        L2_modeller[model_name] = my_meta
-
-        if save:
-            # Save the list of column names to a JSON file
-            with open(pref+'modeller/'+model_name+'_columns.json', "w") as f:
-                json.dump(X_meta.columns.tolist(), f)
-
-    return L2_modeller
 
 # %%
 
@@ -144,7 +105,6 @@ def normal_learn_meta_models(meta_modeller, L2_input_data, save=True):
 
     return meta_modeller
 # %%
-
 
 def skapa_data_för_datum(df_, curr_datum_ix, frac=0.5):
     df = df_.copy()
@@ -234,17 +194,16 @@ def normal_learning(modeller, meta_modeller, X_train, y_train, X_meta, y_meta):
     assert 'y' in stack_data.columns, 'y is missing in stack_data'
     stack_data.to_csv('first_stack_data.csv', index=False)
 
-    # Läs in NUM_FEATURES.txt och CAT_FEATURES.txt
-    with open(pref+'CAT_FEATURES.txt', 'r', encoding='utf-8') as f:
-        cat_features = f.read().split()
+    # # Läs in NUM_FEATURES.txt och CAT_FEATURES.txt
+    # with open(pref+'CAT_FEATURES.txt', 'r', encoding='utf-8') as f:
+    #     cat_features = f.read().split()
 
-    # läs in NUM_FEATURES.txt till num_features
-    with open(pref+'NUM_FEATURES.txt', 'r', encoding='utf-8') as f:
-        num_features = f.read().split()
-    use_features = cat_features + num_features
+    # # läs in NUM_FEATURES.txt till num_features
+    # with open(pref+'NUM_FEATURES.txt', 'r', encoding='utf-8') as f:
+    #     num_features = f.read().split()
+    use_features,_,_ = mod.read_in_features()
 
-    meta_modeller = normal_learn_meta_models(
-        meta_modeller, stacked_data, use_features)
+    meta_modeller = normal_learn_meta_models(meta_modeller, stacked_data, use_features)
 
     return stack_data
 
@@ -268,16 +227,16 @@ def TimeSeries_learning(df_ny_, L1_modeller, L2_modeller, n_splits=5, val_fracti
         df_ny = df_ny_[base_features].copy()
         v75.concat(df_ny, update_work=True, save=True)
 
-    # Läs in NUM_FEATURES.txt och CAT_FEATURES.txt
-    with open(pref+'CAT_FEATURES.txt', 'r', encoding='utf-8') as f:
-        cat_features = f.read().split()
+    # # Läs in NUM_FEATURES.txt och CAT_FEATURES.txt
+    # with open(pref+'CAT_FEATURES.txt', 'r', encoding='utf-8') as f:
+    #     cat_features = f.read().split()
 
-    # läs in NUM_FEATURES.txt till num_features
-    with open(pref+'NUM_FEATURES.txt', 'r', encoding='utf-8') as f:
-        num_features = f.read().split()
+    # # läs in NUM_FEATURES.txt till num_features
+    # with open(pref+'NUM_FEATURES.txt', 'r', encoding='utf-8') as f:
+    #     num_features = f.read().split()
 
-    use_features = cat_features + num_features
-
+    # use_features = cat_features + num_features
+    use_features,_,_ = mod.read_in_features()
     # Hämta data från v75
     _ = v75.förbered_data(missing_num=False)  # num hanteras av catboost
     df_work = v75.test_lägg_till_kolumner()
@@ -338,12 +297,12 @@ def TimeSeries_learning(df_ny_, L1_modeller, L2_modeller, n_splits=5, val_fracti
         # Alla L1_modeller är nu tränade på X_train från ts.split 
         # och vi kan nu göra predict av L!_modellerna på X_test från ts.split
         
+        assert 'streck' in X.columns, f'streck is missing in X före create_L2_data med L1_modeller'
         Xy = X_test.copy()
         Xy['y'] = y_test
-        L1_output_data = mod.create_L2_input(Xy, L1_modeller, use_features)
+        L1_output_data, use_L2features = mod.create_L2_input(Xy, L1_modeller, use_features)
         
-        assert 'streck' in L1_output_data, f'streck is missing in L1_output_data efter predict med {model_name}'
-        
+        assert 'streck' in L1_output_data.columns, f'streck is missing in L1_output_data efter predict med {model_name}'
         
     # Nu har vi en stack från alla L1_modeller som ska användas som input till L2_modeller
     
@@ -357,18 +316,16 @@ def TimeSeries_learning(df_ny_, L1_modeller, L2_modeller, n_splits=5, val_fracti
     #         Step 2:       Learn Layer2                                          #
     ###############################################################################
     st.write('Learning L2 models')
-    use_L2features = use_features + proba_features
+    # use_L2features = use_features + proba_features   - use_L2features är redan satt i create_L2_input
     assert 'streck' in use_L2features, f'streck is missing in use_L2features innan learn L2_modeller'
-
     assert 'datum' in L1_output_data, 'datum is missing in L1_output_data'
-    L2_modeller = learn_L2_modeller(L2_modeller, L1_output_data, use_L2features)
-    # loop all L2-modeller
-    for model_name, model in L2_modeller.items():
-        assert len([col for col in use_L2features if 'proba_' in col]) == 4,f' proba-kolumner saknas för L2-modell {model_name}'
-        
+    assert len([col for col in use_L2features if 'proba_' in col]) == 4,f' proba-kolumner saknas för L2-modell {model_name}'
+    
+    L2_modeller = mod.learn_L2_modeller(L2_modeller, L1_output_data, use_L2features)
+    
 
     ###############################################################################
-    #         Step 3: learn models on all of X - what iteration to use?           #
+    #         Step 3: learn L1-modeller on all of X - what iteration to use?      #
     ###############################################################################
     st.write('Learn models on all of X - why not plus X_test as well?')
     print('Starting to learn models on all of X')
@@ -424,11 +381,11 @@ def validate_skapa_stack_learning(X_, y, use_features):
 ##############################################################
 #                     VALIDATE                               #
 ##############################################################
+# TODO: Se över hela validate logiken
 
-
-def predict_med_L2_modeller(L2_modeller, stack_data, use_features, mean_type='geometric'):
+def predict_med_L2_modeller(L2_modeller, L2_input, use_features, mean_type='geometric'):
     """
-    TODO: Egen py-fil för detta 
+    TODO: Egen funktion i skapa_modller.py för detta ?
     Predicts med L2_modeller på stack_data och beräknar meta_proba med mean_type
 
     Args:
@@ -441,48 +398,37 @@ def predict_med_L2_modeller(L2_modeller, stack_data, use_features, mean_type='ge
         preds: Dataframe med L2_modellers prediktioner
     """
     
-    assert len([col for col in stack_data.columns if 'proba_' in col]) == 4, f'X saknar proba-kolumner för L2-modeller\n{stack_data.columns}'
-    assert len([col for col in use_features if 'proba_' in col]) == 4, f'use_features saknar proba-kolumner för L2-modeller\n{use_features}'
-        
-    assert 'y' not in stack_data.columns, f'y skall inte finnas i stack_data'
-    preds = pd.DataFrame(columns=list(L2_modeller.keys())+['meta'])
-
-    assert len([item for item in stack_data.columns if 'proba' in item]) == 4, "4 proba should be in stack_data"
+    assert len([col for col in L2_input.columns if 'proba_' in col]) == 4, f'X saknar proba-kolumner till L2-modeller\n{L2_input.columns}'
+    assert len([col for col in use_features if 'proba_' in col]) == 4, f'use_features saknar proba-kolumner till L2-modeller\n{use_features}'
+    assert 'y' not in L2_input.columns, f'y skall inte finnas i stack_data'
     
-    temp = stack_data.copy()
+    # Define column names for preds DataFrame
+    column_names = list(L2_modeller.keys()) + ['meta']
+    preds = pd.DataFrame(columns=column_names)
 
-    # dirty trick to init preds.meta with the number of rows
-    preds['meta'] = temp.iloc[:, 0]
-    if mean_type == 'arithmetic':
-        preds['meta'] = 0
-    else:
-        preds['meta'] = 1
+    # Check for the presence of 4 'proba-' columns in L2_input
+    proba_columns = L2_input.filter(like='proba_').columns
+    assert proba_columns.size == 4, "4 proba_ columns should be in stack_data"
+
+    temp = L2_input.copy()
 
     for model_name, model in L2_modeller.items():
-        print(f'{model_name} predicts för validate')
-        
-        assert len(set(temp.columns.tolist())) == len(temp.columns.tolist()), f'temp.columns has doubles: {temp.columns.tolist()}'
-        assert len(set(use_features)) == len(use_features), f'use_features has doubles: {use_features}'
-        missing_items = [item for item in use_features if item not in temp.columns]
-        
-        assert len(missing_items)==0, f' {missing_items} in use_features not in temp.columns {temp.columns}'
-        
+        print(f'{model_name} predicts for validate')
+
+        missing_items = set(use_features) - set(temp.columns)
+        assert not missing_items, f'{missing_items} in use_features not in temp.columns {temp.columns}'
+
         preds['proba_'+model_name] = model.predict(temp, use_features)
-    
-        if mean_type == 'arithmetic':
-            preds['meta'] += preds['proba_'+model_name]
-        else:
-            preds['meta'] *= preds['proba_'+model_name]
 
     if mean_type == 'arithmetic':
         # aritmetisk medelvärde
-        preds['meta'] /= len(L2_modeller)
+        preds['meta'] = preds.filter(like='proba_').mean(axis=1)
     else:
         # geometriskt medelvärde
-        preds['meta'] = preds['meta'] ** (1/len(L2_modeller))
+        preds['meta'] = preds.filter(like='proba_').prod(axis=1) ** (1/len(L2_modeller))
+
 
     return preds
-
 
 # write the scores
 def display_scores(y_true, y_pred, spelade):
@@ -562,81 +508,69 @@ def plot_confusion_matrix(y_true, y_pred, typ, fr=0.0, to=0.9, margin=0.001):
         pickle.dump(meta_scores, f)
 
 
-def validate(L1_modeller, L2_modeller, fraction=None):
-    display(L1_modeller)
-    display(L2_modeller)
-    # Skapa v75-instans
+def get_data_for_validate(fraction):
     v75 = td.v75(pref=pref)
-    
+
     # Hämta data från v75
     _ = v75.förbered_data(missing_num=False)  # num hanteras av catboost
     df_work = v75.test_lägg_till_kolumner()
 
-    st.info('skall endast  köras efter "Learn for Validation"')
-
-    _, _, X_val, y_val = hold_out_val_data(df_work, fraction)
+    _, _, X_val, y_val = hold_out_val_data(
+        df_work, fraction)  # validera mot detta
     st.info(f'Validerar på:  {X_val.datum.iloc[0]} - -{X_val.datum.iloc[-1]}')
 
-    # # create the stack from validation data
+    # X och y i samma dataframe
     Xy_val = X_val.copy(deep=True)
     Xy_val['y'] = y_val
     
-    # Läs in NUM_FEATURES.txt och CAT_FEATURES.txt
-    with open(pref+'CAT_FEATURES.txt', 'r', encoding='utf-8') as f:
-        cat_features = f.read().split()
+    return Xy_val
 
-    # läs in NUM_FEATURES.txt till num_features
-    with open(pref+'NUM_FEATURES.txt', 'r', encoding='utf-8') as f:
-        num_features = f.read().split()
 
-    use_features = cat_features + num_features
-    assert len(set(use_features)) == len(use_features), f'use_features has doubles: {use_features}'
-
-    stacked_val, L2_features = mod.create_L2_input(Xy_val, L1_modeller, use_features)
-
-    assert len(set(stacked_val.columns.tolist())) == len(stacked_val.columns.tolist()), f'stacked_val.columns has doubles: {stacked_val.columns.tolist()}'
-    assert len(set(L2_features)) == len(L2_features), f'2 L2_features has doubles: {L2_features}'
+def validate(L1_modeller, L2_modeller, fraction=None):
+    logging.info('startar validate-funktionen')
+    st.info('skall endast  köras efter "Learn for Validation"')    
     
-    ##############################################################
-    #                          L2 models                         #
-    ##############################################################
+    display('L1_modeller for validate', L1_modeller)
+    display('L2_modeller for validate', L2_modeller)
+    
+    Xy_val = get_data_for_validate(fraction)
+    use_features = mod.read_in_features()
+    logging.info(f'validate use_features:\n {use_features}')
+    assert len(set(use_features)) == len(use_features), f'use_features has doubles innan create_L2_input: {use_features}'
 
-    y_true = stacked_val['y'].values
+    L2_input, L2_features = mod.create_L2_input(Xy_val, L1_modeller, use_features)
 
-    L2_output = predict_med_L2_modeller(L2_modeller, stacked_val.drop('y',axis=1), L2_features)
+    assert len(set(L2_input.columns.tolist())) == len(L2_input.columns.tolist()), f'L2_input.columns has doubles: {L2_input.columns.tolist()}'
+    assert len(set(L2_features)) == len(L2_features), f'L2_features has doubles efter create_L2_input: {L2_features}'
+    
+    L2_output = predict_med_L2_modeller(L2_modeller, L2_input.drop('y',axis=1), L2_features)
+    
+    y_true = L2_input['y']
     y_preds = L2_output['meta']
-    ############## write y_true to file for testing ##############
-    # first make y_true a dataframe
-    # rf_y_true = pd.DataFrame(y_true, columns=['y'])
-    # rf_y_true.to_csv(pref+'rf_y_true.csv', index=False)
-    ##############################################################
-
-    st.info('förbereder meta plot')
-
+    
+    logging.info('plot confusion matrix för meta-predictions')
+    st.info('plot confusion matrix för meta-predictions')
     plot_confusion_matrix(y_true, y_preds, 'meta', fr=0.0, to=0.9)
 
+    logging.info('plot confusion matrix for L2-modeller')
+    st.info('plot confusion matrix for L2-modeller')
     for model in L2_output.columns:
         if model == 'meta':
             continue
-
         st.write('\n')
         st.info(f'förbereder {model} plot')
         plot_confusion_matrix(y_true, L2_output[model], model, fr=0.0, to=0.9)
 
     st.write('\n')
+    logging.info('plot confusion matrix for L1-modeller')
+    st.info('plot confusion matrix for L1-modeller')
 
-    stacked_val['y'] = y_true
-    stacked_val['avd'] = X_val.avd.values
-
-    ################################################################
-    #                         proba bas-modeller                   #
-    ################################################################
     st.write('\n')
     for model_name in L1_modeller:
         st.write('\n')
-        name = 'proba_' + model_name
-        y_pred = stacked_val[name]
-        plot_confusion_matrix(y_true, y_pred, name, fr=0.0, to=0.9)
+        proba_col = 'proba_' + model_name
+        y_pred = L2_input[proba_col]
+        plot_confusion_matrix(y_true, y_pred, proba_col, fr=0.0, to=0.9)
 
 # %%
 ##############################################################

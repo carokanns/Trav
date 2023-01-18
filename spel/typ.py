@@ -5,7 +5,7 @@ import pickle
 import json
 from catboost import CatBoostClassifier, Pool
 import xgboost as xgb
-
+# import skapa_modeller as mod
 
 
 def remove_features(df_, remove_mer=[]):
@@ -222,13 +222,13 @@ class Typ():
         if X_test_ is not None:
             X_test = X_test_.copy()
 
-        # läs in CAT_FEATURES.txt till cat_features
-        with open(self.pref+'CAT_FEATURES.txt', 'r', encoding='utf-8') as f:
-            cat_features = f.read().split()
-
         # läs in NUM_FEATURES.txt till num_features
         with open(self.pref+'NUM_FEATURES.txt', 'r', encoding='utf-8') as f:
             num_features = f.read().split()
+
+        # läs in CAT_FEATURES.txt till cat_features
+        with open(self.pref+'CAT_FEATURES.txt', 'r', encoding='utf-8') as f:
+            cat_features = f.read().split()
 
         if use_L2_features is None:
             use_features = cat_features + num_features
@@ -325,10 +325,13 @@ class Typ():
 
         if save:
             if self.name[-2:] == 'L2':
-                assert len([col for col in use_features if 'proba' in col]
-                           ) == 4, f' proba-kolumner saknas för L2-modell {self.name}'
+                assert len([col for col in use_features if 'proba' in col]) == 4, f' proba-kolumner saknas för L2-modell {self.name}'
                 
             self.save_model(model)
+            
+            # Save the list of column names to a JSON file
+            with open(self.pref+'modeller/'+self.name+'_columns.json', "w") as f:
+                json.dump(X[use_features].columns.tolist(), f)
 
         return model
 
@@ -368,6 +371,7 @@ class Typ():
 
         if model_name == 'catboost':
             X = prepare_for_catboost(X, verbose=verbose)
+            logging.info(f'Typ: catboost predict med {self.name}')
         elif model_name == 'xgboost':
             # xgb_encoder till ENC
             with open(self.pref+'xgb_encoder.pkl', 'rb') as f:
@@ -396,6 +400,9 @@ class Typ():
         assert len(set(X.columns.tolist())) == len(X.columns.tolist()), f'X.columns has doubles: {X.columns.tolist()}'
         assert len(set(use_features)) == len(use_features), f'use_features has doubles: {use_features}'
         
+        logging.info(f'Typ: predict med {self.name} ')
+        # logging.info(f'Typ: {use_features}')
+        # logging.info(f'Typ: {X[use_features].head(1)}')
         return model.predict_proba(X[use_features])[:, 1]
 
     # method that retruns all the self variables
