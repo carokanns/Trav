@@ -1,11 +1,10 @@
 
 #%%
-# from sklearn.model_selection import TimeSeriesSplit
-# from sklearn.ensemble import RandomForestClassifier
+
 import numpy as np
 import pandas as pd
 from IPython.display import display
-# from catboost import CatBoostClassifier, Pool
+
 import concurrent.futures
 import time
 import datetime
@@ -19,7 +18,6 @@ import streamlit as st
 import sys
 import pickle
 import json
-# from sklearn.ensemble import RandomForestRegressor
 
 sys.path.append('C:\\Users\\peter\\Documents\\MyProjects\\PyProj\\Trav\\spel\\modeller\\')
 import V75_scraping as vs
@@ -33,18 +31,17 @@ import logging
 # %%
 
 logging.basicConfig(level=logging.DEBUG, filemode='w', filename='v75.log', force=True,
-                    encoding='utf-8', format='v75:' '%(asctime)s - %(levelname)s - %(message)s - %(lineno)d')
+                    encoding='utf-8', format='v75:' '%(asctime)s - %(levelname)s - %(lineno)d - %(message)s')
 logging.info('Startar')
 
 #%%
 st.set_page_config(page_title="v75 Spel", page_icon="🐎")
 
-# st.markdown("# 🐎 V75 Spel")
 st.sidebar.header("🐎 V75 Spel")
 
 
 # %%
-def remove_features(df_, remove_mer=[]):
+def remove_features_old(df_, remove_mer=[]):
     df = df_.copy()
     df.drop([ 'vodds', 'podds', 'bins', 'h1_dat',
             'h2_dat', 'h3_dat', 'h4_dat', 'h5_dat'], axis=1, inplace=True)
@@ -76,7 +73,7 @@ def v75_scraping(full=True):
 
 # för en omgång (ett datum) ta ut största diff för streck per avd
 # om only_clear=True, enbart för diff >= 25
-def lista_med_favoriter(df_, ant, only_clear):
+def lista_med_favoriter_old(df_, ant, only_clear):
     df = df_.copy()
     min_diff = 25 if only_clear else 0
     # sortera på avd,streck
@@ -93,7 +90,7 @@ def lista_med_favoriter(df_, ant, only_clear):
     return diff_list[:ant]
 
 # temp is a list of tuples (avd, diff). check if avd is in the list
-def check_avd(avd, temp):
+def check_avd_old(avd, temp):
     for t in temp:
         if t[0] == avd:
             return True
@@ -105,20 +102,20 @@ def compute_total_insats(df):
     return summa
 
 # feature med antal hästar per avdeling
-def lägg_in_antal_hästar(df_):
+def lägg_in_antal_hästar_old(df_):
     df = df_.copy()
     df['ant_per_lopp'] = None
     df['ant_per_lopp'] = df.groupby(['datum', 'avd'])['avd'].transform('count')
     return df
 
 # räkna ut mest streck per avdeling
-def mest_streck(X_, i, datum, avd):
+def mest_streck_old(X_, i, datum, avd):
     X = X_.copy()
     X.sort_values(by=['datum', 'avd', 'streck'], ascending=[True, True, False], inplace=True)
     return X.loc[(X.datum == datum) & (X.avd == avd), 'streck'].iloc[i]
 
 # n flest streck per avd som features
-def lägg_in_motståndare(X_, ant_motståndare):
+def lägg_in_motståndare_old(X_, ant_motståndare):
     X = X_.copy()
 
     # set X['motståndare1'] to largest streck in every avd
@@ -133,7 +130,7 @@ def lägg_in_motståndare(X_, ant_motståndare):
     return X
 
 # som föregående men med diff istf faktiska värden
-def lägg_in_diff_motståndare(X_, motståndare):
+def lägg_in_diff_motståndare_old(X_, motståndare):
     X = X_.copy()
 
     # set X['motståndare1'] to largest streck in every avd
@@ -148,10 +145,49 @@ def lägg_in_diff_motståndare(X_, motståndare):
     return X
 
 
+def prepare_stack_data_old(stack_data_):
+    """Hantera missing values, NaN, etc för meta-modellerna"""
+    assert 'y' not in stack_data_.columns, "y shouldn't be in stack_data"
+
+    if 'y' in stack_data_.columns:  # fejkad test!!
+        raise Exception('uppdatera/tabort prepare_stack_data')
+
+    stack_data = stack_data_.copy()
+
+    # use the existing encoder - y is not used
+    assert 'y' not in stack_data, "y shouldn't be in stack_data when encode"
+
+    """ Fyll i saknade numeriska värden med 0 """
+    numericals = stack_data.select_dtypes(exclude=['object']).columns
+    stack_data[numericals] = stack_data[numericals].fillna(0)
+
+    """ Fyll i saknade kategoriska värden med 'missing' """
+    categoricals = stack_data.select_dtypes(include=['object']).columns
+    stack_data[categoricals] = stack_data[categoricals].fillna('missing')
+
+    # """ Hantera high cardinality """
+    # cardinality_list=['häst','kusk','h1_kusk','h2_kusk','h3_kusk','h4_kusk','h5_kusk']
+
+    # läs in encoder till ENC
+    with open(pref+'modeller/xgb_encoder.pkl', 'rb') as f:
+        ENC = pickle.load(f)
+
+    df = stack_data.drop(columns=['startnr', 'datum', 'avd'])
+    extra_columns = list(set(df.columns).difference(
+        set(ENC.get_feature_names())))
+    assert len(
+        extra_columns) == 0, f"extra_columns i stack_data={extra_columns}"
+    df = ENC.transform(df)
+    stack_data = pd.concat(
+        [stack_data[['startnr', 'datum', 'avd']], df], axis=1)
+    return stack_data
+
+
+
 #%%
 # TODO: Kopiera Layer1 och Layer2 kod från Hyperparms/Learn
 # TODO: Ta bort alla gamla meta-modeller och dess funktioner
-# TODO: Ta bort valet av meta-modeller i streamlit
+# TODO: Ta bort alla funktioner som slutar på _old
 # TODO: Inför val mellan matematiskt eller geometriskt medelvärde 
 
 L1_modeller, L2_modeller = mod.skapa_modeller()
@@ -172,12 +208,13 @@ def förbered_data(df_ny):
     
     
 def add_to_stack(model, name, X, stack_data):
-    """Bygg på stack_data inklusive ev Kelly
-        X är en omgång scrapad data
+    """Bygg på stack_data
+        X är en omgång web-skrapad data
         stack_data fylls på med nya data
     """
+    use_features,_,_ = mod.read_in_features()
     # assert 'y' in stack_data.columns, 'y is missing in stack_data'
-    this_proba = model.predict(X)
+    this_proba = model.predict(X, use_features)
     # print(f'X_meta.shape = {X_meta.shape} this_proba.shape={this_proba.shape}')
 
     # Bygg up meta-kolumnerna (proba och Kelly) för denns typ
@@ -190,17 +227,18 @@ def add_to_stack(model, name, X, stack_data):
 #%%
 # för stacking ta med alla hästar per modell och proba plus ev kelly
 def build_stack_df(X_, modeller):
+    logging.info('Startar bygger stack_df')
     X = förbered_data(X_)
     stack_data = X.copy()
     st.dataframe(X)
-    for modell in modeller:
-        stack_data = add_to_stack(modell, modell.name, X, stack_data)
+    for modell_namn, modell in modeller.items():
+        logging.info(f'Predicting with {modell_namn}')
+        stack_data = add_to_stack(modell, modell_namn, X, stack_data)
            
     return stack_data
 
-
-
 def mesta_diff_per_avd(X_):
+    logging.info('räknar ut mesta_diff_per_avd')
     sm = X_.copy()
     # select the highest meta_predict per avd
     sm['first'] = sm.groupby('avd')['meta_predict'].transform(lambda x: x.nlargest(2).reset_index(drop=True)[0])
@@ -217,6 +255,7 @@ def mesta_diff_per_avd(X_):
     return sm
 
 def välj_rad(df_predicted, max_insats=300):
+    logging.info('Väljer rad')
     veckans_rad = df_predicted.copy()
     veckans_rad['välj'] = False   # inga rader valda ännu
 
@@ -257,32 +296,39 @@ def välj_rad(df_predicted, max_insats=300):
 try:
     with open(pref+'modeller/meta_scores.pkl', 'rb') as f:
         meta_scores = pickle.load(f)
+    logging.info('meta_scores.pkl loaded')    
 except:
     st.write('No meta_scores.pkl found')
     print('No meta_scores.pkl found')
     meta_scores = {'knn':0.6, 'rf':0.4,'ridge':0.7,'et':0.5}
-# print('meta_scores:', meta_scores)    
+
 
 #%%
 def sort_list_of_meta(m):
+    logging.info(f'sort_list_of_meta({m})')
     try:
         if meta_scores[m] == None:
+            logging.info(f'No score for {m} found')
             print(f'No score for {m} found')
             return 0
+        logging.info(f'{m} score = {meta_scores[m]}')
         return meta_scores[m]
     except:
         st.write(f'{m} not found')
         print(f'{m} not found')
+        logging.info(f'{m} not found')
         return -1
 
 #%%
-## Streamlit kod startar här
+######### Streamlit kod startar här ##########
+logging.info('Streamlit code starts here')
 v75 = st.container()
 scraping = st.container()
 avd = st.container()
 sortera = st.container()
 
 if 'datum' in st.session_state:
+    logging.info(f"datum finns i session_state: {st.session_state['datum']}")
     datum=st.session_state['datum']
     year=int(datum[:4])
     month=int(datum[5:7])
@@ -291,53 +337,18 @@ if 'datum' in st.session_state:
     datum = datum.strftime('%Y-%m-%d')
 
     if datum != st.session_state['datum']:
+        logging.info(f"datum har ändrats till {datum}")
         st.session_state['datum'] = datum
         datum="https://www.atg.se/spel/"+datum+"/V75/"
         omg_df = pd.DataFrame([datum],columns=['Link'])
         omg_df.to_csv('omg_att_spela_link.csv', index=False)
     
 
-
-# models = [typ6, typ1, typ9]   # typ16 och typ9 är samma förutom hur man väljer rader
-
-def prepare_stack_data(stack_data_):
-    """Hantera missing values, NaN, etc för meta-modellerna"""
-    assert 'y' not in stack_data_.columns, "y shouldn't be in stack_data"
-    
-    if 'y' in stack_data_.columns:  # fejkad test!!
-        raise Exception('uppdatera/tabort prepare_stack_data')
-
-    stack_data = stack_data_.copy()
-        
-    # use the existing encoder - y is not used
-    assert 'y' not in stack_data, "y shouldn't be in stack_data when encode"
-
-    """ Fyll i saknade numeriska värden med 0 """
-    numericals = stack_data.select_dtypes(exclude=['object']).columns
-    stack_data[numericals] = stack_data[numericals].fillna(0)
-
-    """ Fyll i saknade kategoriska värden med 'missing' """
-    categoricals = stack_data.select_dtypes(include=['object']).columns
-    stack_data[categoricals] = stack_data[categoricals].fillna('missing')
-
-    # """ Hantera high cardinality """
-    # cardinality_list=['häst','kusk','h1_kusk','h2_kusk','h3_kusk','h4_kusk','h5_kusk']
-    
-    # läs in encoder till ENC
-    with open(pref+'modeller/xgb_encoder.pkl', 'rb') as f:
-        ENC = pickle.load(f)
-
-    df = stack_data.drop(columns=['startnr', 'datum', 'avd'])
-    extra_columns = list(set(df.columns).difference(set(ENC.get_feature_names())))
-    assert len(extra_columns) == 0, f"extra_columns i stack_data={extra_columns}"
-    df = ENC.transform(df)
-    stack_data = pd.concat([stack_data[['startnr','datum','avd']],df],axis=1)
-    return stack_data
-
  
     
 # define st.state
 if 'df' not in st.session_state:
+    logging.info('df not in st.session_state - set to None')
     st.session_state['df'] = None
     print("sklearn version", sklearn.__version__)
     
@@ -346,6 +357,7 @@ if 'meta' not in st.session_state:
 
 with scraping:
     def scrape(full=True, meta='rf'):
+        logging.info(f'scrape(full={full}, meta={meta}) - startar ny scraping')
         scraping.write('web-scraping för ny data')
         with st.spinner('Ta det lugnt!'):
             # st.image('winning_horse.png')  # ,use_column_width=True)
@@ -402,8 +414,8 @@ with scraping:
                         df.drop(['plac'], axis=1, inplace=True)
                     except:
                         pass
-                    # scrape(False, meta=st.session_state['meta'])
-                    # st.info('scrape klar')
+                   
+                    logging.info(f'set scrape(full=False) för att köra med sparad data')
                     del st.session_state.datum  # säkra att datum är samma som i scraping
             except:
                 # write error message
@@ -411,6 +423,7 @@ with scraping:
             
     
     if do_scraping:
+        logging.info(f'scraping-knapp tryckt: scrape(full=True) - startar ny scraping')
         scrape(meta=st.session_state['meta'])
         del st.session_state.datum  # säkra att datum är samma som i scraping
 
@@ -418,6 +431,7 @@ with scraping:
     
 
     if 'datum' not in st.session_state:
+        logging.info('datum not in st.session_state - läs in omg_df')
         omg_df = pd.read_csv('omg_att_spela_link.csv' )
         urlen=omg_df.Link.values[0]
         datum = urlen.split('spel/')[1][0:10]
@@ -428,12 +442,13 @@ with scraping:
     
 with avd:
     if st.session_state.df is not None:
-        # st.write(st.session_state.df    )
+        logging.info('df finns i st.session_state - välj avd')
         use = avd.radio('Välj avdelning', ('Avd 1 och 2','Avd 3 och 4','Avd 5 och 6','Avd 7','clear'))
         avd.subheader(use)
         st.write('TA BORT OUTLIERS')
         col1, col2 = st.columns(2)
-        # print(df.iloc[0].häst)
+        
+        logging.inf(f'Avd {use} - sätter up dfi')
         dfi=st.session_state.df.copy()
         
         assert 'startnr' in dfi.columns, f"startnr finns inte i dfi"
@@ -479,6 +494,7 @@ with avd:
 
 with sortera:   
     if st.sidebar.checkbox('se data'):
+        logging.info('"se data" begärt - sätter up dfr')
         dfr = st.session_state.df.copy()
         dfr.rename(columns={'startnr': 'nr', 'meta_predict': 'Meta'}, inplace=True)
         
@@ -496,6 +512,7 @@ meta_list.sort(reverse=True, key=lambda x: sort_list_of_meta(x))
 meta = st.sidebar.radio('välj meta_model',meta_list)
 
 if meta != st.session_state.meta:
+    logging.info(f'ny meta_model {meta} vald - skapar ny df_stack från sparad_scrape_spela.csv')
     st.session_state.meta = meta
     st.write('meta_model:', meta)
     df_scraped = pd.read_csv('sparad_scrape_spela.csv')
@@ -505,7 +522,8 @@ if meta != st.session_state.meta:
     except:
         st.info('Datum: ' + df_scraped.datum.iloc[0])
         pass
-  
+        
+    logging.info(f'skapar stack med {L1_modeller.keys()} ')    
     df_stack = build_stack_df(df_scraped, L1_modeller)
     df_stack.to_csv('sparad_stack.csv', index=False)
     # use_meta(df_stack, meta)

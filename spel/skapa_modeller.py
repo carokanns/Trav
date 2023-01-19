@@ -83,7 +83,7 @@ def create_L2_input(Xy_,L1_modeller, L1_features):
     for model_name, typ in L1_modeller.items():
         logging.info(f'create_L2_input: predict med {model_name}')
         proba_data['proba_'+model_name] = typ.predict(Xy, L1_features)
-
+    
     proba_data = proba_data.reset_index(drop=True)
 
     ####### kolla om det finns NaNs i Xy eller proba_data
@@ -113,7 +113,12 @@ def create_L2_input(Xy_,L1_modeller, L1_features):
 
     assert Xy.shape[0] == proba_data.shape[0], f'Xy.shape[0] != proba_data.shape[0] {Xy.shape[0]} != {proba_data.shape[0]}'
     Xy.y = Xy.y.astype(int)
-    logging.info('create_L2_input: Är klar')
+    
+    proba_columns = Xy.filter(like='proba').columns
+    assert proba_columns.size == 4, f"4 proba_ columns should be in stack_data. We have {proba_columns}"
+    assert proba_data.columns.size == 4, f"4 items should be in proba_data.columns. We have {proba_data.columns}"
+    
+    logging.info(f'create_L2_input: Är klar med {proba_columns.size} proba_ columns')
     return Xy, L1_features+proba_data.columns.tolist()
 
 #%%
@@ -126,9 +131,7 @@ def learn_L2_modeller(L2_modeller, L2_input_data, use_L2features, save=True):
     assert 'y' in L2_input_data.columns, 'y is missing in L2_input_data'
     y_meta = L2_input_data.pop('y').astype(int)
 
-    assert 'y' not in L2_input_data.columns, "y shouldn't be in stack_data"
-    assert len([item for item in L2_input_data.columns if 'proba_' in item]
-               ) == 4, "4 proba_ should be in stack_data"
+    assert len([item for item in L2_input_data.columns if 'proba_' in item]) == 4, "4 proba_ should be in stack_data"
 
     X_meta = L2_input_data.copy(deep=True)
     assert 'datum' in X_meta.columns, f'datum is missing in X_meta efter prepare_L2_input_data'

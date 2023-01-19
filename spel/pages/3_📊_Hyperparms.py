@@ -67,46 +67,38 @@ def gridsearch_typ(typ, params, proba_kolumner=[], folds=5, save=False):
     except:
         print('DATA is not defined')
         DATA = None
-            
-    # # Läs in NUM_FEATURES.txt och CAT_FEATURES.txt
-    # with open(pref+'CAT_FEATURES.txt', 'r', encoding='utf-8') as f:
-    #     cat_features = f.read().split()
-
-    # # läs in NUM_FEATURES.txt till num_features
-    # with open(pref+'NUM_FEATURES.txt', 'r', encoding='utf-8') as f:
-    #     num_features = f.read().split()
-        
-        
-    L1_features,cat_features, num_features = mod.read_in_features()
+      
+    
+    use_features, cat_features, _ = mod.read_in_features()
+    logging.info(f'Skapde L1_features')
     
     if DATA is None:
         print('DATA is None, load_data')
         DATA=load_data()
         
     df = DATA.copy()
-    X = typ.prepare_for_model(df.drop(['y'], axis=1))
-    y = df.y.copy()
+    Xy = typ.prepare_for_model(df)
+    y = Xy.y
 
-    assert X.shape[0] == DATA.shape[0], 'X.shape[0] != DATA.shape[0]'
-    assert X[cat_features].isna().sum().sum()==0, 'cat_features contains NaN i början gridsearch_typ'
+    assert Xy.shape[0] == DATA.shape[0], 'X.shape[0] != DATA.shape[0]'
+    assert Xy[cat_features].isna().sum().sum()==0, 'cat_features contains NaN i början gridsearch_typ'
  
-    assert X[cat_features].isnull().sum().sum() == 0, 'there are NaN values in cat_features'
-
-    use_features = L1_features
     if len(proba_kolumner) > 0:
-        # Kör L2-modeller
-        assert X[cat_features].isnull().sum().sum() == 0, 'there are NaN values in cat_features before create_L2_input'
-      
-        X = mod.create_L2_input(X, L1_modeller, L1_features)
 
-        assert X[cat_features].isnull().sum().sum() == 0, 'there are NaN values in cat_features after create_L2_input'
+        # Kör L2-modeller
+        assert Xy[cat_features].isnull().sum().sum() == 0, 'there are NaN values in cat_features before create_L2_input'
+      
+        logging.info(f'Kör create_L2_input')
+        Xy, use_features2 = mod.create_L2_input(Xy, L1_modeller, use_features)
+
+        assert Xy[cat_features].isnull().sum().sum() == 0, 'there are NaN values in cat_features after create_L2_input'
     
-        use_features += proba_kolumner
+        # use_features += proba_kolumner
    
         
-    assert X[cat_features].isnull().sum().sum() == 0, 'there are NaN values in cat_features'
+    assert Xy[cat_features].isnull().sum().sum() == 0, 'there are NaN values in cat_features'
     
-    res = do_grid_search(X, y, typ, params, use_features, cat_features, folds=folds, randomsearch=True)  
+    res = do_grid_search(Xy.drop('y',axis=1), y, typ, params, use_features2, cat_features, folds=folds, randomsearch=True)  
     
     print('reultat från gridsearch',res)
     if save:
@@ -116,29 +108,34 @@ def gridsearch_typ(typ, params, proba_kolumner=[], folds=5, save=False):
     return res
 
 def do_grid_search(X,y, typ, params, use_features, cat_features, folds=5,randomsearch=False, verbose=False):
-     
+    logging.info(f'Startar do_grid_search')
+    
     tscv = TimeSeriesSplit(n_splits=folds)
     grid = eval(params)  # str -> dict
 
     if not typ.streck:
         print('remove streck')
+        logging.info(f'remove streck')
         use_features.remove('streck')
         
     if 'cat' in typ.name:
+        logging.info(f'catboost')
         X = tp.prepare_for_catboost(X)
         
         model = CatBoostClassifier(iterations=500, loss_function='Logloss', eval_metric='AUC',
                                 use_best_model=False, early_stopping_rounds=200, verbose=verbose,)
         if randomsearch:
             st.info(f'Randomized search {typ.name}')
+            logging.info(f'Randomized search {typ.name}')
             grid_search_result = model.randomized_search(grid,
                                             X=Pool(X[use_features], y, cat_features=cat_features),
                                             cv=tscv.split(X),
                                             shuffle=False,
                                             search_by_train_test_split=False,
                                             verbose=verbose,
-                                            plot=True)           
+                                            plot=False)           
         else:
+            st.info(f'Grid search {typ.name}')
             st.info(f'Grid search')
             grid_search_result = model.grid_search(grid,
                                                 X=Pool(X[use_features], y, cat_features=cat_features),
@@ -146,7 +143,7 @@ def do_grid_search(X,y, typ, params, use_features, cat_features, folds=5,randoms
                                                 shuffle=False,
                                                 search_by_train_test_split=False,
                                                 verbose=verbose,
-                                                plot=True)
+                                                plot=False)
             
         best_params = grid_search_result['params']
         AUC = max(grid_search_result['cv_results']['test-AUC-mean'])
@@ -158,16 +155,18 @@ def do_grid_search(X,y, typ, params, use_features, cat_features, folds=5,randoms
         grid_search_result = {'params': best_params, 'AUC': round(AUC,5), 'Logloss': round(Logloss,5)}    
             
     elif 'xgb' in typ.name:
+        logging.info(f'xgboost')
         # xgb_encoder till ENC
         with open(pref+'xgb_encoder.pkl', 'rb') as f:
             ENC = pickle.load(f)
             
         X, ENC = tp.prepare_for_xgboost(X, encoder=ENC)
-        
+        logging.info(f'Encoding done')
         model = xgb.XGBClassifier(objective='binary:logistic', eval_metric='auc', random_state=2023)
 
         assert X[cat_features].isnull().sum().sum() == 0, 'there are NaN values in cat_features inna xgb gridsearch'
         if randomsearch:
+            logging.info(f'Randomized search {typ.name}')
             st.info(f'Randomized search {typ.name}')
             grid_search_result = RandomizedSearchCV(model, param_distributions=grid,
                                                     cv=tscv.split(X[use_features]),
@@ -179,6 +178,7 @@ def do_grid_search(X,y, typ, params, use_features, cat_features, folds=5,randoms
             grid_search_result.fit(X[use_features], y)
             
         else:
+            logging.info(f'Grid search {typ.name}')
             st.info(f'Grid search')
             grid_search_result = model.grid_search(grid,
                                                    X=Pool(
@@ -197,6 +197,9 @@ def do_grid_search(X,y, typ, params, use_features, cat_features, folds=5,randoms
         grid_search_result = {'params': best_params, 'AUC': round(AUC,5), 'Logloss': round(Logloss,5)}    
     else:
         raise ValueError('typ.name must include cat or xgb')
+    
+    logging.info(f'grid_search_result AUC: {AUC}')
+    logging.info(f'grid_search_result best_params: {best_params}')
     
     print('---------------------------------------')
     display(AUC, Logloss)
@@ -231,8 +234,8 @@ def load_data():
     st.session_state['v75'] = v75
     DATA,_ = v75.förbered_data(extra=True)
     st.info(f'Total Data loaded: {len(DATA)}')
-    with open(pref+'CAT_FEATURES.txt', 'r', encoding='utf-8') as f:
-        cat_features = f.read().split()
+    _, cat_features, _ = mod.read_in_features()
+    
     assert DATA[cat_features].isna().sum().sum()==0, 'cat_features contains NaN'
     
     return DATA

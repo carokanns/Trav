@@ -1,7 +1,0 @@
-{"params": {
-    "n_estimators": 500,
-    "min_samples_leaf": 10,
-    "max_features": 4
-},
-"AUC": 0.85639
-}

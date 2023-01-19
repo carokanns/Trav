@@ -325,7 +325,7 @@ class Typ():
 
         if save:
             if self.name[-2:] == 'L2':
-                assert len([col for col in use_features if 'proba' in col]) == 4, f' proba-kolumner saknas för L2-modell {self.name}'
+                assert len([col for col in use_features if 'proba' in col]) == 4, f' fel antal proba-kolumner för L2-modell {self.name}'
                 
             self.save_model(model)
             
@@ -336,12 +336,29 @@ class Typ():
         return model
 
     def predict(self, X_, use_features_, verbose=False, model=None):
+        """ proba_predict med model som finns sparad eller som skickas in
+        Args:
+            X_ (DataFrame): med "alla" v75-kolumner
+            use_features_ (List): De features som ska användas för prediktionen
+            verbose (bool, optional): Om extra infp skall skrivas ut. Defaults to False.
+            model (tränad model, optional): Om denna finns så skall den användas annars gör vi Load på sparad. Defaults to None.
+
+        Raises:
+            Exception: Unknown model type
+
+        Returns:
+            Series: Med första kolumnen i alla proba_predict
+        """
         logging.info(f'Typ: startar predict med {self.name}')
-        X = X_.copy()
-        if self.name[-2:] == 'L2':
-            assert len([col for col in X.columns if 'proba_' in col]) == 4, f'X saknar proba-kolumner för L2-modell {self.name}\n{X.columns}'
-            assert len([col for col in use_features_ if 'proba_' in col]) == 4, f'use_features_ saknar proba-kolumner för L2-modell {self.name}'
-        
+        X = X_.copy(deep=True)
+        if self.name[-2:] == 'L1':
+            assert len([col for col in X.columns if 'proba' in col]) == 0, f'X innehåller proba-kolumner för L1-modell {self.name}'
+            assert len([col for col in use_features_ if 'proba' in col]) == 0, f'use_features_ innehåller proba-kolumner för L1-modell {self.name}'
+        elif self.name[-2:] == 'L2':
+            assert len([col for col in use_features_ if 'proba_' in col]) == 4, f'use_features_ har fel antal proba-kolumner till L2-modell {self.name}'
+            # obs att det är 4 ifyllda L1-proba-kolumner plus 4 tomma L2-proba-kolumner i X från början, som fylls i efterhand
+            assert len([col for col in X.columns if 'proba_' in col]) == 8, f'X fel antal proba-kolumner för L2-modell {self.name} {X.columns}'
+            
         # X måste ha datum och avd
         assert 'datum' in X.columns, f'datum saknas i predict: X ({self.name})'
         assert 'avd' in X.columns, f'avd saknas i predict: X ({self.name})'
@@ -370,39 +387,32 @@ class Typ():
             use_features.remove('streck')
 
         if model_name == 'catboost':
+            logging.info(f'Typ: {self.name} - catboost')
             X = prepare_for_catboost(X, verbose=verbose)
-            logging.info(f'Typ: catboost predict med {self.name}')
         elif model_name == 'xgboost':
+            logging.info(f'Typ: {self.name} - xgboost')
             # xgb_encoder till ENC
             with open(self.pref+'xgb_encoder.pkl', 'rb') as f:
                 ENC = pickle.load(f)
 
             X, _ = prepare_for_xgboost(X, encoder=ENC, pred=True, pref=self.pref)
-            missing_items = [item for item in use_features if item not in X.columns.tolist()]
-            assert len(missing_items) == 0, f"The following items in 'use_features' are not found in 'X.columns': {missing_items}"
             missing_items2 = [item for item in use_features if item not in model.get_booster().feature_names]
             assert len(missing_items2) == 0, f"The following items in 'use_features' are not found in modellens features': {missing_items2}"
-    
         else:
             raise Exception('unknown model type')
 
+        missing_items = [item for item in use_features if item not in X.columns.tolist()]
+        assert len(missing_items) == 0, f"The following items in 'use_features' are not found in 'X.columns': {missing_items}"
+        
         if verbose:
             print('predict '+self.name, 'with streck', self.streck, "found streck in use_features",
                   'streck' in use_features, "\nuse_features", use_features)
 
-        if self.name[-2:] == 'L1':
-            assert len([col for col in X.columns if 'proba' in col]) == 0, f'X innehåller proba-kolumner för L1-modell {self.name}'
-            assert len([col for col in use_features if 'proba' in col]) == 0, f'use_features innehåller proba-kolumner för L1-modell {self.name}'
-        elif self.name[-2:] == 'L2':
-            assert len([col for col in X.columns if 'proba_' in col]) == 4, f'X saknar proba-kolumner för L2-modell {self.name}\n{X.columns}'
-            assert len([col for col in use_features if 'proba_' in col]) == 4, f'use_features saknar proba-kolumner för L2-modell {self.name}'
-        
         assert len(set(X.columns.tolist())) == len(X.columns.tolist()), f'X.columns has doubles: {X.columns.tolist()}'
         assert len(set(use_features)) == len(use_features), f'use_features has doubles: {use_features}'
         
         logging.info(f'Typ: predict med {self.name} ')
-        # logging.info(f'Typ: {use_features}')
-        # logging.info(f'Typ: {X[use_features].head(1)}')
+  
         return model.predict_proba(X[use_features])[:, 1]
 
     # method that retruns all the self variables

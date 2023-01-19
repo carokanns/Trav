@@ -1,1 +1,0 @@
-{"params": {"depth": 2, "l2_leaf_reg": 3, "iterations": 500, "learning_rate": 0.008}, "AUC": 0.81591, "Logloss": 0.24625}
