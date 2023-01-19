@@ -157,6 +157,56 @@ def learn_L2_modeller(L2_modeller, L2_input_data, use_L2features, save=True):
 
     return L2_modeller
 
+
+def predict_med_L2_modeller(L2_modeller, L2_input, use_features, mean_type='geometric'):
+    """
+    Predicts med L2_modeller på stack_data och beräknar meta_proba med mean_type
+
+    Args:
+        L2_modeller (Dict): Definierad från start
+        L2_input (DataFrame): Skapad av L1-modeller. Är input-data till L1 plus deras resp predict_proba  
+        use_features (List): Lista med kolumner som används i L2-modeller
+        mean_type (str, optional): 'arithmetic' or 'geometric'. Defaults to 'geometric'.
+
+    Returns:
+        temp: DataFrame L2_input kompletterat med L2_modellers prediktioner
+    """
+
+    # Check for the presence of 4 'proba-' columns in L2_input
+    proba_columns = L2_input.filter(like='proba').columns
+    assert proba_columns.size == 4, f"4 proba_ columns should be in stack_data. We have {proba_columns}"
+
+    assert len([col for col in use_features if 'proba_' in col]
+               ) == 4, f'use_features saknar proba-kolumner till L2-modeller\n{use_features}'
+    assert 'y' in L2_input.columns, f'y skall finnas i stack_data'
+
+    proba_names = list(L2_modeller.keys())
+    proba_names = ['proba_'+name for name in proba_names]
+    proba_names.append('meta')
+
+    temp = L2_input.copy()
+    # extend temp.columns with column_names with None values
+    temp = temp.reindex(columns=temp.columns.tolist() +
+                        proba_names, fill_value=np.nan)
+
+    for model_name, model in L2_modeller.items():
+        print(f'{model_name} predicts for validate')
+
+        missing_items = set(use_features) - set(temp.columns)
+        assert not missing_items, f'{missing_items} in use_features not in temp.columns {temp.columns}'
+
+        temp['proba_'+model_name] = model.predict(temp, use_features)
+
+    if mean_type == 'arithmetic':
+        # aritmetisk medelvärde
+        temp['meta'] = temp.filter(like='proba_').mean(axis=1)
+    else:
+        # geometriskt medelvärde
+        temp['meta'] = temp.filter(like='proba_').prod(
+            axis=1) ** (1/len(L2_modeller))
+
+    return temp
+
 #%%
 
 ##########################

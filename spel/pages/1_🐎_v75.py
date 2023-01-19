@@ -356,8 +356,8 @@ if 'meta' not in st.session_state:
     st.session_state['meta'] = 'rf'
 
 with scraping:
-    def scrape(full=True, meta='rf'):
-        logging.info(f'scrape(full={full}, meta={meta}) - startar ny scraping')
+    def scrape(fulla=True, meta='rf'):
+        logging.info(f'scrape(full={fulla}, meta={meta}) - startar ny scraping')
         scraping.write('web-scraping för ny data')
         with st.spinner('Ta det lugnt!'):
             # st.image('winning_horse.png')  # ,use_column_width=True)
@@ -372,7 +372,7 @@ with scraping:
 
             my_bar = st.progress(i)   
             with concurrent.futures.ThreadPoolExecutor() as executor:
-                future = executor.submit(v75_scraping , full)
+                future = executor.submit(v75_scraping)
                 while future.running():
                     time.sleep(1)
                     seconds+=1
@@ -441,6 +441,11 @@ with scraping:
 
     
 with avd:
+    if st.session_state.df is None:
+        logging.warning('df hittar ingen df i st.session_state - läs in sparad_stack.csv')
+        st.session_state.df = pd.read_csv('sparad_stack.csv')
+        
+        
     if st.session_state.df is not None:
         logging.info('df finns i st.session_state - välj avd')
         use = avd.radio('Välj avdelning', ('Avd 1 och 2','Avd 3 och 4','Avd 5 och 6','Avd 7','clear'))
@@ -448,7 +453,7 @@ with avd:
         st.write('TA BORT OUTLIERS')
         col1, col2 = st.columns(2)
         
-        logging.inf(f'Avd {use} - sätter up dfi')
+        logging.info(f'Avd {use} - sätter up dfi')
         dfi=st.session_state.df.copy()
         
         assert 'startnr' in dfi.columns, f"startnr finns inte i dfi"

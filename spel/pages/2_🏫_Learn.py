@@ -362,60 +362,9 @@ def validate_skapa_stack_learning(X_, y, use_features):
 
 
 # %%
-##############################################################
-#                     VALIDATE                               #
-##############################################################
-# TODO: Se över hela validate logiken
-
-def predict_med_L2_modeller(L2_modeller, L2_input, use_features, mean_type='geometric'):
-    """
-    TODO: Egen funktion i skapa_modller.py för detta ?
-    Predicts med L2_modeller på stack_data och beräknar meta_proba med mean_type
-
-    Args:
-        L2_modeller (_type_): Dict definierad från start
-        stack_data (_type_): Dataframe från L1-modellers input data plus deras resp predict_proba  
-        use_features (_type_): Allt utom datum, avd och y
-        mean_type (str, optional): 'arithmetic' or 'geometric'. Defaults to 'geometric'.
-
-    Returns:
-        preds: Dataframe med L2_modellers prediktioner
-    """
-    
-    # Check for the presence of 4 'proba-' columns in L2_input
-    proba_columns = L2_input.filter(like='proba').columns
-    assert proba_columns.size == 4, f"4 proba_ columns should be in stack_data. We have {proba_columns}"
-    
-    assert len([col for col in use_features if 'proba_' in col]) == 4, f'use_features saknar proba-kolumner till L2-modeller\n{use_features}'
-    assert 'y'  in L2_input.columns, f'y skall finnas i stack_data'
-    
-    proba_names = list(L2_modeller.keys())
-    proba_names = ['proba_'+name for name in proba_names]
-    proba_names.append('meta')
-    
-    temp = L2_input.copy()
-    # extend temp.columns with column_names with None values
-    temp = temp.reindex(columns=temp.columns.tolist() + proba_names, fill_value=np.nan)
-
-    for model_name, model in L2_modeller.items():
-        print(f'{model_name} predicts for validate')
-
-        missing_items = set(use_features) - set(temp.columns)
-        assert not missing_items, f'{missing_items} in use_features not in temp.columns {temp.columns}'
-
-        temp['proba_'+model_name] = model.predict(temp, use_features)
-
-    if mean_type == 'arithmetic':
-        # aritmetisk medelvärde
-        temp['meta'] = temp.filter(like='proba_').mean(axis=1)
-    else:
-        # geometriskt medelvärde
-        temp['meta'] = temp.filter(like='proba_').prod(axis=1) ** (1/len(L2_modeller))
 
 
-    return temp
-
-# write the scores
+### write the scores ###
 def display_scores(y_true, y_pred, spelade):
     st.write('AUC', round(roc_auc_score(y_true, y_pred), 5), 'F1', round(f1_score(y_true, y_pred), 5), 'Acc', round(
         accuracy_score(y_true, y_pred), 5), 'MAE', round(mean_absolute_error(y_true, y_pred), 5), '\n', spelade)
@@ -526,7 +475,7 @@ def validate(L1_modeller, L2_modeller, fraction=None):
 
     L2_input, L2_features = mod.create_L2_input(Xy_val, L1_modeller, use_features)
     
-    L2_output = predict_med_L2_modeller(L2_modeller, L2_input, L2_features, mean_type=st.session_state['mean_type'])
+    L2_output = mod.predict_med_L2_modeller(L2_modeller, L2_input, L2_features, mean_type=st.session_state['mean_type'])
     
     y_true = L2_output['y']
     y_preds = L2_output['meta']
@@ -670,17 +619,18 @@ with buttons:
                 "Fel i web scraping. Kolla att resultat finns för datum och internet är tillgängligt")
 
     if st.sidebar.button('reuse scrape'):
-        # del st.session_state.datum  # säkra att datum är samma som i scraping
         try:
             df_ny = pd.read_csv('sparad_scrape_learn.csv')
             st.session_state.df_ny = df_ny
             if df_ny.datum.iloc[0] != st.session_state.datum:
-                st.error(
-                    f'Datum i data = {df_ny.datum.iloc[0]} \n\n är inte samma som i omgång')
+                logging.error(f'Datum i data = {df_ny.datum.iloc[0]} \n\n är inte samma som i omgång')
+                st.error(f'Datum i data = {df_ny.datum.iloc[0]} \n\n är inte samma som i omgång')
             else:
+                logging.info(f'inläst data med datum = {df_ny.datum.iloc[0]}')
                 st.success(f'inläst data med datum = {df_ny.datum.iloc[0]}')
         except:
             # write error message
+            logging.error('Ingen data sparad')
             st.error('Ingen data sparad')
 
     if st.session_state.df_ny is not None:
