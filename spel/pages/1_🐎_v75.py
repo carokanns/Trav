@@ -240,11 +240,11 @@ def build_stack_df(X_, modeller):
 def mesta_diff_per_avd(X_):
     logging.info('räknar ut mesta_diff_per_avd')
     sm = X_.copy()
-    # select the highest meta_predict per avd
-    sm['first'] = sm.groupby('avd')['meta_predict'].transform(lambda x: x.nlargest(2).reset_index(drop=True)[0])
-    sm['second'] = sm.groupby('avd')['meta_predict'].transform(lambda x: x.nlargest(2).reset_index(drop=True)[1])
+    # select the highest meta per avd
+    sm['first'] = sm.groupby('avd')['meta'].transform(lambda x: x.nlargest(2).reset_index(drop=True)[0])
+    sm['second'] = sm.groupby('avd')['meta'].transform(lambda x: x.nlargest(2).reset_index(drop=True)[1])
     
-    sm=sm.query("(first==meta_predict or second==meta_predict)").copy()
+    sm=sm.query("(first==meta or second==meta)").copy()
     sm['diff'] = sm['first'] - sm['second']
         
     # drop duplicates per avd 
@@ -261,17 +261,17 @@ def välj_rad(df_predicted, max_insats=300):
 
     # first of all: select one horse per avd
     for avd in veckans_rad.avd.unique():
-        max_pred = veckans_rad[veckans_rad.avd == avd]['meta_predict'].max()
-        veckans_rad.loc[(veckans_rad.avd == avd) & (veckans_rad.meta_predict == max_pred), 'välj'] = True
+        max_pred = veckans_rad[veckans_rad.avd == avd]['meta'].max()
+        veckans_rad.loc[(veckans_rad.avd == avd) & (veckans_rad.meta == max_pred), 'välj'] = True
     # veckans_rad.query("välj==True").to_csv('veckans_basrad.csv')
-    veckans_rad = veckans_rad.sort_values(by=['meta_predict'], ascending=False)
+    veckans_rad = veckans_rad.sort_values(by=['meta'], ascending=False)
     veckans_rad = veckans_rad.reset_index(drop=True)
     
     mest_diff = mesta_diff_per_avd(veckans_rad)
     
     cost = 0.5 # 1 rad
     
-    # now select the rest of the horses one by one sorted by meta_predict
+    # now select the rest of the horses one by one sorted by meta
     for i, row in veckans_rad.iterrows():
         if row.avd == mest_diff.avd.iloc[0]: 
             continue
@@ -457,8 +457,8 @@ with avd:
         dfi=st.session_state.df.copy()
         
         assert 'startnr' in dfi.columns, f"startnr finns inte i dfi"
-        assert 'meta_predict' in dfi.columns, f"meta_predict finns inte i dfi"
-        dfi.rename(columns={'startnr': 'nr', 'meta_predict': 'Meta'}, inplace=True)
+        assert 'meta' in dfi.columns, f"meta finns inte i dfi {dfi.columns}"
+        dfi.rename(columns={'startnr': 'nr', 'meta': 'Meta'}, inplace=True)
         
     
         # CSS to inject contained in a string
@@ -501,7 +501,7 @@ with sortera:
     if st.sidebar.checkbox('se data'):
         logging.info('"se data" begärt - sätter up dfr')
         dfr = st.session_state.df.copy()
-        dfr.rename(columns={'startnr': 'nr', 'meta_predict': 'Meta'}, inplace=True)
+        dfr.rename(columns={'startnr': 'nr', 'meta': 'Meta'}, inplace=True)
         
         sort=st.sidebar.radio('sortera på',['Meta','avd'])
         if sort:

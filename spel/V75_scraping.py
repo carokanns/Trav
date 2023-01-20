@@ -14,6 +14,7 @@ from IPython import get_ipython
 # get_ipython().system('pip install selenium')
 
 # %%
+import logging
 import pandas as pd
 import numpy as np
 import os
@@ -392,123 +393,158 @@ def do_scraping(driver_s, driver_r, avdelningar, history, datum):  # get data fr
 # %% popup för vilken info som ska visas
 def anpassa(driver_s, avd):
     avd = avd[0]
-    # sl = driver_s.find_elements(By.CLASS_NAME, "startlist")
-    sl = driver_s.find_elements(
-        By.CLASS_NAME, "css-8y0fv8-Startlists-styles--startlistelement")
+    wait = WebDriverWait(driver_s, 10)
     
-    print('AVDELNING =', avd, '    antal lopp =', len(sl))
-    
-    buts = sl[avd-1].find_elements(
-        By.CSS_SELECTOR, "button[class^='MuiButtonBase-root MuiButton-root']")
-    
-    print('    len buts', len(buts))
-    # print('sl',sl)
-    # print('    sl.text',sl[avd-1].text)
-    assert len(buts) > 0, f'buts skall inte vara tom: {buts} för avd {avd}'
+    logging.info(f'Anpassa: avd={avd}')
+    buttons = driver_s.find_elements_by_xpath("//button[contains(text(), 'Anpassa')]")
+    element = wait.until(EC.presence_of_element_located(
+        (By.XPATH, "//button[contains(text(), 'Anpassa')]")))
+    print('AVDELNING =', avd, '    antal lopp/knappar =', len(buttons))
+    logging.info(f'Anpassa: avd={avd} antal lopp/knappar={len(buttons)}')
+    buts = buttons[avd-1]    #.find_elements(By.CSS_SELECTOR, "button[class^='MuiButtonBase-root MuiButton-root']")    assert len(buts) > 0, f'buts skall inte vara tom: {buts} för avd {avd}'
 
-    print('    buts[0].text', buts[0].text, 'buts[1]. text',
-          buts[1].text, 'buts[2].text', buts[2].text)
-
-    buts = buts[2]
-    print('********************************************Klickar nu på', buts.text, 'avdelning', avd)
-
-    buts.click()
-
-    print('********************************************klickade   på', buts.text, 'Avdelning', avd)
-    
-    # tics = driver_s.find_elements_by_class_name("css-1hngy38-Checkbox-styles--label")
-    # WebDriverWait(driver_s, 10).until(EC.presence_of_element_located((By.CLASS_NAME, 'css-1hngy38-Checkbox-styles--label')))
-    driver_s.implicitly_wait(10)     # seconds
-    tics = driver_s.find_elements(By.CLASS_NAME,"css-1hngy38-Checkbox-styles--label")
-    driver_s.implicitly_wait(10)     # seconds
-    # print('len tics',len(tics))
-
-    flag1 = flag2 = flag3 = flag4 = flag5 = flag6 = flag7 = flag8 = flag9 = True
-    for t in tics:
-        if not (flag1 or flag2 or flag3 or flag4 or flag5 or flag6 or flag7 or flag8 or flag9):
-            print(f'anpassa klar avd={avd} - break')
-            break
-        if t.text == '':
-            continue
-
-        if flag1 and t.text == 'VÄRMINGSVIDEO':   # 'VÄRMNINGS­VIDEO'
-            t.click()
-            # print('värmn')
-            flag1 = False
-        elif flag2 and t.text == 'UTÖKA ALLA STARTLISTOR SAMTIDIGT':
-            t.click()
-            # print('utöka')
-            flag2 = False
-        elif flag3 and t.text == 'TIPSKOMMENTARER':
-            t.click()
-            # print('tips')
-            flag3 = False
-        elif flag4 and ('LOPPKOMMENTARER' in t.text):
-            t.click()
-            # print('komment')
-            flag4 = False
-        elif flag5 and t.text == 'KR/START':
-            t.click()
-            # print('kr')
-            flag5 = False
-        elif flag6 and t.text == 'DISTANS OCH SPÅR':
-            # t.click()
-            # if t.is_enabled():
-            #     print('distans och spår är enabled')
-
-            # if t.is_displayed():
-            #     print('distans och spår är displayed')
-                
-            if t.is_selected():
-                print('distans och spår är redan valt')
-                flag6 = False
-            else:
-                # print(t.text, 'ej selected ännu')
-                pass
-
-            # WebDriverWait(t, 10).until(EC.element_to_be_clickable(t), message='distans och spår gick inte att klicka på')
-            # WebDriverWait(t,10)
-            
-            driver_s.implicitly_wait(10)     # seconds
-            t.click()
-            if t.is_selected():
-                # print(t.text+' är korrekt')
-                flag6 = False
-            else:
-                # print(t.text+' är fel')
-                flag6 = True
-            
-            # print('efter click distans och spår')
-
-        elif flag7 and t.text == 'V-ODDS':
-            # t.click()
-            # print('hoppar över voods click (verkar vara förifyllt')
-            flag7 = False
-        elif flag8 and t.text == 'P-ODDS':
-            t.click()
-            # print('podds')
-            flag8 = False
-        elif flag9 and t.text == 'HÄSTENS KÖN & ÅLDER':
-            t.click()
-            # print('kön')
-            flag9 = False
-
-    # print('Prova name '+'checkbox-ageAndSex')
-    chkbx = driver_s.find_elements(By.NAME, 'checkbox-ageAndSex')[0]
-    if chkbx.is_enabled():
-    #     print(chkbx.text +' är enabled')
-        pass
-    if chkbx.is_displayed():
-    #     print(chkbx.text+' är displayed')
-        pass
-    if chkbx.is_selected():
-    #     print(chkbx.text+' är korrekt valt')
-        pass
+    if type(buts) == list:
+        print(f'hur lång är buts? {len(buts)} Det är en lista {isinstance(buts, list)}')
+        logging.info(
+            f'hur lång är buts? {len(buts)} Det är en lista {isinstance(buts, list)}  avdelning {avd}')
     else:
-        # print(chkbx.text, ' ej selected ännu')
-        chkbx.click()
-    if chkbx.is_selected():
-        print(chkbx.text+' är korrekt för avdelning', avd)
+        print('buts är inte en lista', buts)
+        logging.info(f'buts är inte en lista {buts}  avdelning {avd}')
+
+    # buts = buts[2]
+    try:
+        print('********************************************Klickar nu på', buts.text, 'avdelning', avd)
+    except:
+        print(f'buts.text finns inte  avdelning {avd}')
+        print('********************************************Klickar nu på', buts, 'avdelning', avd)    
+        
+    logging.info(f'Klickar nu på {buts} avdelning {avd}')    
+    driver_s.implicitly_wait(10)     # seconds
+    buts.click()
+    print('********************************************klickade   på buts. Avdelning', avd)
+    logging.info(f'klickade på buts. Avdelning {avd}')
+    horse_info_button = wait.until(EC.presence_of_element_located(
+        (By.XPATH, "//div[@data-test-id='desktop-category-horse-info']")))
+    logging.info(f'klickar nu på horse_info_button avdelning {avd}')
+    ##### Klickar på Hästinfo-knappen
+    horse_info_button.click()
+    age_sex_checkbox = wait.until(EC.presence_of_element_located(
+        (By.XPATH, "//div[@data-test-id='desktop-checkbox-ageAndSex']")))
+    logging.info(f'klickade på horse_info_button avdelning {avd}')
+    if not age_sex_checkbox.is_selected():
+        logging.info(f'klickar nu på age_sex_checkbox avdelning {avd}')
+        age_sex_checkbox.click()
+        
+    logging.info(f'Nu borde age_sex_checkboxvara ticked {age_sex_checkbox.is_selected()} avdelning {avd}')
+        
+    assert age_sex_checkbox.is_selected(),  'age_sex_checkbox är inte vald'  
+    
+    pre_race_button = wait.until(EC.presence_of_element_located(
+        (By.XPATH, "//div[@data-test-id='desktop-category-pre-race']")))
+    pre_race_button.click()
+    
+    logging.info(f'Letar nu upp checkboxen för vOdds avdelning {avd}')
+    vOdds_checkbox = driver_s.find_element_by_xpath("//div[@data-test-id='desktop-checkbox-vOdds']")
+    if not vOdds_checkbox.is_selected():
+        logging.info(f'klickar nu på vOdds_checkbox avdelning {avd}')
+        vOdds_checkbox.click()  
+    assert vOdds_checkbox.is_selected(), 'vOdds_checkbox är inte vald' 
+    logging.info(f'Letar nu upp checkboxen för pOdds avdelning {avd}')     
+    pOdds_checkbox = driver_s.find_element_by_xpath("//div[@data-test-id='desktop-checkbox-pOdds']")
+    if not pOdds_checkbox.is_selected():
+        logging.info(f'klickar nu på pOdds_checkbox avdelning {avd}')
+        pOdds_checkbox.click()  
+            
+    assert pOdds_checkbox.is_selected(), 'pOdds_checkbox är inte vald avdelning {avd}'
+    
+    logging.debug(f'Bryter nu medvetet avdelning {avd}')
+    assert False, 'SLUT SLUT SLUT BRYTER ***********************************'
+    # flag1 = flag2 = flag3 = flag4 = flag5 = flag6 = flag7 = flag8 = flag9 = True
+    # for t in tics:
+    #     if not (flag1 or flag2 or flag3 or flag4 or flag5 or flag6 or flag7 or flag8 or flag9):
+    #         print(f'anpassa klar avd={avd} - break')
+    #         break
+    #     if t.text == '':
+    #         continue
+
+    #     if flag1 and t.text == 'VÄRMINGSVIDEO':   # 'VÄRMNINGS­VIDEO'
+    #         t.click()
+    #         # print('värmn')
+    #         flag1 = False
+    #     elif flag2 and t.text == 'UTÖKA ALLA STARTLISTOR SAMTIDIGT':
+    #         t.click()
+    #         # print('utöka')
+    #         flag2 = False
+    #     elif flag3 and t.text == 'TIPSKOMMENTARER':
+    #         t.click()
+    #         # print('tips')
+    #         flag3 = False
+    #     elif flag4 and ('LOPPKOMMENTARER' in t.text):
+    #         t.click()
+    #         # print('komment')
+    #         flag4 = False
+    #     elif flag5 and t.text == 'KR/START':
+    #         t.click()
+    #         # print('kr')
+    #         flag5 = False
+    #     elif flag6 and t.text == 'DISTANS OCH SPÅR':
+    #         # t.click()
+    #         # if t.is_enabled():
+    #         #     print('distans och spår är enabled')
+
+    #         # if t.is_displayed():
+    #         #     print('distans och spår är displayed')
+                
+    #         if t.is_selected():
+    #             print('distans och spår är redan valt')
+    #             flag6 = False
+    #         else:
+    #             # print(t.text, 'ej selected ännu')
+    #             pass
+
+    #         # WebDriverWait(t, 10).until(EC.element_to_be_clickable(t), message='distans och spår gick inte att klicka på')
+    #         # WebDriverWait(t,10)
+            
+    #         driver_s.implicitly_wait(10)     # seconds
+    #         t.click()
+    #         if t.is_selected():
+    #             # print(t.text+' är korrekt')
+    #             flag6 = False
+    #         else:
+    #             # print(t.text+' är fel')
+    #             flag6 = True
+            
+    #         # print('efter click distans och spår')
+
+    #     elif flag7 and t.text == 'V-ODDS':
+    #         # t.click()
+    #         # print('hoppar över voods click (verkar vara förifyllt')
+    #         flag7 = False
+    #     elif flag8 and t.text == 'P-ODDS':
+    #         t.click()
+    #         # print('podds')
+    #         flag8 = False
+    #     elif flag9 and t.text == 'HÄSTENS KÖN & ÅLDER':
+    #         t.click()
+    #         # print('kön')
+    #         flag9 = False
+
+    # print(f'avd {avd} Prova name '+'checkbox-ageAndSex')
+    # chkbx = driver_s.find_elements(By.NAME, 'checkbox-ageAndSex')[0]
+    # if chkbx.is_enabled():
+    # #     print(chkbx.text +' är enabled')
+    #     pass
+    # if chkbx.is_displayed():
+    # #     print(chkbx.text+' är displayed')
+    #     pass
+    # if chkbx.is_selected():
+    # #     print(chkbx.text+' är korrekt valt')
+    #     pass
+    # else:
+    #     # print(chkbx.text, ' ej selected ännu')
+    #     chkbx.click()
+    # if chkbx.is_selected():
+    #     print(chkbx.text+' är korrekt för avdelning', avd)
     
     
     ## Tryck på Spara-knappen ##
