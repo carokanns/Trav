@@ -174,6 +174,66 @@ def get_scrape_data(datum):
             except FileNotFoundError:
                 st.error('Det finns ingen sparad data')
                 raise FileNotFoundError('Det finns ingen sparad data')
+
+
+def mesta_diff_per_avd(X_):
+    logging.info('räknar ut mesta_diff_per_avd')
+    sm = X_.copy()
+    # select the highest meta_predict per avd
+    sm['first'] = sm.groupby('avd')['meta_predict'].transform(
+        lambda x: x.nlargest(2).reset_index(drop=True)[0])
+    sm['second'] = sm.groupby('avd')['meta_predict'].transform(
+        lambda x: x.nlargest(2).reset_index(drop=True)[1])
+
+    sm = sm.query("(first==meta_predict or second==meta_predict)").copy()
+    sm['diff'] = sm['first'] - sm['second']
+
+    # drop duplicates per avd
+    sm = sm.drop_duplicates(subset='avd', keep='first')
+
+    sm.sort_values(by='diff', ascending=False, inplace=True)
+    # sm.to_csv('mesta_diff_per_avd.csv')
+    return sm
+
+def compute_total_insats(df):
+    summa = df.groupby('avd').avd.count().prod() / 2
+    return summa
+
+def välj_rad(df_predicted, max_insats=300):
+    logging.info('Väljer rad')
+    veckans_rad = df_predicted.copy()
+    veckans_rad['välj'] = False   # inga rader valda ännu
+
+    # first of all: select one horse per avd
+    for avd in veckans_rad.avd.unique():
+        max_pred = veckans_rad[veckans_rad.avd == avd]['meta_predict'].max()
+        veckans_rad.loc[(veckans_rad.avd == avd) & (veckans_rad.meta_predict == max_pred), 'välj'] = True
+    # veckans_rad.query("välj==True").to_csv('veckans_basrad.csv')
+    veckans_rad = veckans_rad.sort_values(by=['meta_predict'], ascending=False)
+    veckans_rad = veckans_rad.reset_index(drop=True)
+    
+    mest_diff = mesta_diff_per_avd(veckans_rad)
+    
+    cost = 0.5 # 1 rad
+    
+    # now select the rest of the horses one by one sorted by meta_predict
+    for i, row in veckans_rad.iterrows():
+        if row.avd == mest_diff.avd.iloc[0]: 
+            continue
+        if row.avd == mest_diff.avd.iloc[1]: 
+            continue
+        # print('i',i)
+        veckans_rad.loc[i, 'välj'] = True
+        cost = compute_total_insats(veckans_rad[veckans_rad.välj])
+        if cost > max_insats:
+            veckans_rad.loc[i, 'välj'] = False
+            break
+        
+    veckans_rad.sort_values(by=['välj', 'avd'], ascending=[False, True], inplace=True)
+
+    return veckans_rad           
+            
+            
 #############################################
 #         streamlit kod följer              #
 #############################################
@@ -205,6 +265,7 @@ if st.session_state['scrape_type'] is not None:
     df_stack.to_csv('sparad_stack_meta.csv', index=False)
     
     st.info('veckans_rad är ännu inte klar - bara fejk')
+    veckans_rad = välj_rad(df_stack, max_insats=300)
     ################################################
     #    Denna kod döljer radindex i dataframe     #                     
     #    När man t.ex. gör en st.write(df)         #
