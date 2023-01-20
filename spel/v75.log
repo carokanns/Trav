@@ -1,49 +1,41 @@
-v75:2023-01-19 15:19:59,455 - INFO - 35 - Startar
-v75:2023-01-19 15:19:59,457 - INFO - 27 - skapa_modeller: Initierar dict med modeller
-v75:2023-01-19 15:19:59,460 - INFO - 52 - skapa_modeller: cat1L1 klar
-v75:2023-01-19 15:19:59,461 - INFO - 52 - skapa_modeller: cat2L1 klar
-v75:2023-01-19 15:19:59,461 - INFO - 52 - skapa_modeller: xgb1L1 klar
-v75:2023-01-19 15:19:59,461 - INFO - 52 - skapa_modeller: xgb2L1 klar
-v75:2023-01-19 15:19:59,461 - INFO - 57 - skapa_modeller: cat1L2 klar
-v75:2023-01-19 15:19:59,461 - INFO - 57 - skapa_modeller: cat2L2 klar
-v75:2023-01-19 15:19:59,461 - INFO - 57 - skapa_modeller: xgb1L2 klar
-v75:2023-01-19 15:19:59,461 - INFO - 57 - skapa_modeller: xgb2L2 klar
-v75:2023-01-19 15:19:59,461 - INFO - 194 - Modeller skapade
-v75:2023-01-19 15:19:59,462 - INFO - 299 - meta_scores.pkl loaded
-v75:2023-01-19 15:19:59,462 - INFO - 324 - Streamlit code starts here
-v75:2023-01-19 15:19:59,465 - INFO - 331 - datum finns i session_state: 2022-10-01
-v75:2023-01-19 15:19:59,475 - INFO - 308 - sort_list_of_meta(rf)
-v75:2023-01-19 15:19:59,475 - INFO - 314 - rf score = 0.7036086194633843
-v75:2023-01-19 15:19:59,475 - INFO - 308 - sort_list_of_meta(et)
-v75:2023-01-19 15:19:59,476 - INFO - 314 - et score = 0.7084875531651161
-v75:2023-01-19 15:19:59,476 - INFO - 308 - sort_list_of_meta(knn)
-v75:2023-01-19 15:19:59,476 - INFO - 314 - knn score = 0.6117901726702184
-v75:2023-01-19 15:19:59,476 - INFO - 308 - sort_list_of_meta(ridge)
-v75:2023-01-19 15:19:59,477 - INFO - 314 - ridge score = 0.6113411961373528
-v75:2023-01-19 15:19:59,478 - INFO - 515 - ny meta_model et vald - skapar ny df_stack från sparad_scrape_spela.csv
-v75:2023-01-19 15:19:59,489 - INFO - 526 - skapar stack med dict_keys(['cat1L1', 'cat2L1', 'xgb1L1', 'xgb2L1']) 
-v75:2023-01-19 15:19:59,490 - INFO - 230 - Startar bygger stack_df
-v75:2023-01-19 15:19:59,545 - INFO - 235 - Predicting with cat1L1
-v75:2023-01-19 15:19:59,547 - INFO - 352 - Typ: startar predict med cat1L1
-v75:2023-01-19 15:19:59,569 - INFO - 390 - Typ: cat1L1 - catboost
-v75:2023-01-19 15:19:59,570 - INFO - 414 - Typ: predict med cat1L1 
-v75:2023-01-19 15:19:59,578 - INFO - 235 - Predicting with cat2L1
-v75:2023-01-19 15:19:59,580 - INFO - 352 - Typ: startar predict med cat2L1
-v75:2023-01-19 15:19:59,611 - INFO - 390 - Typ: cat2L1 - catboost
-v75:2023-01-19 15:19:59,612 - INFO - 414 - Typ: predict med cat2L1 
-v75:2023-01-19 15:19:59,620 - INFO - 235 - Predicting with xgb1L1
-v75:2023-01-19 15:19:59,621 - INFO - 352 - Typ: startar predict med xgb1L1
-v75:2023-01-19 15:19:59,650 - INFO - 393 - Typ: xgb1L1 - xgboost
-v75:2023-01-19 15:19:59,750 - INFO - 414 - Typ: predict med xgb1L1 
-v75:2023-01-19 15:19:59,758 - INFO - 235 - Predicting with xgb2L1
-v75:2023-01-19 15:19:59,758 - INFO - 352 - Typ: startar predict med xgb2L1
-v75:2023-01-19 15:19:59,786 - INFO - 393 - Typ: xgb2L1 - xgboost
-v75:2023-01-19 15:19:59,841 - INFO - 414 - Typ: predict med xgb2L1 
-v75:2023-01-19 15:23:43,912 - DEBUG - 201 - STREAM b'IHDR' 16 13
-v75:2023-01-19 15:23:43,912 - DEBUG - 201 - STREAM b'IDAT' 41 65536
-v75:2023-01-19 15:23:43,913 - DEBUG - 201 - STREAM b'IHDR' 16 13
-v75:2023-01-19 15:23:43,913 - DEBUG - 201 - STREAM b'IDAT' 41 65536
-v75:2023-01-19 15:23:47,176 - DEBUG - 201 - STREAM b'IHDR' 16 13
-v75:2023-01-19 15:23:47,177 - DEBUG - 201 - STREAM b'IDAT' 41 65536
-v75:2023-01-19 15:23:47,178 - DEBUG - 201 - STREAM b'IHDR' 16 13
-v75:2023-01-19 15:23:47,178 - DEBUG - 201 - STREAM b'IDAT' 41 65536
+v75:2023-01-20 09:55:03,331 - INFO - 35 - Startar
+v75:2023-01-20 09:55:03,333 - INFO - 41 - Startar med att sätta alla saknade st.session_state till None
+v75:2023-01-20 09:55:03,344 - INFO - 156 - reuse Scraping
+v75:2023-01-20 09:55:03,354 - INFO - 164 - inläst data med datum = 2022-10-01 kör nu med sparad_scrape
+v75:2023-01-20 09:55:03,356 - INFO - 190 - build_stack_df(df) - startar
+v75:2023-01-20 09:55:03,373 - INFO - 86 - create_L2_input: Startar create_L2_input
+v75:2023-01-20 09:55:03,373 - INFO - 97 - create_L2_input: predict med cat1L1
+v75:2023-01-20 09:55:03,373 - INFO - 352 - Typ: startar predict med cat1L1
+v75:2023-01-20 09:55:03,396 - INFO - 390 - Typ: cat1L1 - catboost
+v75:2023-01-20 09:55:03,397 - INFO - 414 - Typ: predict med cat1L1 
+v75:2023-01-20 09:55:03,403 - INFO - 97 - create_L2_input: predict med cat2L1
+v75:2023-01-20 09:55:03,403 - INFO - 352 - Typ: startar predict med cat2L1
+v75:2023-01-20 09:55:03,421 - INFO - 390 - Typ: cat2L1 - catboost
+v75:2023-01-20 09:55:03,421 - INFO - 414 - Typ: predict med cat2L1 
+v75:2023-01-20 09:55:03,427 - INFO - 97 - create_L2_input: predict med xgb1L1
+v75:2023-01-20 09:55:03,427 - INFO - 352 - Typ: startar predict med xgb1L1
+v75:2023-01-20 09:55:03,447 - INFO - 393 - Typ: xgb1L1 - xgboost
+v75:2023-01-20 09:55:03,490 - INFO - 414 - Typ: predict med xgb1L1 
+v75:2023-01-20 09:55:03,497 - INFO - 97 - create_L2_input: predict med xgb2L1
+v75:2023-01-20 09:55:03,497 - INFO - 352 - Typ: startar predict med xgb2L1
+v75:2023-01-20 09:55:03,517 - INFO - 393 - Typ: xgb2L1 - xgboost
+v75:2023-01-20 09:55:03,563 - INFO - 414 - Typ: predict med xgb2L1 
+v75:2023-01-20 09:55:03,570 - WARNING - 109 - create_L2_input: rader med NaNs i Xy 19
+v75:2023-01-20 09:55:03,570 - INFO - 122 - create_L2_input: concat Xy and proba_data
+v75:2023-01-20 09:55:03,573 - INFO - 134 - create_L2_input: Är klar med 4 proba_ columns
+v75:2023-01-20 09:55:03,573 - INFO - 199 - sparar df_stack till csv
+v75:2023-01-20 09:55:03,581 - INFO - 352 - Typ: startar predict med cat1L2
+v75:2023-01-20 09:55:03,601 - INFO - 390 - Typ: cat1L2 - catboost
+v75:2023-01-20 09:55:03,602 - INFO - 414 - Typ: predict med cat1L2 
+v75:2023-01-20 09:55:03,610 - INFO - 352 - Typ: startar predict med cat2L2
+v75:2023-01-20 09:55:03,629 - INFO - 390 - Typ: cat2L2 - catboost
+v75:2023-01-20 09:55:03,630 - INFO - 414 - Typ: predict med cat2L2 
+v75:2023-01-20 09:55:03,638 - INFO - 352 - Typ: startar predict med xgb1L2
+v75:2023-01-20 09:55:03,656 - INFO - 393 - Typ: xgb1L2 - xgboost
+v75:2023-01-20 09:55:03,689 - INFO - 414 - Typ: predict med xgb1L2 
+v75:2023-01-20 09:55:03,708 - INFO - 352 - Typ: startar predict med xgb2L2
+v75:2023-01-20 09:55:03,718 - INFO - 393 - Typ: xgb2L2 - xgboost
+v75:2023-01-20 09:55:03,776 - INFO - 414 - Typ: predict med xgb2L2 
+v75:2023-01-20 09:55:03,783 - INFO - 204 - Vi har en df_stack med meta_kolumn. shape = (86, 95)
+v75:2023-01-20 09:55:03,791 - INFO - 224 - välj avd
+v75:2023-01-20 09:55:03,791 - INFO - 232 - display veckans rad för avd Avd 1 och 2
