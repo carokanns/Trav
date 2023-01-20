@@ -96,12 +96,22 @@ def do_scraping(datum):
 
             # use_meta(df_stack, meta)
 def build_stack_df(df):
+    """ Bygg stack data som skall bli input till L2-modellerna
+    Args:
+        df (DataFram): Innehåller 'alla' features men endast L1_features kommer att användas 
+
+    Returns:
+        df_stack (DataFrame): df nu kompletterad med L1-modellernas prediktioner
+        use_featuress (list): lista med features som används i L2-modellerna (L1_features + L1-modellernas prediktioner)
+    """
     logging.info('build_stack_df(df) - startar')
-    logging.warning('build_stack - ej klar')
     df_stack = df.copy()
-    for modell_namn,model in st.session_state.L1_modeller.items():
-        df_stack['proba_'+modell_namn] = None
-    return df_stack
+    L1_features, cat_features, num_features = mod.read_in_features()
+    
+    df_stack, use_features = mod.create_L2_input(df_stack,st.session_state.L1_modeller, L1_features, with_y=False)
+        
+    logging.info('build_stack_df(df) - klar')   
+    return df_stack, use_features
 
 #%%
 def date_handling():  
@@ -164,12 +174,89 @@ def get_scrape_data(datum):
             except FileNotFoundError:
                 st.error('Det finns ingen sparad data')
                 raise FileNotFoundError('Det finns ingen sparad data')
+#############################################
+#         streamlit kod följer              #
+#############################################
+v75 = st.container()
+scraping = st.container()
+avd = st.container()
 
-datum = date_handling()
+with scraping:
+    datum = date_handling()
+    st.title('🐎 v75 -  ' + st.session_state.datum)
+    get_scrape_data(datum)
 
-get_scrape_data(datum)
-
-if st.session_state['scrape_type'] is not None:    
-    df_stack = build_stack_df(st.session_state['df'])  # modeller )
+if st.session_state['scrape_type'] is not None: 
+    logging.info('build_stack_df(df) - startar')
+    df_stack = st.session_state['df'].copy()
+    L1_features, cat_features, num_features = mod.read_in_features()
+    
+    # Layer 1
+    df_stack = mod.lägg_till_extra_kolumner(df_stack)
+    df_stack = mod.fix_history_bana(df_stack)
+    
+    df_stack, use_features = mod.create_L2_input(df_stack,st.session_state.L1_modeller, L1_features, with_y=False)    
     logging.info('sparar df_stack till csv')
     df_stack.to_csv('sparad_stack.csv', index=False)
+    
+    # Layer 2
+    df_stack = mod.predict_med_L2_modeller(st.session_state.L2_modeller, df_stack, use_features, mean_type='geometric', with_y = False)
+    logging.info(f'Vi har en df_stack med meta_kolumn. shape = {df_stack.shape}')
+    df_stack.to_csv('sparad_stack_meta.csv', index=False)
+    
+    st.info('veckans_rad är ännu inte klar - bara fejk')
+    ################################################
+    #    Denna kod döljer radindex i dataframe     #                     
+    #    När man t.ex. gör en st.write(df)         #
+    ################################################
+    # CSS to inject contained in a strin
+    hide_dataframe_row_index = """
+            <style>
+            .row_heading.level0 {display:none}
+            .blank {display:none}
+            </style>
+            """
+    # Inject CSS with Markdown
+    st.markdown(hide_dataframe_row_index, unsafe_allow_html=True)
+    ############ CSS klart ###########################
+
+    with avd:
+        logging.info('välj avd')
+        use = avd.radio('Välj avdelning', ('Avd 1 och 2', 'Avd 3 och 4', 'Avd 5 och 6', 'Avd 7', 'clear'))
+        avd.subheader(use)
+        col1, col2 = st.columns(2)
+
+        assert 'meta' in df_stack.columns, f"meta_predict finns inte i df_stack"
+        df_stack.rename(columns={'startnr': 'nr', 'meta': 'Meta'}, inplace=True)
+
+        logging.info(f'display veckans rad för avd {use}')
+        if use == 'Avd 1 och 2':
+            col1.table(df_stack[(df_stack.avd == 1)].sort_values(by=['Meta'], ascending=False)[['nr', 'häst', 'Meta', 'streck']].head(3))
+            col2.table(df_stack[(df_stack.avd == 2)].sort_values(by=['Meta'], ascending=False)[['nr', 'häst', 'Meta', 'streck']].head(3))
+            # col1.table(df_stack[(df_stack.avd == 1) & df_stack.välj].sort_values(by=['Meta'], ascending=False)[
+            #            ['nr', 'häst_', 'Meta', 'streck']])
+            # col2.table(df_stack[(df_stack.avd == 2) & df_stack.välj].sort_values(by=['Meta'], ascending=False)[
+            #            ['nr', 'häst_', 'Meta', 'streck']])
+        elif use == 'Avd 3 och 4':
+            col1.table(df_stack[(df_stack.avd == 3)].sort_values(by=['Meta'], ascending=False)[['nr', 'häst', 'Meta', 'streck']].head(3))
+            col2.table(df_stack[(df_stack.avd == 4)].sort_values(by=['Meta'], ascending=False)[['nr', 'häst', 'Meta', 'streck']].head(3))
+            # col1.table(df_stack[(df_stack.avd == 3) & df_stack.välj].sort_values(by=['Meta'], ascending=False)[
+            #            ['nr', 'häst_', 'Meta', 'streck']])
+            # col2.table(df_stack[(df_stack.avd == 4) & df_stack.välj].sort_values(by=['Meta'], ascending=False)[
+            #            ['nr', 'häst_', 'Meta', 'streck']])
+        elif use == 'Avd 5 och 6':
+            col1.table(df_stack[(df_stack.avd == 5)].sort_values(by=['Meta'], ascending=False)[['nr', 'häst', 'Meta', 'streck']].head(3))
+            col2.table(df_stack[(df_stack.avd == 6)].sort_values(by=['Meta'], ascending=False)[['nr', 'häst', 'Meta', 'streck']].head(3))
+            # col1.table(df_stack[(df_stack.avd == 5) & df_stack.välj].sort_values(by=['Meta'], ascending=False)[
+            #            ['nr', 'häst_', 'Meta', 'streck']])
+            # col2.table(df_stack[(df_stack.avd == 6) & df_stack.välj].sort_values(by=['Meta'], ascending=False)[
+            #            ['nr', 'häst_', 'Meta', 'streck']])
+        elif use == 'Avd 7':
+            col1.table(df_stack[(df_stack.avd == 7)].sort_values(by=['Meta'], ascending=False)[['nr', 'häst', 'Meta', 'streck']].head(3))
+ 
+            # col1.table(df_stack[(df_stack.avd == 7) & df_stack.välj].sort_values(by=['Meta'], ascending=False)[
+            #            ['nr', 'häst_', 'häst', 'Meta', 'streck']])
+        elif use == 'clear':
+            st.stop()
+        else:
+            st.write('ej klart')

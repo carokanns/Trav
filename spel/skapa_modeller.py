@@ -71,24 +71,37 @@ def read_in_features():
     use_features = cat_features + num_features
     return use_features, cat_features, num_features
 
-def create_L2_input(Xy_,L1_modeller, L1_features):
+def create_L2_input(df_,L1_modeller, L1_features,with_y=True):
+    """ Använder L1_modeller för att skapa input till L2_modeller
+    Args:
+        df_ (DataFrame): All tvättad input från scraping en endast L1_features används
+        L1_modeller (Dict): av typen {'model_namn': model (instans av Typ)}
+        L1_features (List): De features som används för att träna L1_modeller
+        with_y (bool, optional): y är med om vi har en Learning-situation annars inte. Defaults to True.
+
+    Returns:
+        df (DataFrame): df kompletterad med proba-data från L1_modeller
+        List: L1_features + proba-data från L1_modeller, dvs L2_features
+    """
     logging.info('create_L2_input: Startar create_L2_input')
     
-    #  assert that 'y' is in Xy_
-    assert 'y' in Xy_.columns, f'y skall finnas i Xy_ '
-    Xy = Xy_.copy()
+    if with_y:
+        #  assert that 'y' is in Xy_
+        assert 'y' in df_.columns, f'y skall finnas i Xy_ '
+    
+    df = df_.copy()
 
-    Xy = Xy.reset_index(drop=True)
+    df = df.reset_index(drop=True)
     proba_data = pd.DataFrame()
     for model_name, typ in L1_modeller.items():
         logging.info(f'create_L2_input: predict med {model_name}')
-        proba_data['proba_'+model_name] = typ.predict(Xy, L1_features)
+        proba_data['proba_'+model_name] = typ.predict(df, L1_features)
     
     proba_data = proba_data.reset_index(drop=True)
 
     ####### kolla om det finns NaNs i Xy eller proba_data
-    Xy_na = Xy.isna()
-    Xy_missing = Xy[Xy_na.any(axis=1)]
+    Xy_na = df.isna()
+    Xy_missing = df[Xy_na.any(axis=1)]
     proba_data_na = proba_data.isna()
     proba_data_missing = proba_data[proba_data_na.any(axis=1)]
 
@@ -101,25 +114,25 @@ def create_L2_input(Xy_,L1_modeller, L1_features):
         logging.warning(f'create_L2_input: rader med NaNs i proba_data_missing {proba_data_missing.shape[0]}')
     ####### slutkollat
 
-    assert Xy.shape[0] == proba_data.shape[0], f'Xy.shape[0] != proba_data.shape[0] {Xy.shape[0]} != {proba_data.shape[0]}'
+    assert df.shape[0] == proba_data.shape[0], f'Xy.shape[0] != proba_data.shape[0] {df.shape[0]} != {proba_data.shape[0]}'
 
-    assert len(proba_data) == len(Xy), f'proba_data {len(proba_data)} is not the same length as Xy {len(Xy)} innan concat'
-    assert 'bana' in Xy.columns, f'bana not in Xy.columns {Xy.columns} innan concat'
+    assert len(proba_data) == len(df), f'proba_data {len(proba_data)} is not the same length as Xy {len(df)} innan concat'
+    assert 'bana' in df.columns, f'bana not in Xy.columns {df.columns} innan concat'
     
     logging.info('create_L2_input: concat Xy and proba_data')
-    Xy = pd.concat([Xy, proba_data], axis=1, ignore_index=False) # eftersom index är kolumn-namn (axis=1)
-    assert len(proba_data) == len(Xy), f'proba_data {len(proba_data)} is not the same length as Xy {len(Xy)} efter concat'
-    assert 'bana' in Xy.columns, f'bana not in Xy.columns {Xy.columns} efter concat'
+    df = pd.concat([df, proba_data], axis=1, ignore_index=False) # eftersom index är kolumn-namn (axis=1)
+    assert len(proba_data) == len(df), f'proba_data {len(proba_data)} is not the same length as Xy {len(df)} efter concat'
+    assert 'bana' in df.columns, f'bana not in Xy.columns {df.columns} efter concat'
 
-    assert Xy.shape[0] == proba_data.shape[0], f'Xy.shape[0] != proba_data.shape[0] {Xy.shape[0]} != {proba_data.shape[0]}'
-    Xy.y = Xy.y.astype(int)
+    assert df.shape[0] == proba_data.shape[0], f'Xy.shape[0] != proba_data.shape[0] {df.shape[0]} != {proba_data.shape[0]}'
+    # df.y = df.y.astype(int)
     
-    proba_columns = Xy.filter(like='proba').columns
+    proba_columns = df.filter(like='proba').columns
     assert proba_columns.size == 4, f"4 proba_ columns should be in stack_data. We have {proba_columns}"
     assert proba_data.columns.size == 4, f"4 items should be in proba_data.columns. We have {proba_data.columns}"
     
     logging.info(f'create_L2_input: Är klar med {proba_columns.size} proba_ columns')
-    return Xy, L1_features+proba_data.columns.tolist()
+    return df, L1_features+proba_data.columns.tolist()
 
 #%%
 
@@ -158,7 +171,7 @@ def learn_L2_modeller(L2_modeller, L2_input_data, use_L2features, save=True):
     return L2_modeller
 
 
-def predict_med_L2_modeller(L2_modeller, L2_input, use_features, mean_type='geometric'):
+def predict_med_L2_modeller(L2_modeller, L2_input, use_features, mean_type='geometric', with_y = True):
     """
     Predicts med L2_modeller på stack_data och beräknar meta_proba med mean_type
 
@@ -171,20 +184,21 @@ def predict_med_L2_modeller(L2_modeller, L2_input, use_features, mean_type='geom
     Returns:
         temp: DataFrame L2_input kompletterat med L2_modellers prediktioner
     """
-
+    df = L2_input.copy(deep=True)
+    
     # Check for the presence of 4 'proba-' columns in L2_input
-    proba_columns = L2_input.filter(like='proba').columns
+    proba_columns = df.filter(like='proba').columns
     assert proba_columns.size == 4, f"4 proba_ columns should be in stack_data. We have {proba_columns}"
 
-    assert len([col for col in use_features if 'proba_' in col]
-               ) == 4, f'use_features saknar proba-kolumner till L2-modeller\n{use_features}'
-    assert 'y' in L2_input.columns, f'y skall finnas i stack_data'
+    assert len([col for col in use_features if 'proba_' in col]) == 4, f'use_features saknar proba-kolumner till L2-modeller\n{use_features}'
+    if with_y:
+        assert 'y' in df.columns, f'y skall finnas i stack_data'
 
     proba_names = list(L2_modeller.keys())
     proba_names = ['proba_'+name for name in proba_names]
     proba_names.append('meta')
 
-    temp = L2_input.copy()
+    temp = df.copy()
     # extend temp.columns with column_names with None values
     temp = temp.reindex(columns=temp.columns.tolist() +
                         proba_names, fill_value=np.nan)
@@ -207,6 +221,54 @@ def predict_med_L2_modeller(L2_modeller, L2_input, use_features, mean_type='geom
 
     return temp
 
+def lägg_till_extra_kolumner(df_):
+    """
+    beräknar och  till nya kolumner
+    OBS: Denna funktion kanske också skall anropas av travdata-funktionen med samma namn
+    """
+    df = df_.copy()
+    ##### kr/total_kr_avd ******
+    sum_kr = df.groupby(['datum', 'avd']).kr.transform(lambda x: x.sum())
+    df['rel_kr'] = df.kr/sum_kr
+    df.drop(['kr'], axis=1, inplace=True)
+    
+    ##### avst till ettan (streck) ******
+    df['max_streck'] = df.groupby(['datum', 'avd']).streck.transform(lambda x: x.max())
+    df['streck_avst'] = df.max_streck - df.streck
+    df.drop(['max_streck'], axis=1, inplace=True)
+    
+    ##### ranking per avd / ant_startande ******
+    rank_per_avd = df.groupby(['datum', 'avd'])['streck'].rank(
+        ascending=False, method='dense')
+    count_per_avd = df.groupby(['datum', 'avd']).streck.transform(lambda x: x.count())
+    df['rel_rank'] = rank_per_avd/count_per_avd
+    
+    ##### hx samma bana (h1-h3)
+    df['h1_samma_bana'] = df.bana == df.h1_bana
+    df['h2_samma_bana'] = df.bana == df.h2_bana
+    df['h3_samma_bana'] = df.bana == df.h3_bana
+
+    ##### hx samma kusk (h1-h3)
+    df['h1_samma_kusk'] = df.kusk == df.h1_kusk
+    df['h2_samma_kusk'] = df.kusk == df.h2_kusk
+    df['h3_samma_kusk'] = df.kusk == df.h3_kusk
+
+        
+    return df
+
+def fix_history_bana(df_):
+    """ ta bort suffix-nummer från travbana i history (i.e Åby-1 -> Åby, etc)
+    OBS: Denna funktion kanske också skall anropas av travdata-funktionen med samma namn
+    """
+    
+    df = df_.copy()
+    df.loc[:, 'h1_bana'] = df.h1_bana.str.split('-').str[0]
+    df.loc[:, 'h2_bana'] = df.h2_bana.str.split('-').str[0]
+    df.loc[:, 'h3_bana'] = df.h3_bana.str.split('-').str[0]
+    df.loc[:, 'h4_bana'] = df.h4_bana.str.split('-').str[0]
+    df.loc[:, 'h5_bana'] = df.h5_bana.str.split('-').str[0]
+    return df
+    
 #%%
 
 ##########################

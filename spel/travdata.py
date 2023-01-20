@@ -137,6 +137,15 @@ class v75():
             self.work_df.drop(remove_mer, axis=1, inplace=True)
 
         return self.work_df
+    def _fix_history_bana(self, df_):
+        # ta bort suffix-nummer från travbana i history (i.e Åby-1 -> Åby, etc)
+        df = df_.copy()
+        df.loc[:, 'h1_bana'] = df.h1_bana.str.split('-').str[0]
+        df.loc[:, 'h2_bana'] = df.h2_bana.str.split('-').str[0]
+        df.loc[:, 'h3_bana'] = df.h3_bana.str.split('-').str[0]
+        df.loc[:, 'h4_bana'] = df.h4_bana.str.split('-').str[0]
+        df.loc[:, 'h5_bana'] = df.h5_bana.str.split('-').str[0]
+        return df
 
     def förbered_data(self, extra=False,        # Add extra features
                       missing_num=True,         # Handle missing numerics
@@ -159,13 +168,9 @@ class v75():
         # set datum to datetime
         self.work_df['datum'] = pd.to_datetime(self.work_df['datum']).dt.date
         # self.work_df['datum'] = self.work_df['datum'].dt.date
-        # ta bort suffix-nummer från travbana i history (i.e Åby-1 -> Åby, etc)
-        self.work_df.loc[:, 'h1_bana'] = self.work_df.h1_bana.str.split('-').str[0]
-        self.work_df.loc[:, 'h2_bana'] = self.work_df.h2_bana.str.split('-').str[0]
-        self.work_df.loc[:, 'h3_bana'] = self.work_df.h3_bana.str.split('-').str[0]
-        self.work_df.loc[:, 'h4_bana'] = self.work_df.h4_bana.str.split('-').str[0]
-        self.work_df.loc[:, 'h5_bana'] = self.work_df.h5_bana.str.split('-').str[0]
-
+        
+        self.work_df = self._fix_history_bana(self.work_df)
+        
         # lower case för häst, bana, kusk and hx_bana
         for f in ['häst', 'bana', 'kusk', 'h1_kusk', 'h2_kusk', 'h3_kusk', 'h4_kusk', 'h5_kusk', 'h1_bana', 'h2_bana', 'h3_bana', 'h4_bana', 'h5_bana']:
             self.work_df.loc[:, f] = self.work_df[f].str.lower()
@@ -194,7 +199,7 @@ class v75():
                 self._handle_high_cardinality(col)
                 
         if extra:
-            _ = self.test_lägg_till_kolumner()
+            self.work_df = self.test_lägg_till_kolumner(self.work_df)
             
         if len(target_encode_list)>0 and encoder:
             display("WARNING: Don't provide both encoder and target_encode_list - the list is ignored" )    
@@ -259,36 +264,37 @@ class v75():
     #  e - ✔️ hx_bana samma som bana 
     #  f - ✔️ hx_kusk samma som kusk 
     
-    def test_lägg_till_kolumner(self):
+    def test_lägg_till_kolumner(self, df_):
         """
-        Testar nya kolumner b-f ovan
+        Lägger till nya kolumner b-f ovan
         Körs typiskt efter förbered_data()
         """
-        
+        df = df_.copy()
         ##### kr/total_kr_avd ******
-        sum_kr = self.work_df.groupby(['datum', 'avd']).kr.transform(lambda x: x.sum())
-        self.work_df['rel_kr'] = self.work_df.kr/sum_kr
-        self.work_df.drop(['kr'], axis=1, inplace=True)
+        sum_kr = df.groupby(['datum', 'avd']).kr.transform(lambda x: x.sum())
+        df['rel_kr'] = df.kr/sum_kr
+        df.drop(['kr'], axis=1, inplace=True)
         
         ##### avst till ettan (streck) ******
-        self.work_df['max_streck'] = self.work_df.groupby(['datum', 'avd']).streck.transform(lambda x: x.max())
-        self.work_df['streck_avst'] = self.work_df.max_streck - self.work_df.streck
-        self.work_df.drop(['max_streck'], axis=1, inplace=True)
+        df['max_streck'] = df.groupby(['datum', 'avd']).streck.transform(lambda x: x.max())
+        df['streck_avst'] = df.max_streck - df.streck
+        df.drop(['max_streck'], axis=1, inplace=True)
         
         ##### ranking per avd / ant_startande ******
-        rank_per_avd = self.work_df.groupby(['datum', 'avd'])['streck'].rank(ascending=False, method='dense')
-        count_per_avd = self.work_df.groupby(['datum', 'avd']).streck.transform(lambda x: x.count())
-        self.work_df['rel_rank'] = rank_per_avd/count_per_avd
+        rank_per_avd = df.groupby(['datum', 'avd'])['streck'].rank(
+            ascending=False, method='dense')
+        count_per_avd = df.groupby(['datum', 'avd']).streck.transform(lambda x: x.count())
+        df['rel_rank'] = rank_per_avd/count_per_avd
         
         ##### hx samma bana (h1-h3)
-        self.work_df['h1_samma_bana'] = self.work_df.bana == self.work_df.h1_bana
-        self.work_df['h2_samma_bana'] = self.work_df.bana == self.work_df.h2_bana
-        self.work_df['h3_samma_bana'] = self.work_df.bana == self.work_df.h3_bana
+        df['h1_samma_bana'] = df.bana == df.h1_bana
+        df['h2_samma_bana'] = df.bana == df.h2_bana
+        df['h3_samma_bana'] = df.bana == df.h3_bana
 
         ##### hx samma kusk (h1-h3)
-        self.work_df['h1_samma_kusk'] = self.work_df.kusk == self.work_df.h1_kusk
-        self.work_df['h2_samma_kusk'] = self.work_df.kusk == self.work_df.h2_kusk
-        self.work_df['h3_samma_kusk'] = self.work_df.kusk == self.work_df.h3_kusk
+        df['h1_samma_kusk'] = df.kusk == df.h1_kusk
+        df['h2_samma_kusk'] = df.kusk == df.h2_kusk
+        df['h3_samma_kusk'] = df.kusk == df.h3_kusk
 
-        return self.work_df
+        return df
 

@@ -89,7 +89,7 @@ def gridsearch_typ(typ, params, proba_kolumner=[], folds=5, save=False):
         assert Xy[cat_features].isnull().sum().sum() == 0, 'there are NaN values in cat_features before create_L2_input'
       
         logging.info(f'Kör create_L2_input')
-        Xy, use_features2 = mod.create_L2_input(Xy, L1_modeller, use_features)
+        Xy, use_features = mod.create_L2_input(Xy, L1_modeller, use_features)
 
         assert Xy[cat_features].isnull().sum().sum() == 0, 'there are NaN values in cat_features after create_L2_input'
     
@@ -98,7 +98,7 @@ def gridsearch_typ(typ, params, proba_kolumner=[], folds=5, save=False):
         
     assert Xy[cat_features].isnull().sum().sum() == 0, 'there are NaN values in cat_features'
     
-    res = do_grid_search(Xy.drop('y',axis=1), y, typ, params, use_features2, cat_features, folds=folds, randomsearch=True)  
+    res = do_grid_search(Xy.drop('y',axis=1), y, typ, params, use_features, cat_features, folds=folds, randomsearch=True)  
     
     print('reultat från gridsearch',res)
     if save:
@@ -162,7 +162,8 @@ def do_grid_search(X,y, typ, params, use_features, cat_features, folds=5,randoms
             
         X, ENC = tp.prepare_for_xgboost(X, encoder=ENC)
         logging.info(f'Encoding done')
-        model = xgb.XGBClassifier(objective='binary:logistic', eval_metric='auc', random_state=2023)
+        model = xgb.XGBClassifier(
+            objective='binary:logistic', eval_metric='auc', scale_pos_weight=9, random_state=2023)
 
         assert X[cat_features].isnull().sum().sum() == 0, 'there are NaN values in cat_features inna xgb gridsearch'
         if randomsearch:

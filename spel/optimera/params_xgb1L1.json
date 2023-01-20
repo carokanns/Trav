@@ -1,11 +1,1 @@
-{
-    "params": {
-        "subsample": 1,
-        "reg_lambda": 1,
-        "n_estimators": 600,
-        "max_depth": 4,
-        "learning_rate": 0.01
-    },
-    "AUC": 0.8589,
-    "Logloss": 0.21522
-}
+{"params": {"subsample": 0.5, "reg_lambda": 1, "n_estimators": 400, "max_depth": 4, "learning_rate": 0.01}, "AUC": 0.86017, "Logloss": 0.38614}
