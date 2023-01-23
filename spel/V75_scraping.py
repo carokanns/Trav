@@ -25,6 +25,9 @@ from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.common.exceptions import TimeoutException
 from selenium.webdriver.chrome.options import Options
+from selenium.webdriver.common.action_chains import ActionChains
+from selenium.webdriver.common.keys import Keys
+
 
 import sys
 sys.path.append(
@@ -35,31 +38,23 @@ import fixa_mer_features as ff2
 import time
 
 # %%
-def get_webdriver(res, headless=True):
-    # instance of Options class allows us to configure Headless Chrome
-    options = Options()
-    
-    print(f'startar webdriver för {"resultat" if res else "startlista"} \n')
-    if headless:
-        # this parameter tells Chrome that
-        # it should be run without UI (Headless)
-        options.headless = headless 
-        user_agent = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/95.0.4638.54 Safari/537.36'
-        options.add_argument('user-agent={0}'.format(user_agent))
-        options.add_argument("--window-size=1920x1080")
+EXECUTABLE_PATH = 'C:\\Users\\peter\\Documents\\MyProjects\\gecko\\chromedriver.exe'
+USER_AGENT = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/95.0.4638.54 Safari/537.36'
+WINDOW_SIZE = "1920x1080"
 
-    # _=input('tryck enter för att starta webdriver')
-    
-    # initializing webdriver for Chrome with our options
-    
-    driver = webdriver.Chrome(
-        executable_path='C:\\Users\peter\\Documents\\MyProjects\\gecko\\chromedriver.exe', options=options)
-    
-    driver.implicitly_wait(10)     # seconds
-    
-    # print(f'startade webdriver för resultat={res}')
-    # time.sleep(10)
-    return driver
+def get_webdriver(res, headless=True):
+    options = Options()
+    options.headless = headless
+    options.add_argument('user-agent={0}'.format(USER_AGENT))
+    options.add_argument("--window-size={0}".format(WINDOW_SIZE))
+    try:
+        driver = webdriver.Chrome(
+            executable_path=EXECUTABLE_PATH, options=options)
+        driver.implicitly_wait(10)
+        print(f'startade webdriver för {"resultat" if res else "startlista"}')
+        return driver
+    except Exception as e:
+        print(f'Error: {e}')
 
 def quit_drivers(driver_r, driver_s):
     if driver_s:
@@ -238,8 +233,6 @@ def en_rad(vdict, datum, bana, start, lopp_dist, avd, anr, r, rad, voddss, podds
 
 
 def do_scraping(driver_s, driver_r, avdelningar, history, datum):  # get data from web site
-    # logging.basicConfig(filename='app.log', filemode='w',
-    #                     format='%(name)s - %(message)s', level=logging.INFO)
 
     vdict = {'datum': [], 'bana': [], 'avd': [], 'startnr': [], 'häst': [], 'ålder': [], 'kön': [], 'kusk': [], 'lopp_dist': [],
              'start': [], 'dist': [], 'pris': [], 'spår': [], 'streck': [], 'vodds': [], 'podds': [], 'kr': [], }
@@ -389,68 +382,101 @@ def do_scraping(driver_s, driver_r, avdelningar, history, datum):  # get data fr
     
     
     return vdict, bana
-
+def log_print(text):
+    """Skriver ut på loggen och gör en print samt returnerar strängen (för assert)"""
+    logging.info(text)
+    print(text)
+    
+    return text
 # %% popup för vilken info som ska visas
 def anpassa(driver_s, avd):
+    
     avd = avd[0]
     wait = WebDriverWait(driver_s, 10)
+    driver_s.implicitly_wait(10)
+
+    log_print(f'start anpassa(...) avd={avd}')
     
-    logging.info(f'Anpassa: avd={avd}')
-    buttons = driver_s.find_elements_by_xpath("//button[contains(text(), 'Anpassa')]")
-    element = wait.until(EC.presence_of_element_located(
-        (By.XPATH, "//button[contains(text(), 'Anpassa')]")))
-    print('AVDELNING =', avd, '    antal lopp/knappar =', len(buttons))
-    logging.info(f'Anpassa: avd={avd} antal lopp/knappar={len(buttons)}')
-    buts = buttons[avd-1]    #.find_elements(By.CSS_SELECTOR, "button[class^='MuiButtonBase-root MuiButton-root']")    assert len(buts) > 0, f'buts skall inte vara tom: {buts} för avd {avd}'
+    xpath = '//*[@id="main"]/div[3]/div[2]/div/div/div/div/div/div/div[4]/div['+str(avd)+']/div/div/div/div[1]/div[3]/div'
 
-    if type(buts) == list:
-        print(f'hur lång är buts? {len(buts)} Det är en lista {isinstance(buts, list)}')
-        logging.info(
-            f'hur lång är buts? {len(buts)} Det är en lista {isinstance(buts, list)}  avdelning {avd}')
-    else:
-        print('buts är inte en lista', buts)
-        logging.info(f'buts är inte en lista {buts}  avdelning {avd}')
+    but_area = driver_s.find_elements_by_xpath(xpath)
+    
+    assert len(but_area) == 1, log_print(f'wrong numer of but_area found: {len(but_area)}')
+    
+    but_area = but_area[0]
 
-    # buts = buts[2]
-    try:
-        print('********************************************Klickar nu på', buts.text, 'avdelning', avd)
-    except:
-        print(f'buts.text finns inte  avdelning {avd}')
-        print('********************************************Klickar nu på', buts, 'avdelning', avd)    
-        
-    logging.info(f'Klickar nu på {buts} avdelning {avd}')    
-    driver_s.implicitly_wait(10)     # seconds
-    buts.click()
-    print('********************************************klickade   på buts. Avdelning', avd)
-    logging.info(f'klickade på buts. Avdelning {avd}')
-    horse_info_button = wait.until(EC.presence_of_element_located(
-        (By.XPATH, "//div[@data-test-id='desktop-category-horse-info']")))
-    logging.info(f'klickar nu på horse_info_button avdelning {avd}')
-    ##### Klickar på Hästinfo-knappen
-    horse_info_button.click()
+    log_print(f"but_area is visible: {but_area.is_displayed()}")
+    log_print(f"but_area is clickable: {but_area.is_enabled()}")
+   
+    button = but_area.find_elements_by_xpath(
+        '//*[@id="main"]/div[3]/div[2]/div/div/div/div/div/div/div[4]/div[1]/div/div/div/div[1]/div[3]/div/button[3]')
+    
+    assert len(button) == 1,  log_print(f'Fel antal button found: {len(button)}')
+    button=button[0]
+    assert button.text == "Anpassa", log_print(f'Texten Anpassa hittades inte: {button.text}')
+    
+    log_print(f"is button visible? {button.is_displayed()} med texten {button.text}")
+    log_print(f"is button clickable? {button.is_enabled()} med texten {button.text}")
+    log_print(f'Skall nu klicka på knapp med text {button.text} avd={avd}')
+    
+    button.click()
+    button.send_keys(Keys.RETURN)
+    log_print(f'Klickade på Anpassa med Keys.RETURN')
+
+    actions = ActionChains(driver_s)
+    actions.move_to_element(button).click().perform()
+    log_print(f'Klickade på Anpassa med ny move_to_element')
+    
+    # Hitta nästa element med hjälp av data-attributet och vänta tills det är klickbart
+    pre_race_element = wait.until(EC.element_to_be_clickable(
+        (By.CSS_SELECTOR, '[data-test-id="desktop-category-pre-race"]')))
+    log_print(f'väntade på den nya pre_race_element. Avdelning {avd}')
+    pre_race_element.click()
+    log_print(f'klickade på den nya pre_race_element. Avdelning {avd}')
+    
+    # Hitta nästa element med hjälp av data-attributet och vänta tills det är klickbart
+    horse_info_element = wait.until(EC.element_to_be_clickable(
+        (By.CSS_SELECTOR, '[data-test-id="desktop-category-horse-info"]')))
+    log_print(f'väntade på den nya horse_info_element. Avdelning {avd}')
+    horse_info_element.click()
+    log_print(f'klickade på den nya horse_info_element. Avdelning {avd}')
+    
+    # horse_info_button = wait.until(EC.presence_of_element_located(
+    #     (By.XPATH, "//div[@data-test-id='desktop-category-horse-info']")))
+    # logging.info(f'klickar nu på horse_info_button avdelning {avd}')
+    # ##### Klickar på Hästinfo-knappen
+    # horse_info_button.click()
     age_sex_checkbox = wait.until(EC.presence_of_element_located(
         (By.XPATH, "//div[@data-test-id='desktop-checkbox-ageAndSex']")))
-    logging.info(f'klickade på horse_info_button avdelning {avd}')
+    logging.info(f'Väntade på age_sex_checkbox avdelning {avd}')
+    
     if not age_sex_checkbox.is_selected():
         logging.info(f'klickar nu på age_sex_checkbox avdelning {avd}')
         age_sex_checkbox.click()
-        
+    assert age_sex_checkbox.is_selected(), f'age_sex_checkbox är inte vald avdelning {avd}'
+
     logging.info(f'Nu borde age_sex_checkboxvara ticked {age_sex_checkbox.is_selected()} avdelning {avd}')
         
-    assert age_sex_checkbox.is_selected(),  'age_sex_checkbox är inte vald'  
     
     pre_race_button = wait.until(EC.presence_of_element_located(
         (By.XPATH, "//div[@data-test-id='desktop-category-pre-race']")))
+    logging.info(f'klickar nu på "inför loppet" avd {avd}' )
     pre_race_button.click()
     
     logging.info(f'Letar nu upp checkboxen för vOdds avdelning {avd}')
-    vOdds_checkbox = driver_s.find_element_by_xpath("//div[@data-test-id='desktop-checkbox-vOdds']")
+    vOdds_checkbox = wait.until(EC.presence_of_element_located(
+        (By.XPATH, "//div[@data-test-id='desktop-checkbox-vOdds']")))
+        
     if not vOdds_checkbox.is_selected():
         logging.info(f'klickar nu på vOdds_checkbox avdelning {avd}')
         vOdds_checkbox.click()  
+        
     assert vOdds_checkbox.is_selected(), 'vOdds_checkbox är inte vald' 
+    
     logging.info(f'Letar nu upp checkboxen för pOdds avdelning {avd}')     
-    pOdds_checkbox = driver_s.find_element_by_xpath("//div[@data-test-id='desktop-checkbox-pOdds']")
+    pOdds_checkbox=wait.until(EC.presence_of_element_located(
+            (By.XPATH, "//div[@data-test-id='desktop-checkbox-pOdds']")))
+    
     if not pOdds_checkbox.is_selected():
         logging.info(f'klickar nu på pOdds_checkbox avdelning {avd}')
         pOdds_checkbox.click()  
@@ -616,16 +642,17 @@ def v75_threads(resultat=False, history=False, headless=True, avdelningar=None, 
             
             print('find cookie popup')
             # _ = input('Tryck enter för find cookie popup\n')
-            driver_s.implicitly_wait(10)  # seconds
+            driver_s.implicitly_wait(20)  # seconds
             but_kakor = driver_s.find_element(By.ID,"onetrust-accept-btn-handler")
             but_kakor_text = but_kakor.text
             
             print('klickar på ', but_kakor_text, 'för avd', avdelningar)
             # _ = input(f'Tryck enter för att klicka på {but_kakor_text}\n')
             
+            driver_s.implicitly_wait(10)     # seconds
             but_kakor.click()
             driver_s.fullscreen_window()
-            driver_s.implicitly_wait(10)     # seconds
+            
             print( 'klickade på ', but_kakor_text, 'för avd', avdelningar)
             
             # _ = input('Tryck enter för att klicka bort reklamen\n')
@@ -728,6 +755,13 @@ def v75_threads(resultat=False, history=False, headless=True, avdelningar=None, 
     return df
 
 if __name__ == '__main__':
+    """ Här kan vi köra direkt från denna py-fil
+    """
+    
+    logging.basicConfig(level=logging.INFO, filemode='a', filename='v75.log', force=True,
+                    encoding='utf-8', format='v75:' '%(asctime)s - %(levelname)s - %(lineno)d - %(message)s')
+    logging.info('Startar v75_scraping.py')
+    
     pd.options.display.max_rows = 200
     import concurrent.futures
     start_time = time.perf_counter()
@@ -736,17 +770,17 @@ if __name__ == '__main__':
     ######### settings #########
     omg_df = pd.read_csv(
         'C:\\Users\\peter\\Documents\\MyProjects\\PyProj\\Trav\\spel\\omg_att_spela_link.csv')
-    avd_list=[[1],[2],[3],[4],[5],[6],[7]]
+    # avd_list=[[1],[2],[3],[4],[5],[6],[7]]
     # avd_list=[[1],[2],[3],[4],[5],[6]]
     # avd_list=[[1],[2],[3],[4],[5]]
     # avd_list=[[1],[2],[3],[4]]
-    # avd_list=[[1],[2],[3]]
+    avd_list=[[1],[2],[3]]
     # avd_list=[[1],[2]]
     # avd_list=[[1]]
-    concurrency=True
+    concurrency=False
     resultat=False
     history=True
-    headless=True
+    headless=False
     print(f'Kör med avd_list={avd_list}, resultat={resultat}, history={history}, headless={headless}, omg={omg_df.Link.values}')
     
     def start_scrape(avd_list):
@@ -767,11 +801,6 @@ if __name__ == '__main__':
     else:            
         for enum,avd in enumerate(avd_list):
             df = pd.concat([df,start_scrape(avd)], ignore_index=True)
-                   
-    # df=pd.DataFrame()    
-    # with concurrent.futures.ThreadPoolExecutor() as executor:
-    #     for temp_df in executor.map(start_scrape,avd_lists):
-    #         df = pd.concat([df, temp_df])
             
     df.sort_values(by=['datum', 'avd', 'startnr', ], inplace=True)        
     print(df)

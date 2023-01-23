@@ -8,8 +8,6 @@ from IPython.display import display
 import concurrent.futures
 import time
 import datetime
-import sklearn
-import logging
 
 pd.set_option('display.width', 200)
 pd.set_option('display.max_columns', 200)
