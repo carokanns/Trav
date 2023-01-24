@@ -388,57 +388,257 @@ def log_print(text):
     print(text)
     
     return text
+
+
+def anpassa_orginal(driver_s, avd):
+    avd = avd[0]
+    # sl = driver_s.find_elements(By.CLASS_NAME, "startlist")
+    sl = driver_s.find_elements(
+        By.CLASS_NAME, "css-8y0fv8-Startlists-styles--startlistelement")
+
+    print('AVDELNING =', avd, '    antal lopp =', len(sl))
+
+    buts = sl[avd-1].find_elements(
+        By.CSS_SELECTOR, "button[class^='MuiButtonBase-root MuiButton-root']")
+
+    print('    len buts', len(buts))
+    # print('sl',sl)
+    # print('    sl.text',sl[avd-1].text)
+    assert len(buts) > 0, f'buts skall inte vara tom: {buts} för avd {avd}'
+
+    print('    buts[0].text', buts[0].text, 'buts[1]. text',
+          buts[1].text, 'buts[2].text', buts[2].text)
+
+    buts = buts[2]
+    print('********************************************Klickar nu på',
+          buts.text, 'avdelning', avd)
+
+    buts.click()
+
+    print('********************************************klickade   på',
+          buts.text, 'Avdelning', avd)
+
+    # tics = driver_s.find_elements_by_class_name("css-1hngy38-Checkbox-styles--label")
+    # WebDriverWait(driver_s, 10).until(EC.presence_of_element_located((By.CLASS_NAME, 'css-1hngy38-Checkbox-styles--label')))
+    driver_s.implicitly_wait(10)     # seconds
+    tics = driver_s.find_elements(
+        By.CLASS_NAME, "css-1hngy38-Checkbox-styles--label")
+    driver_s.implicitly_wait(10)     # seconds
+    # print('len tics',len(tics))
+
+    flag1 = flag2 = flag3 = flag4 = flag5 = flag6 = flag7 = flag8 = flag9 = True
+    for t in tics:
+        if not (flag1 or flag2 or flag3 or flag4 or flag5 or flag6 or flag7 or flag8 or flag9):
+            print(f'anpassa klar avd={avd} - break')
+            break
+        if t.text == '':
+            continue
+
+        if flag1 and t.text == 'VÄRMINGSVIDEO':   # 'VÄRMNINGS­VIDEO'
+            t.click()
+            # print('värmn')
+            flag1 = False
+        elif flag2 and t.text == 'UTÖKA ALLA STARTLISTOR SAMTIDIGT':
+            t.click()
+            # print('utöka')
+            flag2 = False
+        elif flag3 and t.text == 'TIPSKOMMENTARER':
+            t.click()
+            # print('tips')
+            flag3 = False
+        elif flag4 and ('LOPPKOMMENTARER' in t.text):
+            t.click()
+            # print('komment')
+            flag4 = False
+        elif flag5 and t.text == 'KR/START':
+            t.click()
+            # print('kr')
+            flag5 = False
+        elif flag6 and t.text == 'DISTANS OCH SPÅR':
+            # t.click()
+            # if t.is_enabled():
+            #     print('distans och spår är enabled')
+
+            # if t.is_displayed():
+            #     print('distans och spår är displayed')
+
+            if t.is_selected():
+                print('distans och spår är redan valt')
+                flag6 = False
+            else:
+                # print(t.text, 'ej selected ännu')
+                pass
+
+            # WebDriverWait(t, 10).until(EC.element_to_be_clickable(t), message='distans och spår gick inte att klicka på')
+            # WebDriverWait(t,10)
+
+            driver_s.implicitly_wait(10)     # seconds
+            t.click()
+            if t.is_selected():
+                # print(t.text+' är korrekt')
+                flag6 = False
+            else:
+                # print(t.text+' är fel')
+                flag6 = True
+
+            # print('efter click distans och spår')
+
+        elif flag7 and t.text == 'V-ODDS':
+            # t.click()
+            # print('hoppar över voods click (verkar vara förifyllt')
+            flag7 = False
+        elif flag8 and t.text == 'P-ODDS':
+            t.click()
+            # print('podds')
+            flag8 = False
+        elif flag9 and t.text == 'HÄSTENS KÖN & ÅLDER':
+            t.click()
+            # print('kön')
+            flag9 = False
+
+    # print('Prova name '+'checkbox-ageAndSex')
+    chkbx = driver_s.find_elements(By.NAME, 'checkbox-ageAndSex')[0]
+    if chkbx.is_enabled():
+        #     print(chkbx.text +' är enabled')
+        pass
+    if chkbx.is_displayed():
+        #     print(chkbx.text+' är displayed')
+        pass
+    if chkbx.is_selected():
+        #     print(chkbx.text+' är korrekt valt')
+        pass
+    else:
+        # print(chkbx.text, ' ej selected ännu')
+        chkbx.click()
+    if chkbx.is_selected():
+        print(chkbx.text+' är korrekt för avdelning', avd)
+
+    ## Tryck på Spara-knappen ##
+    driver_s.implicitly_wait(5)     # seconds
+    save_button = driver_s.find_elements(
+        By.CSS_SELECTOR, "[ class^='css-1ix']")
+    save_button_text = save_button[0].text
+    save_button[0].click()
+    print('efter click på"', save_button_text, 'i avd =', avd)
+
+
 # %% popup för vilken info som ska visas
 def anpassa(driver_s, avd):
-    log_print('FÖRÖK HITTA BUT PÅ ANNAT SÄTT')
-    log_print('FÖRÖK HITTA BUT PÅ ANNAT SÄTT')
-    
     avd = avd[0]
     wait = WebDriverWait(driver_s, 10)
     driver_s.implicitly_wait(10)
 
     log_print(f'start anpassa(...) avd={avd}')
     
-    xpath = '//*[@id="main"]/div[3]/div[2]/div/div/div/div/div/div/div[5]/div[1]/div/div/div/div[1]/div[1]'
-    class_name = "MuiTouchRipple-root css-w0pj6f"
-    selector = 'div.flexboxgrid2_row_1w > div.flexboxgrid2_col-xs-12_2A.flexboxgrid2_col-sm-5_2S.flexboxgrid2_col-md-6_1m.startlist-header__table-wrapper.startlist-actions'
+    sl = driver_s.find_elements(
+        By.CLASS_NAME, "css-8y0fv8-Startlists-styles--startlistelement")
+    log_print(f"old sl is visible: {sl[avd-1].is_displayed()}")
+    log_print(f"old sl is clickable: {sl[avd-1].is_enabled()}")
+    buts = sl[avd-1].find_elements(
+        By.CSS_SELECTOR, "button[class^='MuiButtonBase-root MuiButton-root']")
 
-    # but_area = driver_s.find_elements_by_xpath(xpath)
-    but_area = driver_s.find_elements_by_css_selector(selector)
-    
-    
-    assert len(but_area) == 7, log_print(f'wrong numer of but_area found: {len(but_area)}')
-    
-    but_area = but_area[1]  # avd=2
+    log_print(f'old       len buts {len(buts)}')
+    assert len(buts) > 0, log_print(f'buts skall inte vara tom: {buts} för avd {avd}')
 
-    log_print(f"but_area is visible: {but_area.is_displayed()}")
-    log_print(f"but_area is clickable: {but_area.is_enabled()}")
-   
-    button = but_area.find_elements_by_xpath(
-        '//*[@id="main"]/div[3]/div[2]/div/div/div/div/div/div/div[4]/div[1]/div/div/div/div[1]/div[3]/div/button[3]')
-    
-    assert len(button) == 1,  log_print(f'Fel antal button found: {len(button)}')
-    button=button[0]
-    assert button.text == "Anpassa", log_print(f'Texten Anpassa hittades inte: {button.text}')
-    
-    log_print(f"is button visible? {button.is_displayed()} med texten {button.text}")
-    log_print(f"is button clickable? {button.is_enabled()} med texten {button.text}")
-    log_print(f'Skall nu klicka på knapp med text {button.text} avd={avd}')
-    
-    button.click()
-    button.send_keys(Keys.RETURN)
-    log_print(f'Klickade på Anpassa med Keys.RETURN')
+    log_print(f'old buts[2].text  {buts[2].text}, buts[1]. text {buts[1].text}, buts[2].text {buts[2].text}')
 
+    buts = buts[2]
+    log_print(f"old buts is visible: {buts.is_displayed()}")
+    log_print(f"old buts is clickable: {buts.is_enabled()}")
+    log_print(f'old ********************************************Klickar nu på {buts.text}, avdelning {avd}')
     actions = ActionChains(driver_s)
-    actions.move_to_element(button).click().perform()
-    log_print(f'Klickade på Anpassa med ny move_to_element')
+    actions.move_to_element(buts).click().perform()
+    log_print(f'OLD Klickade på Anpassa med move_to_element')
+    log_print(f'OLD Klickar nu med JavaScript på {buts.text}, avdelning {avd}')
+    driver_s.execute_script("arguments[0].click();", buts)
+
+    # tics = driver_s.find_elements(
+    #     By.CLASS_NAME, "css-1hngy38-Checkbox-styles--label")
+    # assert len(tics)>0, log_print(f'felaktig len(tics): {len(tics)}')
+    # log_print(f"old tics is visible: {tics.is_displayed()}")
+    # log_print(f"old tics is clickable: {tics.is_enabled()}")
+    
+    # buts.click()
+    # log_print('buts klickad')
+    
+    
+    # xpath = '//*[@id="main"]/div[3]/div[2]/div/div/div/div/div/div/div[5]/div[1]/div/div/div/div[1]/div[1]'
+    # class_name = "MuiTouchRipple-root css-w0pj6f"
+    # selector = 'div.flexboxgrid2_row_1w > div.flexboxgrid2_col-xs-12_2A.flexboxgrid2_col-sm-5_2S.flexboxgrid2_col-md-6_1m.startlist-header__table-wrapper.startlist-actions'
+
+    # # but_area = driver_s.find_elements_by_xpath(xpath)
+    # but_area = driver_s.find_elements_by_css_selector(selector)
+    
+    # assert len(but_area) == 7, log_print(f'wrong numer of but_area found: {len(but_area)}')
+    
+    # but_area = but_area[1]  # avd=2
+
+    # log_print(f"but_area is visible: {but_area.is_displayed()}")
+    # log_print(f"but_area is clickable: {but_area.is_enabled()}")
+    # log_print(f'but_area.text {but_area.text}')
+    # button = but_area.find_elements_by_xpath(
+    #     '//*[@id="main"]/div[3]/div[2]/div/div/div/div/div/div/div[4]/div[1]/div/div/div/div[1]/div[3]/div/button[3]')
+    
+    # assert len(button) == 1,  log_print(f'Fel antal button found: {len(button)}')
+    # button=button[0]
+    # assert button.text == "Anpassa", log_print(f'Texten Anpassa hittades inte: {button.text}')
+    
+    # log_print(f"is button visible? {button.is_displayed()} med texten {button.text}")
+    # log_print(f"is button clickable? {button.is_enabled()} med texten {button.text}")
+    # log_print(f'Skall nu klicka på knapp med text {button.text} avd={avd}')
+    
+    # button.click()
+    # button.send_keys(Keys.RETURN)
+    # log_print(f'Klickade på Anpassa med Keys.RETURN')
+    # assert button.text == 'BRYTER', log_print(f'old BRYTER {button.text}')
+    # actions = ActionChains(driver_s)
+    # actions.move_to_element(button).click().perform()
+    # log_print(f'Klickade på Anpassa med ny move_to_element')
     
     # Hitta nästa element med hjälp av data-attributet och vänta tills det är klickbart
     pre_race_element = wait.until(EC.element_to_be_clickable(
         (By.CSS_SELECTOR, '[data-test-id="desktop-category-pre-race"]')))
-    log_print(f'väntade på den nya pre_race_element. Avdelning {avd}')
+    
+    def click_element(el_name, element, avd):
+        log_print(f'Väntade på age_sex_checkbox avd={avd}')
+    
+        log_print(f"{el_name} is visible: {element.is_displayed()}")
+        log_print(f"{el_name} is clickable: {element.is_enabled()}")
+        is_checkbox = driver_s.execute_script("return arguments[0].type === 'checkbox';", element)
+        log_print(f'{el_name}.is_checkbox={is_checkbox} avdelning {avd}')
+        log_print(f'{el_name}.text={element.text}')
+        actions = ActionChains(driver_s)
+        actions.move_to_element(element).click().perform()
+        is_selected  = driver_s.execute_script("return arguments[0].checked;", element)
+        arg_selected = driver_s.execute_script("return arguments[0].getAttribute('checked');", element)
+        if not is_selected:
+            log_print(f'klickar nu på {el_name} avdelning {avd}')
+            element.click()
+        log_print(f'{el_name}.is_selected={element.is_selected()} avdelning {avd}') 
+        
+        is_selected  = driver_s.execute_script("return arguments[0].checked;", element)
+        arg_selected = driver_s.execute_script("return arguments[0].getAttribute('checked');", element)
+        
+        log_print(f'is_selected={is_selected} avdelning {avd}')
+        log_print(f'arg_selected={arg_selected} avdelning {avd}')
+        if is_selected != arg_selected:
+            log_print(f'is_selected={is_selected} != arg_selected={arg_selected} avdelning {avd}')
+        
+        
+        if not is_selected:
+            log_print(f'{el_name} är ännu inte vald avdelning {avd}')
+            driver_s.execute_script("arguments[0].click();", element)
+
+        log_print(
+            f'Nu borde {el_name} vara ticked {element.is_selected()} avdelning {avd}')
+    
+        return True
+
+    
+    
+    log_print(f'väntade på den nya pre_race_element. Avd={avd}')
     pre_race_element.click()
-    log_print(f'klickade på den nya pre_race_element. Avdelning {avd}')
+    log_print(f'klickade på den nya pre_race_element. Avd={avd}')
     
     # Hitta nästa element med hjälp av data-attributet och vänta tills det är klickbart
     horse_info_element = wait.until(EC.element_to_be_clickable(
@@ -447,23 +647,13 @@ def anpassa(driver_s, avd):
     horse_info_element.click()
     log_print(f'klickade på den nya horse_info_element. Avdelning {avd}')
     
-    # horse_info_button = wait.until(EC.presence_of_element_located(
-    #     (By.XPATH, "//div[@data-test-id='desktop-category-horse-info']")))
-    # logging.info(f'klickar nu på horse_info_button avdelning {avd}')
-    # ##### Klickar på Hästinfo-knappen
-    # horse_info_button.click()
     age_sex_checkbox = wait.until(EC.presence_of_element_located(
         (By.XPATH, "//div[@data-test-id='desktop-checkbox-ageAndSex']")))
-    logging.info(f'Väntade på age_sex_checkbox avdelning {avd}')
     
-    if not age_sex_checkbox.is_selected():
-        logging.info(f'klickar nu på age_sex_checkbox avdelning {avd}')
-        age_sex_checkbox.click()
-    assert age_sex_checkbox.is_selected(), f'age_sex_checkbox är inte vald avdelning {avd}'
-
-    logging.info(f'Nu borde age_sex_checkboxvara ticked {age_sex_checkbox.is_selected()} avdelning {avd}')
+   
+    click_element('age_sex_checkbox',age_sex_checkbox,avd)
+    
         
-    
     pre_race_button = wait.until(EC.presence_of_element_located(
         (By.XPATH, "//div[@data-test-id='desktop-category-pre-race']")))
     logging.info(f'klickar nu på "inför loppet" avd {avd}' )
@@ -472,120 +662,26 @@ def anpassa(driver_s, avd):
     logging.info(f'Letar nu upp checkboxen för vOdds avdelning {avd}')
     vOdds_checkbox = wait.until(EC.presence_of_element_located(
         (By.XPATH, "//div[@data-test-id='desktop-checkbox-vOdds']")))
-        
-    if not vOdds_checkbox.is_selected():
-        logging.info(f'klickar nu på vOdds_checkbox avdelning {avd}')
-        vOdds_checkbox.click()  
-        
-    assert vOdds_checkbox.is_selected(), 'vOdds_checkbox är inte vald' 
     
-    logging.info(f'Letar nu upp checkboxen för pOdds avdelning {avd}')     
+    vOdds_checkbox.click() # Varför ok för vOdds?
+    click_element('vOdds_checkbox',vOdds_checkbox,avd)
+        
+    log_print(f'Letar nu upp checkboxen för pOdds avdelning {avd}')     
     pOdds_checkbox=wait.until(EC.presence_of_element_located(
             (By.XPATH, "//div[@data-test-id='desktop-checkbox-pOdds']")))
     
-    if not pOdds_checkbox.is_selected():
-        logging.info(f'klickar nu på pOdds_checkbox avdelning {avd}')
-        pOdds_checkbox.click()  
-            
-    assert pOdds_checkbox.is_selected(), 'pOdds_checkbox är inte vald avdelning {avd}'
-    
+    # pOdds_checkbox.click()  # Varför inte ok för pOdds?
+    click_element('pOdds_checkbox',pOdds_checkbox,avd)
+        
     logging.debug(f'Bryter nu medvetet avdelning {avd}')
     assert False, 'SLUT SLUT SLUT BRYTER ***********************************'
-    # flag1 = flag2 = flag3 = flag4 = flag5 = flag6 = flag7 = flag8 = flag9 = True
-    # for t in tics:
-    #     if not (flag1 or flag2 or flag3 or flag4 or flag5 or flag6 or flag7 or flag8 or flag9):
-    #         print(f'anpassa klar avd={avd} - break')
-    #         break
-    #     if t.text == '':
-    #         continue
-
-    #     if flag1 and t.text == 'VÄRMINGSVIDEO':   # 'VÄRMNINGS­VIDEO'
-    #         t.click()
-    #         # print('värmn')
-    #         flag1 = False
-    #     elif flag2 and t.text == 'UTÖKA ALLA STARTLISTOR SAMTIDIGT':
-    #         t.click()
-    #         # print('utöka')
-    #         flag2 = False
-    #     elif flag3 and t.text == 'TIPSKOMMENTARER':
-    #         t.click()
-    #         # print('tips')
-    #         flag3 = False
-    #     elif flag4 and ('LOPPKOMMENTARER' in t.text):
-    #         t.click()
-    #         # print('komment')
-    #         flag4 = False
-    #     elif flag5 and t.text == 'KR/START':
-    #         t.click()
-    #         # print('kr')
-    #         flag5 = False
-    #     elif flag6 and t.text == 'DISTANS OCH SPÅR':
-    #         # t.click()
-    #         # if t.is_enabled():
-    #         #     print('distans och spår är enabled')
-
-    #         # if t.is_displayed():
-    #         #     print('distans och spår är displayed')
-                
-    #         if t.is_selected():
-    #             print('distans och spår är redan valt')
-    #             flag6 = False
-    #         else:
-    #             # print(t.text, 'ej selected ännu')
-    #             pass
-
-    #         # WebDriverWait(t, 10).until(EC.element_to_be_clickable(t), message='distans och spår gick inte att klicka på')
-    #         # WebDriverWait(t,10)
-            
-    #         driver_s.implicitly_wait(10)     # seconds
-    #         t.click()
-    #         if t.is_selected():
-    #             # print(t.text+' är korrekt')
-    #             flag6 = False
-    #         else:
-    #             # print(t.text+' är fel')
-    #             flag6 = True
-            
-    #         # print('efter click distans och spår')
-
-    #     elif flag7 and t.text == 'V-ODDS':
-    #         # t.click()
-    #         # print('hoppar över voods click (verkar vara förifyllt')
-    #         flag7 = False
-    #     elif flag8 and t.text == 'P-ODDS':
-    #         t.click()
-    #         # print('podds')
-    #         flag8 = False
-    #     elif flag9 and t.text == 'HÄSTENS KÖN & ÅLDER':
-    #         t.click()
-    #         # print('kön')
-    #         flag9 = False
-
-    # print(f'avd {avd} Prova name '+'checkbox-ageAndSex')
-    # chkbx = driver_s.find_elements(By.NAME, 'checkbox-ageAndSex')[0]
-    # if chkbx.is_enabled():
-    # #     print(chkbx.text +' är enabled')
-    #     pass
-    # if chkbx.is_displayed():
-    # #     print(chkbx.text+' är displayed')
-    #     pass
-    # if chkbx.is_selected():
-    # #     print(chkbx.text+' är korrekt valt')
-    #     pass
-    # else:
-    #     # print(chkbx.text, ' ej selected ännu')
-    #     chkbx.click()
-    # if chkbx.is_selected():
-    #     print(chkbx.text+' är korrekt för avdelning', avd)
-    
-    
+        
     ## Tryck på Spara-knappen ##
-    driver_s.implicitly_wait(5)     # seconds
     save_button = driver_s.find_elements(By.CSS_SELECTOR, "[ class^='css-1ix']")
     save_button_text = save_button[0].text 
     save_button[0].click()
     print('efter click på"', save_button_text, 'i avd =', avd)
-
+    
 
 def v75_scraping(resultat=False, history=False, headless=True, driver_s=None, driver_r=None):
     pd.options.display.max_rows = 200
