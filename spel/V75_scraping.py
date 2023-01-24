@@ -390,6 +390,8 @@ def log_print(text):
     return text
 # %% popup för vilken info som ska visas
 def anpassa(driver_s, avd):
+    log_print('FÖRÖK HITTA BUT PÅ ANNAT SÄTT')
+    log_print('FÖRÖK HITTA BUT PÅ ANNAT SÄTT')
     
     avd = avd[0]
     wait = WebDriverWait(driver_s, 10)
@@ -397,13 +399,17 @@ def anpassa(driver_s, avd):
 
     log_print(f'start anpassa(...) avd={avd}')
     
-    xpath = '//*[@id="main"]/div[3]/div[2]/div/div/div/div/div/div/div[4]/div['+str(avd)+']/div/div/div/div[1]/div[3]/div'
+    xpath = '//*[@id="main"]/div[3]/div[2]/div/div/div/div/div/div/div[5]/div[1]/div/div/div/div[1]/div[1]'
+    class_name = "MuiTouchRipple-root css-w0pj6f"
+    selector = 'div.flexboxgrid2_row_1w > div.flexboxgrid2_col-xs-12_2A.flexboxgrid2_col-sm-5_2S.flexboxgrid2_col-md-6_1m.startlist-header__table-wrapper.startlist-actions'
 
-    but_area = driver_s.find_elements_by_xpath(xpath)
+    # but_area = driver_s.find_elements_by_xpath(xpath)
+    but_area = driver_s.find_elements_by_css_selector(selector)
     
-    assert len(but_area) == 1, log_print(f'wrong numer of but_area found: {len(but_area)}')
     
-    but_area = but_area[0]
+    assert len(but_area) == 7, log_print(f'wrong numer of but_area found: {len(but_area)}')
+    
+    but_area = but_area[1]  # avd=2
 
     log_print(f"but_area is visible: {but_area.is_displayed()}")
     log_print(f"but_area is clickable: {but_area.is_enabled()}")
