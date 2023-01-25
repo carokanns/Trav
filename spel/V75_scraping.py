@@ -616,7 +616,7 @@ def anpassa(driver_s, avd):
     # Hitta nästa element 'Inför loppet'    
     pre_race_button = wait.until(EC.presence_of_element_located(
         (By.XPATH, "//div[@data-test-id='desktop-category-pre-race']")))
-    logging.info(f'klickar nu på "inför loppet" avd {avd}' )
+    log_print(f'klickar nu på "inför loppet" avd {avd}')
     pre_race_button.click()
     
     ### Checkboxes 'Inför loppet' ###
@@ -647,16 +647,41 @@ def anpassa(driver_s, avd):
     tidigare_res_button.click()
     
     ### Checkboxes 'Tidigare resultat' ###
-    logging.info(f'Letar nu upp checkboxen för Kr/start avdelning {avd}')
+    log_print(f'Letar nu upp checkboxen för Kr/start avdelning {avd}')
     krPerStart_checkbox = wait.until(EC.presence_of_element_located(
         (By.XPATH, "//div[@data-test-id='desktop-checkbox-earningsPerStart']")))
 
     click_element('krPerStart_checkbox', krPerStart_checkbox, avd)
     
-    
-    # TODO: "Form & tips" släck alla 3
     # Hitta nästa element 'Form & tips'
+    form_tips = wait.until(EC.presence_of_element_located(
+        (By.XPATH, "//div[@data-test-id ='desktop-category-form-and-tips']")))
+    form_tips.click()
+    log_print(f'I "Form & tips" skall allt vara släckt avd {avd}')
      
+    ### Checkboxes 'Form och tips' ###
+    log_print(f'Letar nu upp checkboxen för Tipskommentar avd {avd}')
+    tipsCom_checkbox = wait.until(EC.presence_of_element_located(
+        (By.XPATH, "//div[@data-test-id='desktop-checkbox-showDagensSpelComment']")))
+    click_element('tipsCom_checkbox', tipsCom_checkbox, avd)
+     
+    log_print(f'Letar nu upp checkboxen för Tipskommentar avd {avd}')
+    statsCom_checkbox = wait.until(EC.presence_of_element_located(
+        (By.XPATH, "//div[@data-test-id='desktop-checkbox-showTRMediaComment']")))
+    click_element('statsCom_checkbox', statsCom_checkbox, avd)
+     
+    log_print(f'Letar nu upp checkboxen för Tipskommentar avd {avd}')
+    loppCom_checkbox = wait.until(EC.presence_of_element_located(
+        (By.XPATH, "//div[@data-test-id='desktop-checkbox-showRaceComments']")))
+    click_element('loppCom_checkbox', loppCom_checkbox, avd)
+    
+    log_print(f"Leta upp Aktivera knappen avd {avd}") 
+    Aktivera_button = wait.until(EC.presence_of_element_located(
+        (By.XPATH, "//button[@data-test-id='desktop-button-activate']")))
+
+    Aktivera_button.click()
+    log_print(f'Klickade på Aktivera i avd {avd}')
+    
     logging.debug(f'Bryter nu medvetet avdelning {avd}')
     assert False, 'SLUT SLUT SLUT BRYTER ***********************************'
         
