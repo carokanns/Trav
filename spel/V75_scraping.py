@@ -527,80 +527,37 @@ def anpassa(driver_s, avd):
     avd = avd[0]
     wait = WebDriverWait(driver_s, 10)
     driver_s.implicitly_wait(10)
+    
+    # TODO:Klick på "Utöka Alla"  dvs buts[1] behövs execute_script även här?
 
     log_print(f'start anpassa(...) avd={avd}')
     
     sl = driver_s.find_elements(
         By.CLASS_NAME, "css-8y0fv8-Startlists-styles--startlistelement")
-    log_print(f"old sl is visible: {sl[avd-1].is_displayed()}")
-    log_print(f"old sl is clickable: {sl[avd-1].is_enabled()}")
+    log_print(f"sl is visible: {sl[avd-1].is_displayed()}")
+    log_print(f"sl is clickable: {sl[avd-1].is_enabled()}")
     buts = sl[avd-1].find_elements(
         By.CSS_SELECTOR, "button[class^='MuiButtonBase-root MuiButton-root']")
 
-    log_print(f'old       len buts {len(buts)}')
+    log_print(f'       len buts {len(buts)}')
     assert len(buts) > 0, log_print(f'buts skall inte vara tom: {buts} för avd {avd}')
 
-    log_print(f'old buts[2].text  {buts[2].text}, buts[1]. text {buts[1].text}, buts[2].text {buts[2].text}')
+    log_print(f' buts[2].text  {buts[2].text}, buts[1]. text {buts[1].text}, buts[2].text {buts[2].text}')
 
     buts = buts[2]
-    log_print(f"old buts is visible: {buts.is_displayed()}")
-    log_print(f"old buts is clickable: {buts.is_enabled()}")
-    log_print(f'old ********************************************Klickar nu på {buts.text}, avdelning {avd}')
+    log_print(f" buts is visible: {buts.is_displayed()}")
+    log_print(f" buts is clickable: {buts.is_enabled()}")
+    log_print(f' Klickar nu på {buts.text}, avdelning {avd}')
     actions = ActionChains(driver_s)
     actions.move_to_element(buts).click().perform()
-    log_print(f'OLD Klickade på Anpassa med move_to_element')
-    log_print(f'OLD Klickar nu med JavaScript på {buts.text}, avdelning {avd}')
+    log_print(f' Klickade på Anpassa med move_to_element')
+    log_print(f' Klickar nu med JavaScript på {buts.text}, avdelning {avd}')
     driver_s.execute_script("arguments[0].click();", buts)
 
-    # tics = driver_s.find_elements(
-    #     By.CLASS_NAME, "css-1hngy38-Checkbox-styles--label")
-    # assert len(tics)>0, log_print(f'felaktig len(tics): {len(tics)}')
-    # log_print(f"old tics is visible: {tics.is_displayed()}")
-    # log_print(f"old tics is clickable: {tics.is_enabled()}")
     
-    # buts.click()
-    # log_print('buts klickad')
-    
-    
-    # xpath = '//*[@id="main"]/div[3]/div[2]/div/div/div/div/div/div/div[5]/div[1]/div/div/div/div[1]/div[1]'
-    # class_name = "MuiTouchRipple-root css-w0pj6f"
-    # selector = 'div.flexboxgrid2_row_1w > div.flexboxgrid2_col-xs-12_2A.flexboxgrid2_col-sm-5_2S.flexboxgrid2_col-md-6_1m.startlist-header__table-wrapper.startlist-actions'
-
-    # # but_area = driver_s.find_elements_by_xpath(xpath)
-    # but_area = driver_s.find_elements_by_css_selector(selector)
-    
-    # assert len(but_area) == 7, log_print(f'wrong numer of but_area found: {len(but_area)}')
-    
-    # but_area = but_area[1]  # avd=2
-
-    # log_print(f"but_area is visible: {but_area.is_displayed()}")
-    # log_print(f"but_area is clickable: {but_area.is_enabled()}")
-    # log_print(f'but_area.text {but_area.text}')
-    # button = but_area.find_elements_by_xpath(
-    #     '//*[@id="main"]/div[3]/div[2]/div/div/div/div/div/div/div[4]/div[1]/div/div/div/div[1]/div[3]/div/button[3]')
-    
-    # assert len(button) == 1,  log_print(f'Fel antal button found: {len(button)}')
-    # button=button[0]
-    # assert button.text == "Anpassa", log_print(f'Texten Anpassa hittades inte: {button.text}')
-    
-    # log_print(f"is button visible? {button.is_displayed()} med texten {button.text}")
-    # log_print(f"is button clickable? {button.is_enabled()} med texten {button.text}")
-    # log_print(f'Skall nu klicka på knapp med text {button.text} avd={avd}')
-    
-    # button.click()
-    # button.send_keys(Keys.RETURN)
-    # log_print(f'Klickade på Anpassa med Keys.RETURN')
-    # assert button.text == 'BRYTER', log_print(f'old BRYTER {button.text}')
-    # actions = ActionChains(driver_s)
-    # actions.move_to_element(button).click().perform()
-    # log_print(f'Klickade på Anpassa med ny move_to_element')
-    
-    # Hitta nästa element med hjälp av data-attributet och vänta tills det är klickbart
-    pre_race_element = wait.until(EC.element_to_be_clickable(
-        (By.CSS_SELECTOR, '[data-test-id="desktop-category-pre-race"]')))
-    
+    #### Lokal def ######
     def click_element(el_name, element, avd):
-        log_print(f'Väntade på age_sex_checkbox avd={avd}')
+        log_print(f'Väntade på {el_name} avd={avd}')
     
         log_print(f"{el_name} is visible: {element.is_displayed()}")
         log_print(f"{el_name} is clickable: {element.is_enabled()}")
@@ -633,32 +590,36 @@ def anpassa(driver_s, avd):
             f'Nu borde {el_name} vara ticked {element.is_selected()} avdelning {avd}')
     
         return True
-
+    #### Lokal def slut ######
     
     
+    # Hitta nästa element med hjälp av data-attributet och vänta tills det är klickbart
+    pre_race_element = wait.until(EC.element_to_be_clickable(
+        (By.CSS_SELECTOR, '[data-test-id="desktop-category-pre-race"]')))
     log_print(f'väntade på den nya pre_race_element. Avd={avd}')
     pre_race_element.click()
     log_print(f'klickade på den nya pre_race_element. Avd={avd}')
     
-    # Hitta nästa element med hjälp av data-attributet och vänta tills det är klickbart
+    # Hitta nästa element Hästinfo
     horse_info_element = wait.until(EC.element_to_be_clickable(
         (By.CSS_SELECTOR, '[data-test-id="desktop-category-horse-info"]')))
-    log_print(f'väntade på den nya horse_info_element. Avdelning {avd}')
+    log_print(f'väntade på horse_info_element. Avdelning {avd}')
     horse_info_element.click()
     log_print(f'klickade på den nya horse_info_element. Avdelning {avd}')
     
+    ### Checkboxes Häsinfo ###
     age_sex_checkbox = wait.until(EC.presence_of_element_located(
         (By.XPATH, "//div[@data-test-id='desktop-checkbox-ageAndSex']")))
-    
    
     click_element('age_sex_checkbox',age_sex_checkbox,avd)
     
-        
+    # Hitta nästa element 'Inför loppet'    
     pre_race_button = wait.until(EC.presence_of_element_located(
         (By.XPATH, "//div[@data-test-id='desktop-category-pre-race']")))
     logging.info(f'klickar nu på "inför loppet" avd {avd}' )
     pre_race_button.click()
     
+    ### Checkboxes 'Inför loppet' ###
     logging.info(f'Letar nu upp checkboxen för vOdds avdelning {avd}')
     vOdds_checkbox = wait.until(EC.presence_of_element_located(
         (By.XPATH, "//div[@data-test-id='desktop-checkbox-vOdds']")))
@@ -670,11 +631,38 @@ def anpassa(driver_s, avd):
     pOdds_checkbox=wait.until(EC.presence_of_element_located(
             (By.XPATH, "//div[@data-test-id='desktop-checkbox-pOdds']")))
     
-    # pOdds_checkbox.click()  # Varför inte ok för pOdds?
-    click_element('pOdds_checkbox',pOdds_checkbox,avd)
-        
+    click_element('pOdds_checkbox', pOdds_checkbox, avd)  # pOdds_checkbox.click()  # Varför inte ok för pOdds?
+
+    log_print(f'Letar nu upp checkboxen för Distans & spår avdelning {avd}')
+    dist_spår_checkbox = wait.until(EC.presence_of_element_located(
+        (By.XPATH, "//div[contains(@class, 'MuiButtonBase-root MuiListItemButton-root')]//div[text()='Distans & spår']")))
+    
+
+    click_element('dist_spår_checkbox', dist_spår_checkbox, avd)
+    
+    # Hitta nästa element 'Tidigare resultat'   
+    tidigare_res_button = wait.until(EC.presence_of_element_located(
+        (By.XPATH, "//div[@data-test-id='desktop-category-previous-results']")))
+
+    tidigare_res_button.click()
+    
+    ### Checkboxes 'Tidigare resultat' ###
+    logging.info(f'Letar nu upp checkboxen för Kr/start avdelning {avd}')
+    krPerStart_checkbox = wait.until(EC.presence_of_element_located(
+        (By.XPATH, "//div[@data-test-id='desktop-checkbox-earningsPerStart']")))
+
+    click_element('krPerStart_checkbox', krPerStart_checkbox, avd)
+    
+    
+    # TODO: "Form & tips" släck alla 3
+    # Hitta nästa element 'Form & tips'
+     
     logging.debug(f'Bryter nu medvetet avdelning {avd}')
     assert False, 'SLUT SLUT SLUT BRYTER ***********************************'
+        
+        
+        
+        
         
     ## Tryck på Spara-knappen ##
     save_button = driver_s.find_elements(By.CSS_SELECTOR, "[ class^='css-1ix']")
