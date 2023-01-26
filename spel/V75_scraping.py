@@ -42,6 +42,14 @@ EXECUTABLE_PATH = 'C:\\Users\\peter\\Documents\\MyProjects\\gecko\\chromedriver.
 USER_AGENT = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/95.0.4638.54 Safari/537.36'
 WINDOW_SIZE = "1920x1080"
 
+
+def log_print(text):
+    """Skriver ut på loggen och gör en print samt returnerar strängen (för assert)"""
+    logging.info(text)
+    print(text)
+
+    return text
+
 def get_webdriver(res, headless=True):
     options = Options()
     options.headless = headless
@@ -54,15 +62,15 @@ def get_webdriver(res, headless=True):
         print(f'startade webdriver för {"resultat" if res else "startlista"}')
         return driver
     except Exception as e:
-        print(f'Error: {e}')
+        log_print(f'Error: {e}')
 
 def quit_drivers(driver_r, driver_s):
     if driver_s:
         driver_s.quit()
-        print('quit driver_s klar')
+        log_print('quit driver_s klar')
     if driver_r:
         driver_r.quit()
-        print('quit driver_r klar')
+        log_print('quit driver_r klar')
         
 # %%
 def städa_och_rensa(df, history):
@@ -71,12 +79,11 @@ def städa_och_rensa(df, history):
         df = ff2.fixa_mer_features(df, history)
         efter = len(df)
     except:
-        print('++++++++++något gick fel i fixa_mer_features++++++++++++')
+        log_print('++++++++++något gick fel i fixa_mer_features++++++++++++')
         st.error('något gick fel i fixa_mer_features')
             
     if före-efter != 0:
-        print('rensade totalt bort', före-efter,
-                'hästar i städa_och_rensa. Från', före, 'till', efter)
+        log_print(f'rensade totalt bort {före-efter} hästar i städa_och_rensa. Från {före} till {efter}')
     return df
 
 # %% utdelning
@@ -89,27 +96,27 @@ def scrape_utdelning(the_driver):
     utd7 = utd7.replace('kr', '')
     utd7 = utd7.replace('Jackpot', '0')
     
-    assert utd7.isdigit(), f'utdelning 7 rätt är inte ett tal: {utd7}'
+    assert utd7.isdigit(), log_print(f'utdelning 7 rätt är inte ett tal: {utd7}')
     
     utd6 = utdelningar[1].text.replace(' ', '')
     utd6 = utd6.replace('kr', '')
     utd6 = utd6.replace('Jackpot', '0')
-    assert utd6.isdigit(), f'utdelning 6 rätt är inte ett tal: {utd6}'
+    assert utd6.isdigit(), log_print(f'utdelning 6 rätt är inte ett tal: {utd6}')
     
     utd5 = utdelningar[2].text.replace(' ', '')
     utd5 = utd5.replace('kr', '')
     utd5 = utd5.replace('Jackpot', '0')
-    assert utd5.isdigit(), f'utdelning 5 rätt är inte ett tal: {utd5}'
+    assert utd5.isdigit(), log_print(f'utdelning 5 rätt är inte ett tal: {utd5}')
     
     return int(utd7), int(utd6), int(utd5)
 
 # hämta utdelnings-info och spara på fil
 def utdelning(driver_r, dat, bana):
     utd7, utd6, utd5 = scrape_utdelning(driver_r)
-    assert utd7 > utd6 or utd7==0, '7 rätt skall ge mer pengar än 6 rätt'
-    assert utd6 > utd5 or utd6 == 0, '6 rätt skall ge mer pengar än 5 rätt'
+    assert utd7 > utd6 or utd7==0, log_print('7 rätt skall ge mer pengar än 6 rätt')
+    assert utd6 > utd5 or utd6 == 0, log_print('6 rätt skall ge mer pengar än 5 rätt')
 
-    print(f'utdelning: {utd7}, {utd6}, {utd5}')
+    log_print(f'utdelning: {utd7}, {utd6}, {utd5}')
     utd_file = 'C:\\Users\\peter\\Documents\\MyProjects\\PyProj\\Trav\\spel\\utdelning.csv'
     utdelning = pd.read_csv(utd_file)
     utd = pd.DataFrame([[dat, bana, utd7, utd6, utd5]])
@@ -144,7 +151,7 @@ def inkludera_resultat(res_avd, anr):
 # %%
 
 def en_rad(vdict, datum, bana, start, lopp_dist, avd, anr, r, rad, voddss, poddss, strecks, names, pris, history):
-    # print('called with',anr, 'and', vdict['avd'])
+    log_print(f'en_rad() called with anr={anr} and vdict["avd"]={vdict["avd"]}')
 
     vdict['datum'].append(datum)
     vdict['bana'].append(bana)
@@ -180,6 +187,7 @@ def en_rad(vdict, datum, bana, start, lopp_dist, avd, anr, r, rad, voddss, podds
     vdict['spår'].append(dist_sp[0].text.split(':')[1])
 
     if history:
+        log_print(f'history avd {anr+1} för startnr {r+1}')
         ## history från startlistan ##
         # print(f'history avd {anr+1} för startnr {r+1}')
         hist = avd.find_elements(By.CLASS_NAME, "start-info-panel")  # all history för loppet
@@ -228,7 +236,8 @@ def en_rad(vdict, datum, bana, start, lopp_dist, avd, anr, r, rad, voddss, podds
                 vdict[fld+'odds'].append(h_odds[ln-1].text)
                 vdict[fld+'pris'].append(h_pris[ln-1].text)    
                         
-    # print(f'klart history avd {anr+1} för startnr {r+1}')
+        log_print(f'klart history avd {anr+1} för startnr {r+1}')
+    log_print(f'klart rad {r+1}')
     return vdict
 
 
@@ -249,7 +258,7 @@ def do_scraping(driver_s, driver_r, avdelningar, history, datum):  # get data fr
 
  
     if driver_r:
-        print('find driver_r game-table avd', avdelningar)
+        log_print(f'find driver_r game-table avd {avdelningar}')
         
         # WebDriverWait(driver_r, 10).until(
         #     EC.presence_of_element_located((By.CLASS_NAME, 'game-table')))
@@ -258,10 +267,10 @@ def do_scraping(driver_s, driver_r, avdelningar, history, datum):  # get data fr
         driver_r.implicitly_wait(10)     # seconds
         result_tab = driver_r.find_elements(
             By.CLASS_NAME, 'game-table')[:]  # alla lopp med resultatordning
-        print('2r ############################### len result_tab =', len(result_tab))
+        log_print(f'2r ############################### len result_tab = {len(result_tab)}')
         
         if len(result_tab) == 0:
-            print('result_tab not found - try again')
+            log_print('result_tab not found - try again')
             # driver_r.implicitly_wait(10)     # seconds
             # WebDriverWait(driver_r, 10).until(
             #     EC.presence_of_element_located((By.CLASS_NAME, 'game-table')))[:]
@@ -273,10 +282,10 @@ def do_scraping(driver_s, driver_r, avdelningar, history, datum):  # get data fr
         if len(result_tab) == 8:
             result_tab = result_tab[1:]
 
-        assert len(result_tab) == 7, f'################################ Antal resultat är fel i avd {avdelningar}: {len(result_tab)}'
+        assert len(result_tab) == 7, log_print(f'################################ Antal resultat är fel i avd {avdelningar}: {len(result_tab)}')
         
         
-    print('find driver_s game-table avd', avdelningar)
+    log_print(f'find driver_s game-table avd {avdelningar}')
     # driver_s.implicitly_wait(10)     # seconds
     # WebDriverWait(driver_s, 10).until(
     #     EC.presence_of_element_located((By.CLASS_NAME, 'game-table')))
@@ -284,12 +293,12 @@ def do_scraping(driver_s, driver_r, avdelningar, history, datum):  # get data fr
     
     driver_s.implicitly_wait(10)     # seconds
     start_tab = driver_s.find_elements(By.CLASS_NAME, 'game-table')[:]  # alla lopp med startlistor
-    print('2 ############################### len start_tab =', len(start_tab))
+    log_print(f'2 ############################### len start_tab = {len(start_tab)}')
             
     if len(start_tab) == 8:
         start_tab = start_tab[1:]
 
-    assert len(start_tab) == 7, f'################################### Antal lopp är fel: {len(start_tab)} avd {avdelningar}'
+    assert len(start_tab) == 7, log_print(f'################################### Antal lopp är fel: {len(start_tab)} avd {avdelningar}')
     
     comb = driver_s.find_elements(By.CLASS_NAME,'race-combined-info')  # alla bana,dist,start
     priselement = driver_s.find_elements(By.CLASS_NAME,
@@ -302,7 +311,7 @@ def do_scraping(driver_s, driver_r, avdelningar, history, datum):  # get data fr
         elif 'NOK' in p.text:
             NOK = True
             break
-    print('EUR:', EUR, 'NOK:', NOK)
+    log_print(f'EUR: {EUR}, NOK: {NOK}')
     # alla lopps priser
     priser = [p.text for p in priselement if 'Pris:' in p.text]
 
@@ -312,14 +321,13 @@ def do_scraping(driver_s, driver_r, avdelningar, history, datum):  # get data fr
                   ('Tillägg' not in p.text) and 
                   ('EUR' in p.text or 'NOK' in p.text)]  # alla lopps priser
     
-    assert len(priser) == 7, f'Antal priser är fel: {len(priser)} avd {avdelningar}'
+    assert len(priser) == 7, log_print(f'Antal priser är fel: {len(priser)} avd {avdelningar}')
     
     # ett lopp (de häst-relaterade som inte kan bli 'missing' tar jag direkt på loppnivå)
     for anr, avd in enumerate(start_tab):
         if anr+1 not in avdelningar:
             continue
-        print('Start avd', anr+1, 'avd', avdelningar, '(samma?)')
-        # logging.warning(datum+' avd: '+str(avd))
+        assert anr+1 == avdelningar[0], log_print(f'Start avd {anr+1} ej samma som avdelningar[0] {avdelningar[0]}')
 
         bana = comb[anr].text.split('\n')[0]
         assert len(bana) > 0, f'Bana saknas: {bana} avd {avdelningar}'
@@ -349,7 +357,7 @@ def do_scraping(driver_s, driver_r, avdelningar, history, datum):  # get data fr
         assert len(rader) > 0, 'no rows found   avd {avdelningar}'
         strecks = avd.find_elements(By.CLASS_NAME, "betDistribution-col")[1:]  # streck i loppet  utan rubrik
         assert len(strecks) > 0, 'no strecks found avd {avdelningar}'
-        print(f'ant i avd {avdelningar}: names={len(names)}, vodds={len(voddss)}, podds={len(poddss)}, rader={len(rader)}, streck={len(strecks)}')
+        log_print(f'ant i avd {avdelningar}: names={len(names)}, vodds={len(voddss)}, podds={len(poddss)}, rader={len(rader)}, streck={len(strecks)}')
       
         if driver_r:
             # resultat från resultatsidan
@@ -378,23 +386,54 @@ def do_scraping(driver_s, driver_r, avdelningar, history, datum):  # get data fr
             
         # vdict=v[0].result()
         # print(vdict)
-        print('Klar avd', anr+1)    
+        log_print(f'Klar avd {anr+1}')    
     
     
     return vdict, bana
-def log_print(text):
-    """Skriver ut på loggen och gör en print samt returnerar strängen (för assert)"""
-    logging.info(text)
-    print(text)
-    
-    return text
-
-
 
 
 
 # %% popup för vilken info som ska visas
 def anpassa(driver_s, avd):
+
+    ###########   Lokal funktion   ########################
+    def click_element(element_namn, element, avd):
+        log_print(f'Väntade på {element_namn} avd={avd}')
+
+        is_checkbox = driver_s.execute_script(
+            "return arguments[0].type === 'checkbox';", element)
+        log_print(f'{element_namn}.is_checkbox={is_checkbox} avdelning {avd}')
+        log_print(f'{element_namn}.text={element.text}')
+        actions = ActionChains(driver_s)
+        actions.move_to_element(element).click().perform()
+        is_selected = driver_s.execute_script(
+            "return arguments[0].checked;", element)
+        arg_selected = driver_s.execute_script(
+            "return arguments[0].getAttribute('checked');", element)
+        if not is_selected:
+            log_print(f'klickar nu på {element_namn} avdelning {avd}')
+            element.click()
+        log_print(
+            f'{element_namn}.is_selected={element.is_selected()} avdelning {avd}')
+
+        # is_selected = driver_s.execute_script(
+        #     "return arguments[0].checked;", element)
+        # arg_selected = driver_s.execute_script(
+        #     "return arguments[0].getAttribute('checked');", element)
+
+        # log_print(f'is_selected={is_selected} avdelning {avd}')
+        # log_print(f'arg_selected={arg_selected} avdelning {avd}')
+        # if is_selected != arg_selected:
+        #     log_print(
+        #         f'is_selected={is_selected} != arg_selected={arg_selected} avdelning {avd}')
+
+        if not is_selected:
+            log_print(f'{element_namn} är ännu inte vald avdelning {avd}')
+            driver_s.execute_script("arguments[0].click();", element)
+
+        return True
+    ########### Slut lokal funktion ########################
+
     avd = avd[0]
     wait = WebDriverWait(driver_s, 10)
     driver_s.implicitly_wait(10)
@@ -413,80 +452,34 @@ def anpassa(driver_s, avd):
     # Först utöka alla history för avdelningen
     log_print(f'Välj knappen "Utöka alla" avd={avd}')
     utöka_button = avd_buttons[1]
-    log_print(f" utöka_button is visible: {utöka_button.is_displayed()}")
-    log_print(f" utöka_button is clickable: {utöka_button.is_enabled()}")
     log_print(f' Klickar nu på {utöka_button.text}, avdelning {avd}')
     actions = ActionChains(driver_s)
     actions.move_to_element(utöka_button).click().perform()
-    log_print(f' Klickade på Utöka alla med move_to_element')
+  
     log_print(f' Klickar nu med JavaScript på {utöka_button.text}, avdelning {avd}')
     driver_s.execute_script("arguments[0].click();", utöka_button)
-    log_print(f' Klickade på Utöka alla med JavaScript')
     
     # Anpassa vilka kolumner i loppet som skall visas
     log_print(f'Välj knappen "Anpassa" avd={avd}')
     anpassa_button = avd_buttons[2]
-    log_print(f" anpassa_button is visible: {anpassa_button.is_displayed()}")
-    log_print(f" anpassa_button is clickable: {anpassa_button.is_enabled()}")
     log_print(f' Klickar nu på {anpassa_button.text}, avdelning {avd}')
     actions = ActionChains(driver_s)
     actions.move_to_element(anpassa_button).click().perform()
-    log_print(f' Klickade på Anpassa med move_to_element')
     log_print(f' Klickar nu med JavaScript på {anpassa_button.text}, avdelning {avd}')
     driver_s.execute_script("arguments[0].click();", anpassa_button)
 
-    
-    #### Lokal def ######
-    def click_element(element_namn, element, avd):
-        log_print(f'Väntade på {element_namn} avd={avd}')
-    
-        log_print(f"{element_namn} is visible: {element.is_displayed()}")
-        log_print(f"{element_namn} is clickable: {element.is_enabled()}")
-        is_checkbox = driver_s.execute_script("return arguments[0].type === 'checkbox';", element)
-        log_print(f'{element_namn}.is_checkbox={is_checkbox} avdelning {avd}')
-        log_print(f'{element_namn}.text={element.text}')
-        actions = ActionChains(driver_s)
-        actions.move_to_element(element).click().perform()
-        is_selected  = driver_s.execute_script("return arguments[0].checked;", element)
-        arg_selected = driver_s.execute_script("return arguments[0].getAttribute('checked');", element)
-        if not is_selected:
-            log_print(f'klickar nu på {element_namn} avdelning {avd}')
-            element.click()
-        log_print(f'{element_namn}.is_selected={element.is_selected()} avdelning {avd}') 
-        
-        is_selected  = driver_s.execute_script("return arguments[0].checked;", element)
-        arg_selected = driver_s.execute_script("return arguments[0].getAttribute('checked');", element)
-        
-        log_print(f'is_selected={is_selected} avdelning {avd}')
-        log_print(f'arg_selected={arg_selected} avdelning {avd}')
-        if is_selected != arg_selected:
-            log_print(f'is_selected={is_selected} != arg_selected={arg_selected} avdelning {avd}')
-        
-        
-        if not is_selected:
-            log_print(f'{element_namn} är ännu inte vald avdelning {avd}')
-            driver_s.execute_script("arguments[0].click();", element)
-
-        log_print(
-            f'Nu borde {element_namn} vara ticked {element.is_selected()} avdelning {avd}')
-    
-        return True
-    #### Lokal def slut ######
-    
-    
-    # Hitta nästa element med hjälp av data-attributet och vänta tills det är klickbart
+    # Hitta nästa huvud-element "Inför loppet" och vänta tills det är klickbart
     pre_race_element = wait.until(EC.element_to_be_clickable(
         (By.CSS_SELECTOR, '[data-test-id="desktop-category-pre-race"]')))
-    log_print(f'väntade på den nya pre_race_element. Avd={avd}')
+  
+    log_print(f'klickar nu på huvud-elementet "Inför loppet". Avd={avd}')
     pre_race_element.click()
-    log_print(f'klickade på den nya pre_race_element. Avd={avd}')
     
     ### Hitta nästa huvud element Hästinfo ###
     horse_info_element = wait.until(EC.element_to_be_clickable(
         (By.CSS_SELECTOR, '[data-test-id="desktop-category-horse-info"]')))
-    log_print(f'väntade på horse_info_element. Avdelning {avd}')
+    log_print(f'klickar nu på huvud-elementet Hästinfo. Avdelning {avd}')
     horse_info_element.click()
-    log_print(f'klickade på den nya horse_info_element. Avdelning {avd}')
     
     # Checkboxes under Hästinfo
     age_sex_checkbox = wait.until(EC.presence_of_element_located(
@@ -497,7 +490,7 @@ def anpassa(driver_s, avd):
     ### Hitta nästa huvud-element 'Inför loppet' ###  
     pre_race_button = wait.until(EC.presence_of_element_located(
         (By.XPATH, "//div[@data-test-id='desktop-category-pre-race']")))
-    log_print(f'klickar nu på "inför loppet" avd {avd}')
+    log_print(f'klickar nu på huvud-elementet "inför loppet" avd {avd}')
     pre_race_button.click()
     
     # Checkboxes under 'Inför loppet' 
@@ -523,7 +516,7 @@ def anpassa(driver_s, avd):
     ### Hitta nästa huvud-element 'Tidigare resultat' ###
     tidigare_res_button = wait.until(EC.presence_of_element_located(
         (By.XPATH, "//div[@data-test-id='desktop-category-previous-results']")))
-
+    log_print(f'klickar nu på huvud-elementet "Tidigare resultat" avd {avd}')
     tidigare_res_button.click()
     
     # Checkboxes under 'Tidigare resultat' 
@@ -536,7 +529,9 @@ def anpassa(driver_s, avd):
     ### Hitta nästa huvud-element 'Form & tips' ###
     form_tips = wait.until(EC.presence_of_element_located(
         (By.XPATH, "//div[@data-test-id ='desktop-category-form-and-tips']")))
+    log_print(f'klickar nu på huvud-elementet "Tidigare resultat" avd {avd}')
     form_tips.click()
+    
     log_print(f'I "Form & tips" skall allt vara släckt avd {avd}')
      
     # Checkboxes under 'Form och tips' 
@@ -562,11 +557,7 @@ def anpassa(driver_s, avd):
 
     Aktivera_button.click()
     log_print(f'Klickade på Aktivera. Färdig med avd={avd}')
-    
-    logging.debug(f'Bryter nu medvetet avdelning {avd}')
-    assert False, 'SLUT SLUT SLUT BRYTER ***********************************'
         
-    
 
 def v75_scraping(resultat=False, history=False, headless=True, driver_s=None, driver_r=None):
     pd.options.display.max_rows = 200
@@ -704,13 +695,14 @@ def v75_threads(resultat=False, history=False, headless=True, avdelningar=None, 
                 #     pass
 
         # scraping
-        print('Kör scraping med driver_s och driver_r för avd', avdelningar)
+        log_print(f'Kör scraping med driver_s och driver_r för avd {avdelningar}')
         try:
             komplett, bana = do_scraping(driver_s, driver_r, avdelningar, history, datum)
-            print('Klar scraping med driver_s och driver_r för avd', avdelningar)
+            log_print(f'Klar scraping med driver_s och driver_r för avd {avdelningar}')
         except:
-            print(f'************************** Något gick fel i do_scraping avd {avdelningar} - quit drive *******************************') 
+            log_print(f'************************** Något gick fel i do_scraping avd {avdelningar} - quit drive *******************************') 
             quit_drivers(driver_s, driver_r)    
+            log_print(f'df.shape={df.shape}')
             return df
         
         temp_df = pd.DataFrame(komplett)
@@ -789,9 +781,10 @@ if __name__ == '__main__':
         for enum,avd in enumerate(avd_list):
             df = pd.concat([df,start_scrape(avd)], ignore_index=True)
             
+    log_print(f'efter allt klart: df.shape={df.shape}')    
     df.sort_values(by=['datum', 'avd', 'startnr', ], inplace=True)        
     print(df)
-    print('\ndet tog', round(time.perf_counter() - start_time, 3), 'sekunder')
+    log_print(f'\ndet tog {round(time.perf_counter() - start_time, 3)} sekunder')
     
 import datetime    
 print('END', datetime.datetime.now().strftime("%H.%M.%S"))
