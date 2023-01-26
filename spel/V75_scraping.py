@@ -390,136 +390,7 @@ def log_print(text):
     return text
 
 
-def anpassa_orginal(driver_s, avd):
-    avd = avd[0]
-    # sl = driver_s.find_elements(By.CLASS_NAME, "startlist")
-    sl = driver_s.find_elements(
-        By.CLASS_NAME, "css-8y0fv8-Startlists-styles--startlistelement")
 
-    print('AVDELNING =', avd, '    antal lopp =', len(sl))
-
-    buts = sl[avd-1].find_elements(
-        By.CSS_SELECTOR, "button[class^='MuiButtonBase-root MuiButton-root']")
-
-    print('    len buts', len(buts))
-    # print('sl',sl)
-    # print('    sl.text',sl[avd-1].text)
-    assert len(buts) > 0, f'buts skall inte vara tom: {buts} för avd {avd}'
-
-    print('    buts[0].text', buts[0].text, 'buts[1]. text',
-          buts[1].text, 'buts[2].text', buts[2].text)
-
-    buts = buts[2]
-    print('********************************************Klickar nu på',
-          buts.text, 'avdelning', avd)
-
-    buts.click()
-
-    print('********************************************klickade   på',
-          buts.text, 'Avdelning', avd)
-
-    # tics = driver_s.find_elements_by_class_name("css-1hngy38-Checkbox-styles--label")
-    # WebDriverWait(driver_s, 10).until(EC.presence_of_element_located((By.CLASS_NAME, 'css-1hngy38-Checkbox-styles--label')))
-    driver_s.implicitly_wait(10)     # seconds
-    tics = driver_s.find_elements(
-        By.CLASS_NAME, "css-1hngy38-Checkbox-styles--label")
-    driver_s.implicitly_wait(10)     # seconds
-    # print('len tics',len(tics))
-
-    flag1 = flag2 = flag3 = flag4 = flag5 = flag6 = flag7 = flag8 = flag9 = True
-    for t in tics:
-        if not (flag1 or flag2 or flag3 or flag4 or flag5 or flag6 or flag7 or flag8 or flag9):
-            print(f'anpassa klar avd={avd} - break')
-            break
-        if t.text == '':
-            continue
-
-        if flag1 and t.text == 'VÄRMINGSVIDEO':   # 'VÄRMNINGS­VIDEO'
-            t.click()
-            # print('värmn')
-            flag1 = False
-        elif flag2 and t.text == 'UTÖKA ALLA STARTLISTOR SAMTIDIGT':
-            t.click()
-            # print('utöka')
-            flag2 = False
-        elif flag3 and t.text == 'TIPSKOMMENTARER':
-            t.click()
-            # print('tips')
-            flag3 = False
-        elif flag4 and ('LOPPKOMMENTARER' in t.text):
-            t.click()
-            # print('komment')
-            flag4 = False
-        elif flag5 and t.text == 'KR/START':
-            t.click()
-            # print('kr')
-            flag5 = False
-        elif flag6 and t.text == 'DISTANS OCH SPÅR':
-            # t.click()
-            # if t.is_enabled():
-            #     print('distans och spår är enabled')
-
-            # if t.is_displayed():
-            #     print('distans och spår är displayed')
-
-            if t.is_selected():
-                print('distans och spår är redan valt')
-                flag6 = False
-            else:
-                # print(t.text, 'ej selected ännu')
-                pass
-
-            # WebDriverWait(t, 10).until(EC.element_to_be_clickable(t), message='distans och spår gick inte att klicka på')
-            # WebDriverWait(t,10)
-
-            driver_s.implicitly_wait(10)     # seconds
-            t.click()
-            if t.is_selected():
-                # print(t.text+' är korrekt')
-                flag6 = False
-            else:
-                # print(t.text+' är fel')
-                flag6 = True
-
-            # print('efter click distans och spår')
-
-        elif flag7 and t.text == 'V-ODDS':
-            # t.click()
-            # print('hoppar över voods click (verkar vara förifyllt')
-            flag7 = False
-        elif flag8 and t.text == 'P-ODDS':
-            t.click()
-            # print('podds')
-            flag8 = False
-        elif flag9 and t.text == 'HÄSTENS KÖN & ÅLDER':
-            t.click()
-            # print('kön')
-            flag9 = False
-
-    # print('Prova name '+'checkbox-ageAndSex')
-    chkbx = driver_s.find_elements(By.NAME, 'checkbox-ageAndSex')[0]
-    if chkbx.is_enabled():
-        #     print(chkbx.text +' är enabled')
-        pass
-    if chkbx.is_displayed():
-        #     print(chkbx.text+' är displayed')
-        pass
-    if chkbx.is_selected():
-        #     print(chkbx.text+' är korrekt valt')
-        pass
-    else:
-        # print(chkbx.text, ' ej selected ännu')
-        chkbx.click()
-    if chkbx.is_selected():
-        print(chkbx.text+' är korrekt för avdelning', avd)
-
-    ## Tryck på Spara-knappen ##
-    driver_s.implicitly_wait(5)     # seconds
-    save_button = driver_s.find_elements(
-        By.CSS_SELECTOR, "[ class^='css-1ix']")
-    save_button_text = save_button[0].text
-    save_button[0].click()
-    print('efter click på"', save_button_text, 'i avd =', avd)
 
 
 # %% popup för vilken info som ska visas
@@ -528,50 +399,60 @@ def anpassa(driver_s, avd):
     wait = WebDriverWait(driver_s, 10)
     driver_s.implicitly_wait(10)
     
-    # TODO:Klick på "Utöka Alla"  dvs buts[1] behövs execute_script även här?
-
-    log_print(f'start anpassa(...) avd={avd}')
-    
     sl = driver_s.find_elements(
-        By.CLASS_NAME, "css-8y0fv8-Startlists-styles--startlistelement")
-    log_print(f"sl is visible: {sl[avd-1].is_displayed()}")
-    log_print(f"sl is clickable: {sl[avd-1].is_enabled()}")
-    buts = sl[avd-1].find_elements(
+        By.CLASS_NAME, "css-8y0fv8-Startlists-styles--startlistelement")  # täcker hela sidan för avd 1-7
+    
+    log_print(f'Hitta de tre knapparna "Andra spel", "Utöka alla" och "Anpassa" avd={avd}')
+    avd_buttons = sl[avd-1].find_elements(
         By.CSS_SELECTOR, "button[class^='MuiButtonBase-root MuiButton-root']")
 
-    log_print(f'       len buts {len(buts)}')
-    assert len(buts) > 0, log_print(f'buts skall inte vara tom: {buts} för avd {avd}')
+    assert len(avd_buttons) > 0, log_print(f'avd_buttons skall inte vara tom: {avd_buttons} för avd {avd}')
 
-    log_print(f' buts[2].text  {buts[2].text}, buts[1]. text {buts[1].text}, buts[2].text {buts[2].text}')
+    log_print(f' avd_buttons[0].text  {avd_buttons[0].text}, avd_buttons[1]. text {avd_buttons[1].text}, avd_buttons[2].text {avd_buttons[2].text}')
 
-    buts = buts[2]
-    log_print(f" buts is visible: {buts.is_displayed()}")
-    log_print(f" buts is clickable: {buts.is_enabled()}")
-    log_print(f' Klickar nu på {buts.text}, avdelning {avd}')
+    # Först utöka alla history för avdelningen
+    log_print(f'Välj knappen "Utöka alla" avd={avd}')
+    utöka_button = avd_buttons[1]
+    log_print(f" utöka_button is visible: {utöka_button.is_displayed()}")
+    log_print(f" utöka_button is clickable: {utöka_button.is_enabled()}")
+    log_print(f' Klickar nu på {utöka_button.text}, avdelning {avd}')
     actions = ActionChains(driver_s)
-    actions.move_to_element(buts).click().perform()
+    actions.move_to_element(utöka_button).click().perform()
+    log_print(f' Klickade på Utöka alla med move_to_element')
+    log_print(f' Klickar nu med JavaScript på {utöka_button.text}, avdelning {avd}')
+    driver_s.execute_script("arguments[0].click();", utöka_button)
+    log_print(f' Klickade på Utöka alla med JavaScript')
+    
+    # Anpassa vilka kolumner i loppet som skall visas
+    log_print(f'Välj knappen "Anpassa" avd={avd}')
+    anpassa_button = avd_buttons[2]
+    log_print(f" anpassa_button is visible: {anpassa_button.is_displayed()}")
+    log_print(f" anpassa_button is clickable: {anpassa_button.is_enabled()}")
+    log_print(f' Klickar nu på {anpassa_button.text}, avdelning {avd}')
+    actions = ActionChains(driver_s)
+    actions.move_to_element(anpassa_button).click().perform()
     log_print(f' Klickade på Anpassa med move_to_element')
-    log_print(f' Klickar nu med JavaScript på {buts.text}, avdelning {avd}')
-    driver_s.execute_script("arguments[0].click();", buts)
+    log_print(f' Klickar nu med JavaScript på {anpassa_button.text}, avdelning {avd}')
+    driver_s.execute_script("arguments[0].click();", anpassa_button)
 
     
     #### Lokal def ######
-    def click_element(el_name, element, avd):
-        log_print(f'Väntade på {el_name} avd={avd}')
+    def click_element(element_namn, element, avd):
+        log_print(f'Väntade på {element_namn} avd={avd}')
     
-        log_print(f"{el_name} is visible: {element.is_displayed()}")
-        log_print(f"{el_name} is clickable: {element.is_enabled()}")
+        log_print(f"{element_namn} is visible: {element.is_displayed()}")
+        log_print(f"{element_namn} is clickable: {element.is_enabled()}")
         is_checkbox = driver_s.execute_script("return arguments[0].type === 'checkbox';", element)
-        log_print(f'{el_name}.is_checkbox={is_checkbox} avdelning {avd}')
-        log_print(f'{el_name}.text={element.text}')
+        log_print(f'{element_namn}.is_checkbox={is_checkbox} avdelning {avd}')
+        log_print(f'{element_namn}.text={element.text}')
         actions = ActionChains(driver_s)
         actions.move_to_element(element).click().perform()
         is_selected  = driver_s.execute_script("return arguments[0].checked;", element)
         arg_selected = driver_s.execute_script("return arguments[0].getAttribute('checked');", element)
         if not is_selected:
-            log_print(f'klickar nu på {el_name} avdelning {avd}')
+            log_print(f'klickar nu på {element_namn} avdelning {avd}')
             element.click()
-        log_print(f'{el_name}.is_selected={element.is_selected()} avdelning {avd}') 
+        log_print(f'{element_namn}.is_selected={element.is_selected()} avdelning {avd}') 
         
         is_selected  = driver_s.execute_script("return arguments[0].checked;", element)
         arg_selected = driver_s.execute_script("return arguments[0].getAttribute('checked');", element)
@@ -583,11 +464,11 @@ def anpassa(driver_s, avd):
         
         
         if not is_selected:
-            log_print(f'{el_name} är ännu inte vald avdelning {avd}')
+            log_print(f'{element_namn} är ännu inte vald avdelning {avd}')
             driver_s.execute_script("arguments[0].click();", element)
 
         log_print(
-            f'Nu borde {el_name} vara ticked {element.is_selected()} avdelning {avd}')
+            f'Nu borde {element_namn} vara ticked {element.is_selected()} avdelning {avd}')
     
         return True
     #### Lokal def slut ######
@@ -600,66 +481,65 @@ def anpassa(driver_s, avd):
     pre_race_element.click()
     log_print(f'klickade på den nya pre_race_element. Avd={avd}')
     
-    # Hitta nästa element Hästinfo
+    ### Hitta nästa huvud element Hästinfo ###
     horse_info_element = wait.until(EC.element_to_be_clickable(
         (By.CSS_SELECTOR, '[data-test-id="desktop-category-horse-info"]')))
     log_print(f'väntade på horse_info_element. Avdelning {avd}')
     horse_info_element.click()
     log_print(f'klickade på den nya horse_info_element. Avdelning {avd}')
     
-    ### Checkboxes Häsinfo ###
+    # Checkboxes under Hästinfo
     age_sex_checkbox = wait.until(EC.presence_of_element_located(
         (By.XPATH, "//div[@data-test-id='desktop-checkbox-ageAndSex']")))
    
     click_element('age_sex_checkbox',age_sex_checkbox,avd)
     
-    # Hitta nästa element 'Inför loppet'    
+    ### Hitta nästa huvud-element 'Inför loppet' ###  
     pre_race_button = wait.until(EC.presence_of_element_located(
         (By.XPATH, "//div[@data-test-id='desktop-category-pre-race']")))
     log_print(f'klickar nu på "inför loppet" avd {avd}')
     pre_race_button.click()
     
-    ### Checkboxes 'Inför loppet' ###
+    # Checkboxes under 'Inför loppet' 
     logging.info(f'Letar nu upp checkboxen för vOdds avdelning {avd}')
     vOdds_checkbox = wait.until(EC.presence_of_element_located(
         (By.XPATH, "//div[@data-test-id='desktop-checkbox-vOdds']")))
     
-    vOdds_checkbox.click() # Varför ok för vOdds?
+    vOdds_checkbox.click() # Varför måste detta göras för enbart vOdds?
     click_element('vOdds_checkbox',vOdds_checkbox,avd)
         
     log_print(f'Letar nu upp checkboxen för pOdds avdelning {avd}')     
     pOdds_checkbox=wait.until(EC.presence_of_element_located(
             (By.XPATH, "//div[@data-test-id='desktop-checkbox-pOdds']")))
     
-    click_element('pOdds_checkbox', pOdds_checkbox, avd)  # pOdds_checkbox.click()  # Varför inte ok för pOdds?
+    click_element('pOdds_checkbox', pOdds_checkbox, avd) 
 
     log_print(f'Letar nu upp checkboxen för Distans & spår avdelning {avd}')
     dist_spår_checkbox = wait.until(EC.presence_of_element_located(
         (By.XPATH, "//div[contains(@class, 'MuiButtonBase-root MuiListItemButton-root')]//div[text()='Distans & spår']")))
     
-
     click_element('dist_spår_checkbox', dist_spår_checkbox, avd)
     
-    # Hitta nästa element 'Tidigare resultat'   
+    ### Hitta nästa huvud-element 'Tidigare resultat' ###
     tidigare_res_button = wait.until(EC.presence_of_element_located(
         (By.XPATH, "//div[@data-test-id='desktop-category-previous-results']")))
 
     tidigare_res_button.click()
     
-    ### Checkboxes 'Tidigare resultat' ###
+    # Checkboxes under 'Tidigare resultat' 
     log_print(f'Letar nu upp checkboxen för Kr/start avdelning {avd}')
     krPerStart_checkbox = wait.until(EC.presence_of_element_located(
         (By.XPATH, "//div[@data-test-id='desktop-checkbox-earningsPerStart']")))
 
     click_element('krPerStart_checkbox', krPerStart_checkbox, avd)
     
-    # Hitta nästa element 'Form & tips'
+    ### Hitta nästa huvud-element 'Form & tips' ###
     form_tips = wait.until(EC.presence_of_element_located(
         (By.XPATH, "//div[@data-test-id ='desktop-category-form-and-tips']")))
     form_tips.click()
     log_print(f'I "Form & tips" skall allt vara släckt avd {avd}')
      
-    ### Checkboxes 'Form och tips' ###
+    # Checkboxes under 'Form och tips' 
     log_print(f'Letar nu upp checkboxen för Tipskommentar avd {avd}')
     tipsCom_checkbox = wait.until(EC.presence_of_element_located(
         (By.XPATH, "//div[@data-test-id='desktop-checkbox-showDagensSpelComment']")))
@@ -675,25 +555,17 @@ def anpassa(driver_s, avd):
         (By.XPATH, "//div[@data-test-id='desktop-checkbox-showRaceComments']")))
     click_element('loppCom_checkbox', loppCom_checkbox, avd)
     
+    ### Tryck på Aktivera-knappen Dvs spara inställningarna ###
     log_print(f"Leta upp Aktivera knappen avd {avd}") 
     Aktivera_button = wait.until(EC.presence_of_element_located(
         (By.XPATH, "//button[@data-test-id='desktop-button-activate']")))
 
     Aktivera_button.click()
-    log_print(f'Klickade på Aktivera i avd {avd}')
+    log_print(f'Klickade på Aktivera. Färdig med avd={avd}')
     
     logging.debug(f'Bryter nu medvetet avdelning {avd}')
     assert False, 'SLUT SLUT SLUT BRYTER ***********************************'
         
-        
-        
-        
-        
-    ## Tryck på Spara-knappen ##
-    save_button = driver_s.find_elements(By.CSS_SELECTOR, "[ class^='css-1ix']")
-    save_button_text = save_button[0].text 
-    save_button[0].click()
-    print('efter click på"', save_button_text, 'i avd =', avd)
     
 
 def v75_scraping(resultat=False, history=False, headless=True, driver_s=None, driver_r=None):
@@ -784,7 +656,7 @@ def v75_threads(resultat=False, history=False, headless=True, avdelningar=None, 
             driver_s.implicitly_wait(20)  # seconds
             race_info = driver_s.find_elements(By.CLASS_NAME, "race-info-toggle")
             if len(race_info)==0: #Try again
-                print(f'try race_info igen för avd {avdelningar}')
+                log_print(f'try race_info igen för avd {avdelningar}')
                 input('enter för att försöka igen med race_info')
                 # WebDriverWait(driver_s, 10).until(
                 #     EC.presence_of_element_located((By.CLASS_NAME, "race-info-toggle")))
