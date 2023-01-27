@@ -450,22 +450,27 @@ def anpassa(driver_s, avd):
     log_print(f' avd_buttons[0].text  {avd_buttons[0].text}, avd_buttons[1]. text {avd_buttons[1].text}, avd_buttons[2].text {avd_buttons[2].text}')
 
     # Först utöka alla history för avdelningen
-    log_print(f'Välj knappen "Utöka alla" avd={avd}')
     utöka_button = avd_buttons[1]
-    log_print(f' Klickar nu på {utöka_button.text}, avdelning {avd}')
-    actions = ActionChains(driver_s)
-    actions.move_to_element(utöka_button).click().perform()
-  
-    log_print(f' Klickar nu med JavaScript på {utöka_button.text}, avdelning {avd}')
-    driver_s.execute_script("arguments[0].click();", utöka_button)
+    knapp_text = utöka_button.text.replace("\n","")
+    log_print(f'Kolla om knappen "Utöka alla" har rätt text {knapp_text}  avd={avd}')
     
+    if utöka_button.text.startswith('Utöka'):
+        log_print(f' Klickar nu på {knapp_text}, avdelning {avd}')
+        actions = ActionChains(driver_s)
+        actions.move_to_element(utöka_button).click().perform()
+
+    if utöka_button.text.startswith('Utöka'):  
+        log_print(f' Klickar nu med JavaScript på {knapp_text}, avdelning {avd}')
+        driver_s.execute_script("arguments[0].click();", utöka_button)
+
     # Anpassa vilka kolumner i loppet som skall visas
     log_print(f'Välj knappen "Anpassa" avd={avd}')
     anpassa_button = avd_buttons[2]
-    log_print(f' Klickar nu på {anpassa_button.text}, avdelning {avd}')
+    knapp_text = anpassa_button.text.replace("\n", "")
+    log_print(f' Klickar nu på {knapp_text}, avdelning {avd}')
     actions = ActionChains(driver_s)
     actions.move_to_element(anpassa_button).click().perform()
-    log_print(f' Klickar nu med JavaScript på {anpassa_button.text}, avdelning {avd}')
+    log_print(f' Klickar nu med JavaScript på {knapp_text}, avdelning {avd}')
     driver_s.execute_script("arguments[0].click();", anpassa_button)
 
     # Hitta nästa huvud-element "Inför loppet" och vänta tills det är klickbart
@@ -749,11 +754,11 @@ if __name__ == '__main__':
     ######### settings #########
     omg_df = pd.read_csv(
         'C:\\Users\\peter\\Documents\\MyProjects\\PyProj\\Trav\\spel\\omg_att_spela_link.csv')
-    # avd_list=[[1],[2],[3],[4],[5],[6],[7]]
+    avd_list=[[1],[2],[3],[4],[5],[6],[7]]
     # avd_list=[[1],[2],[3],[4],[5],[6]]
     # avd_list=[[1],[2],[3],[4],[5]]
     # avd_list=[[1],[2],[3],[4]]
-    avd_list=[[1],[2],[3]]
+    # avd_list=[[1],[2],[3]]
     # avd_list=[[1],[2]]
     # avd_list=[[1]]
     concurrency=False
@@ -783,7 +788,7 @@ if __name__ == '__main__':
             
     log_print(f'efter allt klart: df.shape={df.shape}')    
     df.sort_values(by=['datum', 'avd', 'startnr', ], inplace=True)        
-    print(df)
+    df.to_csv('temp.csv', index=False)
     log_print(f'\ndet tog {round(time.perf_counter() - start_time, 3)} sekunder')
     
 import datetime    
