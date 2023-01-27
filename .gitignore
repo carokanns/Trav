@@ -24,3 +24,6 @@ spel/v75_tester/*.pkl
 spel/v75_tester/*.json
 spel/__pycache__/*.*
 spel/temp.csv
+spel/sparad_scrape_learn.csv
+spel/sparad_scrape_spela.csv
+spel/sparad_stack_meta.csv

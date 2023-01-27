@@ -28,7 +28,7 @@ import logging
     
 # %%
 
-logging.basicConfig(level=logging.DEBUG, filemode='a', filename='v75.log', force=True,
+logging.basicConfig(level=logging.INFO, filemode='a', filename='v75.log', force=True,
                     encoding='utf-8', format='v75:' '%(asctime)s - %(levelname)s - %(lineno)d - %(message)s')
 logging.info('Startar')
 
@@ -42,7 +42,7 @@ def v75_scraping():
     logging.info('vs.v75_scraping: startar')
     print('start vs.v75_scraping')
     df = vs.v75_scraping(resultat=False, history=True, headless=False)
-    logging.info('vs.v75_scraping: klar')
+    logging.info(f'vs.v75_scraping: klar: df.shape = ' + str(df.shape))
     for f in ['häst', 'bana', 'kusk', 'h1_kusk', 'h2_kusk', 'h3_kusk', 'h4_kusk', 'h5_kusk', 'h1_bana', 'h2_bana', 'h3_bana', 'h4_bana', 'h5_bana']:
         df[f] = df[f].str.lower()
     return df
@@ -63,6 +63,7 @@ def do_scraping(datum):
 
         my_bar = st.progress(i)
         with concurrent.futures.ThreadPoolExecutor() as executor:
+            logging.info('scrape() - startar threaded v75_scraping')
             future = executor.submit(v75_scraping)
             while future.running():
                 time.sleep(1)
@@ -79,8 +80,9 @@ def do_scraping(datum):
             st.balloons()
             my_bar.empty()
             placeholder.empty()
-
+            logging.info(f'scrape() - klar med threaded v75_scraping - df_scraped.shape = {df_scraped.shape}')
             # use_meta(df_stack, meta)
+    return df_scraped
 def build_stack_df(df):
     """ Bygg stack data som skall bli input till L2-modellerna
     Args:
@@ -160,7 +162,7 @@ def get_scrape_data(datum):
             except FileNotFoundError:
                 st.error('Det finns ingen sparad data')
                 raise FileNotFoundError('Det finns ingen sparad data')
-
+    return
 
 def mesta_diff_per_avd(X_):
     logging.info('räknar ut mesta_diff_per_avd')
@@ -191,7 +193,10 @@ def välj_rad(df, max_insats=300):
             max_insats (int): Max insats per omgång
     Returns:
         DataFrame: Kolumnen välj är True för de rader som ska spelas
+        int: total insats
     """
+    
+    # TODO: Begränsa kostnad mer
     logging.info('Väljer rad')
     veckans_rad = df.copy()
     veckans_rad['välj'] = False   # inga rader valda ännu
@@ -214,16 +219,17 @@ def välj_rad(df, max_insats=300):
             continue
         if row.avd == mest_diff.avd.iloc[1]: 
             continue
-        # print('i',i)
+        
         veckans_rad.loc[i, 'välj'] = True
         cost = compute_total_insats(veckans_rad[veckans_rad.välj])
         if cost > max_insats:
-            veckans_rad.loc[i, 'välj'] = False
+            veckans_rad.loc[i, 'välj'] = False        
             break
-        
+    
+    cost = compute_total_insats(veckans_rad[veckans_rad.välj])
     veckans_rad.sort_values(by=['välj', 'avd'], ascending=[False, True], inplace=True)
 
-    return veckans_rad           
+    return veckans_rad, cost           
             
             
 #############################################
@@ -250,12 +256,13 @@ if 'L1_modeller' not in st.session_state:
     st.session_state['L1_modeller'], st.session_state['L2_modeller'] = mod.skapa_modeller()
         
 with scraping:
-        datum = date_handling()
-        st.title('🐎 v75 -  ' + st.session_state.datum)
-        get_scrape_data(datum)
+    logging.info('Nu kör vi "with scraping"')
+    datum = date_handling()
+    st.title('🐎 v75 -  ' + st.session_state.datum)
+    get_scrape_data(datum)
 
 if st.session_state['scrape_type'] is not None: 
-    logging.info('build_stack_df(df) - startar')
+    logging.info('Nu bygger vi df_stack')
     df_stack = st.session_state['df'].copy()
     L1_features, cat_features, num_features = mod.read_in_features()
     
@@ -288,39 +295,39 @@ if st.session_state['scrape_type'] is not None:
     ############ CSS klart ###########################
 
 with avd:
-        use = avd.radio('Välj avdelning', ('Avd 1 och 2', 'Avd 3 och 4', 'Avd 5 och 6', 'Avd 7', 'clear'))
-        avd.subheader(use)
-        col1, col2 = st.columns(2)
-        df_stack = pd.read_csv('sparad_stack_meta.csv')
-        veckans_rad = välj_rad(df_stack, max_insats=300)
-        assert 'meta' in veckans_rad.columns, f"meta finns inte i veckans_rad"
-        veckans_rad.rename(columns={'startnr': 'nr', 'meta': 'Meta'}, inplace=True)
-
-        logging.info(f'display veckans rad för avd {use}')
-        if use == 'Avd 1 och 2':
-            # col1.table(veckans_rad[(veckans_rad.avd == 1)].sort_values(by=['Meta'], ascending=False)[['nr', 'häst', 'Meta', 'streck']].head(3))
-            # col2.table(veckans_rad[(veckans_rad.avd == 2)].sort_values(by=['Meta'], ascending=False)[['nr', 'häst', 'Meta', 'streck']].head(3))
-            col1.table(veckans_rad[(veckans_rad.avd == 1) & veckans_rad.välj].sort_values(by=['Meta'], ascending=False)[['nr', 'häst', 'Meta', 'streck']])
-            col2.table(veckans_rad[(veckans_rad.avd == 2) & veckans_rad.välj].sort_values(by=['Meta'], ascending=False)[['nr', 'häst', 'Meta', 'streck']])
-        elif use == 'Avd 3 och 4':
-            # col1.table(veckans_rad[(veckans_rad.avd == 3)].sort_values(by=['Meta'], ascending=False)[['nr', 'häst', 'Meta', 'streck']].head(3))
-            # col2.table(veckans_rad[(veckans_rad.avd == 4)].sort_values(by=['Meta'], ascending=False)[['nr', 'häst', 'Meta', 'streck']].head(3))
-            col1.table(veckans_rad[(veckans_rad.avd == 3) & veckans_rad.välj].sort_values(by=['Meta'], ascending=False)[['nr', 'häst', 'Meta', 'streck']])
-            col2.table(veckans_rad[(veckans_rad.avd == 4) & veckans_rad.välj].sort_values(by=['Meta'], ascending=False)[
-                       ['nr', 'häst', 'Meta', 'streck']])
-        elif use == 'Avd 5 och 6':
-            # col1.table(veckans_rad[(veckans_rad.avd == 5)].sort_values(by=['Meta'], ascending=False)[['nr', 'häst', 'Meta', 'streck']].head(3))
-            # col2.table(veckans_rad[(veckans_rad.avd == 6)].sort_values(by=['Meta'], ascending=False)[['nr', 'häst', 'Meta', 'streck']].head(3))
-            col1.table(veckans_rad[(veckans_rad.avd == 5) & veckans_rad.välj].sort_values(by=['Meta'], ascending=False)[
-                       ['nr', 'häst', 'Meta', 'streck']])
-            col2.table(veckans_rad[(veckans_rad.avd == 6) & veckans_rad.välj].sort_values(by=['Meta'], ascending=False)[
-                       ['nr', 'häst', 'Meta', 'streck']])
-        elif use == 'Avd 7':
-            # col1.table(veckans_rad[(veckans_rad.avd == 7)].sort_values(by=['Meta'], ascending=False)[['nr', 'häst', 'Meta', 'streck']].head(3))
-            col1.table(veckans_rad[(veckans_rad.avd == 7) & veckans_rad.välj].sort_values(by=['Meta'], ascending=False)[
-                       ['nr', 'häst', 'Meta', 'streck']])
-        elif use == 'clear':
-            st.stop()
-        else:
-            st.write('ej klart')
-        
+    use = avd.radio('Välj avdelning', ('Avd 1 och 2', 'Avd 3 och 4', 'Avd 5 och 6', 'Avd 7', 'clear'))
+    avd.subheader(use)
+    col1, col2 = st.columns(2)
+    df_stack = pd.read_csv('sparad_stack_meta.csv')
+    veckans_rad, kostnad = välj_rad(df_stack, max_insats=375)
+    assert 'meta' in veckans_rad.columns, f"meta finns inte i veckans_rad"
+    veckans_rad.rename(columns={'startnr': 'nr', 'meta': 'Meta'}, inplace=True)
+    st.info(f'Kostnad för veckans rad: {kostnad:.0f} kr')
+    logging.info(f'display veckans rad för avd {use}')
+    if use == 'Avd 1 och 2':
+        # col1.table(veckans_rad[(veckans_rad.avd == 1)].sort_values(by=['Meta'], ascending=False)[['nr', 'häst', 'Meta', 'streck']].head(3))
+        # col2.table(veckans_rad[(veckans_rad.avd == 2)].sort_values(by=['Meta'], ascending=False)[['nr', 'häst', 'Meta', 'streck']].head(3))
+        col1.table(veckans_rad[(veckans_rad.avd == 1) & veckans_rad.välj].sort_values(by=['Meta'], ascending=False)[['nr', 'häst', 'Meta', 'streck']])
+        col2.table(veckans_rad[(veckans_rad.avd == 2) & veckans_rad.välj].sort_values(by=['Meta'], ascending=False)[['nr', 'häst', 'Meta', 'streck']])
+    elif use == 'Avd 3 och 4':
+        # col1.table(veckans_rad[(veckans_rad.avd == 3)].sort_values(by=['Meta'], ascending=False)[['nr', 'häst', 'Meta', 'streck']].head(3))
+        # col2.table(veckans_rad[(veckans_rad.avd == 4)].sort_values(by=['Meta'], ascending=False)[['nr', 'häst', 'Meta', 'streck']].head(3))
+        col1.table(veckans_rad[(veckans_rad.avd == 3) & veckans_rad.välj].sort_values(by=['Meta'], ascending=False)[['nr', 'häst', 'Meta', 'streck']])
+        col2.table(veckans_rad[(veckans_rad.avd == 4) & veckans_rad.välj].sort_values(by=['Meta'], ascending=False)[
+                    ['nr', 'häst', 'Meta', 'streck']])
+    elif use == 'Avd 5 och 6':
+        # col1.table(veckans_rad[(veckans_rad.avd == 5)].sort_values(by=['Meta'], ascending=False)[['nr', 'häst', 'Meta', 'streck']].head(3))
+        # col2.table(veckans_rad[(veckans_rad.avd == 6)].sort_values(by=['Meta'], ascending=False)[['nr', 'häst', 'Meta', 'streck']].head(3))
+        col1.table(veckans_rad[(veckans_rad.avd == 5) & veckans_rad.välj].sort_values(by=['Meta'], ascending=False)[
+                    ['nr', 'häst', 'Meta', 'streck']])
+        col2.table(veckans_rad[(veckans_rad.avd == 6) & veckans_rad.välj].sort_values(by=['Meta'], ascending=False)[
+                    ['nr', 'häst', 'Meta', 'streck']])
+    elif use == 'Avd 7':
+        # col1.table(veckans_rad[(veckans_rad.avd == 7)].sort_values(by=['Meta'], ascending=False)[['nr', 'häst', 'Meta', 'streck']].head(3))
+        col1.table(veckans_rad[(veckans_rad.avd == 7) & veckans_rad.välj].sort_values(by=['Meta'], ascending=False)[
+                    ['nr', 'häst', 'Meta', 'streck']])
+    elif use == 'clear':
+        st.stop()
+    else:
+        st.write('ej klart')
+    

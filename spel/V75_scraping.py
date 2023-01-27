@@ -735,7 +735,7 @@ def v75_threads(resultat=False, history=False, headless=True, avdelningar=None, 
     strukna = df.loc[df.vodds == 'EJ', :].copy()  # Ta bort all strukna
 
     df = städa_och_rensa(df, history)
-
+    
     return df
 
 if __name__ == '__main__':
