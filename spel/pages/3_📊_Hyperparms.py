@@ -102,9 +102,10 @@ def gridsearch_typ(typ, params, proba_kolumner=[], folds=5, save=False):
     
     print('reultat från gridsearch',res)
     if save:
+        # TODO: Gör om dessa json till txt-filer
         with open('optimera/params_'+typ.name+'.json', 'w') as f:
             json.dump(res, f)
-    
+
     return res
 
 def do_grid_search(X,y, typ, params, use_features, cat_features, folds=5,randomsearch=False, verbose=False):

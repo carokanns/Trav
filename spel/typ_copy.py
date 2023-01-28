@@ -93,7 +93,8 @@ class Typ():
         assert (motst_diff == False and motst_ant == 0) or (motst_ant > 0)
         
         self.name = name                # string - används för filnamn mm
-
+        raise NotImplementedError('typ_copy.py - use typ.py instead')
+        
         # extra features att inkludera 
         self.ant_hästar = ant_hästar    # bool - skapa kol med antal hästar per avdelning
         self.motst_ant = motst_ant      # int  - inkludera n features med bästa motståndare (streck)

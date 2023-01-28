@@ -25,7 +25,7 @@ sys.path.append(
 
 # %%
 
-logging.basicConfig(level=logging.DEBUG, filemode='w', filename='v75.log', force=True,
+logging.basicConfig(level=logging.INFO, filemode='w', filename='v75.log', force=True,
                     encoding='utf-8', format='Learn: %(asctime)s - %(levelname)s - %(lineno)d - %(message)s ')
 
 logging.info('Startar')
@@ -46,6 +46,13 @@ st.set_page_config(page_title="V75 Learning", page_icon="🏫")
 st.markdown("# 🏫 V75 Learning")
 st.sidebar.header("🏫 V75 Learning")
 
+#%%
+def log_print(text):
+    """Skriver ut på loggen och gör en print samt returnerar strängen (för assert)"""
+    logging.info(text)
+    print(text)
+
+    return text
 
 L1_modeller, L2_modeller = mod.skapa_modeller()
 
@@ -55,12 +62,13 @@ L1_modeller, L2_modeller = mod.skapa_modeller()
 #              Web scraping                    #
 ################################################
 
-
+# TODO: Kolla att färdigt data sparas i all_data.csv
 def v75_scraping():
     df = vs.v75_scraping(history=True, resultat=True, headless=True)
-
+    logging.info(f'Antal hästar shape: {df.shape}')
     for f in ['häst', 'bana', 'kusk', 'h1_kusk', 'h2_kusk', 'h3_kusk', 'h4_kusk', 'h5_kusk', 'h1_bana', 'h2_bana', 'h3_bana', 'h4_bana', 'h5_bana']:
         df[f] = df[f].str.lower()
+
     return df
 
 ###############################################
@@ -70,9 +78,7 @@ def v75_scraping():
 # TODO: egen funktion i skapa_modeller.py
 
 
-
 # %%
-
 
 def normal_learn_meta_models(meta_modeller, L2_input_data, save=True):
 
@@ -100,8 +106,12 @@ def normal_learn_meta_models(meta_modeller, L2_input_data, save=True):
                 pickle.dump(meta_model, f)
 
             # Save the list of column names to a JSON file
-            with open(pref+'modeller/'+key+'_columns.json', "w") as f:
-                json.dump(X_meta.columns.tolist(), f)
+            # TODO: Ta bort json och bara spara txt-fil
+            # with open(pref+'modeller/'+key+'_columns.json', "w") as f:
+            #     json.dump(X_meta.columns.tolist(), f)
+            with open(pref+'modeller/'+key+'_columns.txt', "w") as f:
+                for col in X_meta.columns.tolist():
+                    f.write(col + '\n')
 
     return meta_modeller
 # %%
@@ -222,8 +232,8 @@ def TimeSeries_learning(df_ny_, L1_modeller, L2_modeller, n_splits=5, val_fracti
 
     use_features,_,_ = mod.read_in_features()
     # Hämta data från v75
-    _ = v75.förbered_data(missing_num=False)  # num hanteras av catboost
-    df_work = v75.test_lägg_till_kolumner()
+    df, enc = v75.förbered_data(missing_num=False)  # num hanteras av catboost
+    df_work = v75.test_lägg_till_kolumner(df)
 
     X, y, X_val, y_val = hold_out_val_data(df_work, val_fraction)
 
@@ -426,6 +436,7 @@ def plot_confusion_matrix(y_true, y_pred, typ, fr=0.0, to=0.9, margin=0.001):
     st.write(fig)
 
     # read dict from disk
+    # TODO: Allt med meta_scors skall tas bort
     try:
         with open(pref+'modeller/meta_scores.pkl', 'rb') as f:
             meta_scores = pickle.load(f)
@@ -446,8 +457,8 @@ def get_data_for_validate(fraction):
     v75 = td.v75(pref=pref)
 
     # Hämta data från v75
-    _ = v75.förbered_data(missing_num=False)  # num hanteras av catboost
-    df_work = v75.test_lägg_till_kolumner()
+    df_work,enc = v75.förbered_data(missing_num=False)  # num hanteras av catboost
+    df_work = v75.test_lägg_till_kolumner(df_work)
 
     _, _, X_val, y_val = hold_out_val_data(
         df_work, fraction)  # validera mot detta
@@ -561,7 +572,7 @@ def scrape(full=True):
         my_bar.empty()
         placeholder.empty()
 
-        st.session_state.df_ny = df_ny
+        st.session_state.df_ny = df
 
 
 # modeller = [test1,test2,test3,test4]
@@ -608,15 +619,17 @@ with top:
 ###########################################
 # control flow with buttons               #
 ###########################################
+
 with buttons:
+    # TODO: Inför två streamlit-val att köra learn.py antingen med TimeSeriesSplit eller Train_Test_Split
+
     if st.sidebar.button('scrape'):
         st.write(f'web scraping {st.session_state.datum}')
         try:
             scrape()
             del st.session_state.datum  # säkra att datum är samma som i scraping
         except:
-            st.error(
-                "Fel i web scraping. Kolla att resultat finns för datum och internet är tillgängligt")
+            st.error(f"Fel i web scraping. Kolla att resultat finns för datum och internet är tillgängligt")
 
     if st.sidebar.button('reuse scrape'):
         try:

@@ -14,8 +14,8 @@ pd.set_option('display.max_columns', 200)
 import streamlit as st
 
 import sys
-import pickle
-import json
+# import pickle
+# import json
 
 sys.path.append('C:\\Users\\peter\\Documents\\MyProjects\\PyProj\\Trav\\spel\\modeller\\')
 import V75_scraping as vs
@@ -30,13 +30,22 @@ import logging
 
 logging.basicConfig(level=logging.INFO, filemode='a', filename='v75.log', force=True,
                     encoding='utf-8', format='v75:' '%(asctime)s - %(levelname)s - %(lineno)d - %(message)s')
-logging.info('Startar')
+logging.info('V75.py Startar')
 
 #%%
 st.set_page_config(page_title="v75 Spel copy", page_icon="🐎")
 st.sidebar.header("🐎 V75 Spel copy")
 
+# TODO: Ta bort alla gamla meta-modeller och dess funktioner
+# TODO: Inför val mellan matematiskt eller geometriskt medelvärde 
 
+
+def log_print(text):
+    """Skriver ut på loggen och gör en print samt returnerar strängen (för assert)"""
+    logging.info(text)
+    print(text)
+
+    return text
 #%%
 def v75_scraping():
     logging.info('vs.v75_scraping: startar')
@@ -195,8 +204,6 @@ def välj_rad(df, max_insats=300):
         DataFrame: Kolumnen välj är True för de rader som ska spelas
         int: total insats
     """
-    
-    # TODO: Begränsa kostnad mer
     logging.info('Väljer rad')
     veckans_rad = df.copy()
     veckans_rad['välj'] = False   # inga rader valda ännu
@@ -299,6 +306,7 @@ with avd:
     avd.subheader(use)
     col1, col2 = st.columns(2)
     df_stack = pd.read_csv('sparad_stack_meta.csv')
+    # TODO: Kör inte om datum i df_stack inte är samma som datum i st.session_state['datum']
     veckans_rad, kostnad = välj_rad(df_stack, max_insats=375)
     assert 'meta' in veckans_rad.columns, f"meta finns inte i veckans_rad"
     veckans_rad.rename(columns={'startnr': 'nr', 'meta': 'Meta'}, inplace=True)
