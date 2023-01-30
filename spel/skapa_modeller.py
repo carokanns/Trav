@@ -164,12 +164,8 @@ def learn_L2_modeller(L2_modeller, L2_input_data, use_L2features, save=True):
         L2_modeller[model_name] = my_meta
 
         if save:
-            # Save the list of column names to a JSON file
-            # TODO: Ta bort json och bara spara txt-fil
-            # with open(pref+'modeller/'+model_name+'_columns.json', "w") as f:
-            #     json.dump(X_meta[use_L2features].columns.tolist(), f)
-
-            with open(pref+'modeller/'+model_name+'_columns..txt', "w", encoding="utf-8") as f:
+            # Save the list of column names to a text file
+            with open(pref+'modeller/'+model_name+'_columns.txt', "w", encoding="utf-8") as f:
                 for col in X_meta[use_L2features].columns.tolist():
                     f.write(col + '\n')
 

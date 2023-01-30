@@ -73,7 +73,6 @@ L1_modeller, L2_modeller = mod.skapa_modeller()
 #              Web scraping                    #
 ################################################
 
-# TODO: Kolla att färdigt data sparas i all_data.csv
 def v75_scraping():
     df = vs.v75_scraping(history=True, resultat=True, headless=True)
     logging.info(f'Antal hästar shape: {df.shape}')
@@ -117,10 +116,7 @@ def normal_learn_meta_models(meta_modeller, L2_input_data, save=True):
             with open(pref+'modeller/'+key+'.model', 'wb') as f:
                 pickle.dump(meta_model, f)
 
-            # Save the list of column names to a JSON file
-            # TODO: Ta bort json och bara spara txt-fil
-            # with open(pref+'modeller/'+key+'_columns.json', "w") as f:
-            #     json.dump(X_meta.columns.tolist(), f)
+            # Save the list of column names to a text file
             with open(pref+'modeller/'+key+'_columns.txt', "w", encoding="utf-8") as f:
                 for col in X_meta.columns.tolist():
                     f.write(col + '\n')
@@ -448,7 +444,7 @@ def plot_confusion_matrix(y_true, y_pred, typ, fr=0.0, to=0.9, margin=0.001):
     st.write(fig)
 
     # read dict from disk
-    # TODO: Allt med meta_scors skall tas bort
+
     try:
         with open(pref+'modeller/meta_scores.pkl', 'rb') as f:
             meta_scores = pickle.load(f)

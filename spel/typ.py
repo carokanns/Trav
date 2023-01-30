@@ -344,10 +344,7 @@ class Typ():
                 
             self.save_model(model)
             
-            # Save the list of column names to a JSON file
-            # TODO: Ta bort json och bara spara txt-fil
-            # with open(self.pref+'modeller/'+self.name+'_columns.json', "w") as f:
-            #     json.dump(X[use_features].columns.tolist(), f)
+            # Save the list of column names to a text file
             with open(self.pref+'modeller/'+self.name+'_columns.txt', "w", encoding="utf-8") as f:
                 for col in X[use_features].columns.tolist():
                     f.write(col + '\n')
