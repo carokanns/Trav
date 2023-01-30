@@ -12,6 +12,7 @@ h4_kusk
 h4_bana
 h5_kusk
 h5_bana
+streck
 spår
 dist
 lopp_dist

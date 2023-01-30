@@ -76,17 +76,16 @@ def v75_scraping():
 def do_scraping(datum):
     logging.info(f'scrape() - startar ny scraping')
     st.write('web-scraping för ny data')
+    placeholder = st.empty()
+    i = 0.0
+    seconds = 0
+    my_bar = st.progress(i)
     with st.spinner('Ta det lugnt!'):
 
         #####################
         # start v75_scraping as a thread
         #####################
 
-        i = 0.0
-        seconds = 0
-        placeholder = st.empty()
-
-        my_bar = st.progress(i)
         with concurrent.futures.ThreadPoolExecutor() as executor:
             logging.info('scrape() - startar threaded v75_scraping')
             future = executor.submit(v75_scraping)
@@ -149,7 +148,7 @@ def get_scrape_data(datum):
     with col2:
         if st.button('Resue scrape'):
             st.session_state['scrape_type'] = 'resue scrape'
-            logging.info('reuse Scraping')
+            log_print('reuse Scraping','i')
             try:
                 df = pd.read_csv('sparad_scrape_spela.csv')
 
@@ -159,14 +158,9 @@ def get_scrape_data(datum):
                 else:
                     logging.info(f'inläst data med datum = {df.datum.iloc[0]} kör nu med sparad_scrape')
                     st.info(f'inläst data med datum = {df.datum.iloc[0]} kör nu med sparad_scrape')
-                    try:
-                        df.drop(['plac'], axis=1, inplace=True)
-                    except:
-                        pass
-
                     st.session_state['df'] = df
             except FileNotFoundError:
-                logging.error('Det finns ingen sparad data')
+                log_print('Det finns ingen sparad data','e')
                 st.error('Det finns ingen sparad data')
                 raise FileNotFoundError('Det finns ingen sparad data')
     return
@@ -249,6 +243,8 @@ logging.info('Startar med att sätta alla saknade st.session_state till None')
 
 if 'use' not in st.session_state:
     st.session_state['use'] = None
+if 'rätta' not in st.session_state:
+    st.session_state['rätta'] = False    
 if 'df' not in st.session_state:
     st.session_state['df'] = None
 if 'datum' not in st.session_state:
@@ -284,28 +280,30 @@ if st.session_state['scrape_type'] is not None:
     logging.info(f'Vi har en df_stack med meta_kolumn. shape = {df_stack.shape}')
     df_stack.to_csv('sparad_stack_meta.csv', index=False)
     
-    
-
-with avd:
-    if 'rätta' not in st.session_state:
-        st.session_state['rätta'] = False
-        
+with avd:     
     df_stack = pd.read_csv('sparad_stack_meta.csv')
     if df_stack.iloc[0].datum == st.session_state['datum']:    
         use = avd.radio('Välj avdelning', ('Avd 1 och 2', 'Avd 3 och 4', 'Avd 5 och 6', 'Avd 7', 'clear'))
         avd.subheader(use)
         col1, col2 = st.columns(2)
+        if st.session_state['rätta'] == False:
+            st.session_state['rätta'] = avd.button('Rätta raden')
     
-        st.session_state['rätta'] = avd.button('Rätta raden')
-            
-        # TODO: Inför rätta_raden 
         veckans_rad, kostnad = välj_rad(df_stack, max_insats=375)
         assert 'meta' in veckans_rad.columns, f"meta finns inte i veckans_rad"
         veckans_rad.rename(columns={'startnr': 'nr', 'meta': 'Meta'}, inplace=True)
+        
         st.info(f'Kostnad för veckans rad: {kostnad:.0f} kr')
-        logging.info(f'display veckans rad för avd {use}')
+        
+        log_print(f'Visar veckans rad för {use}','i')
+        
+        header_list = ['nr', 'häst', 'Meta', 'streck']
         if st.session_state['rätta']:
-            st.info('Rättar raden här')
+            veckans_rad.to_csv('veckans_rad.csv', index=False)
+            header_list = ['nr', 'häst', 'Meta', 'streck', 'plac']
+            sju, sex, fem, utd = mod.rätta_rad(veckans_rad, datum)
+            
+            st.info(f'utdelning={utd:.0f}, vinst={(utd-kostnad):.0f} kr, {sju} sjuor {sex} sexor {fem} femmor')
         ################################################
         #    Denna kod döljer radindex i dataframe     #
         #    När man t.ex. gör en st.write(df)         #
@@ -321,27 +319,23 @@ with avd:
         st.markdown(hide_dataframe_row_index, unsafe_allow_html=True)
         ############ CSS klart ###########################
         if use == 'Avd 1 och 2':
-            # col1.table(veckans_rad[(veckans_rad.avd == 1)].sort_values(by=['Meta'], ascending=False)[['nr', 'häst', 'Meta', 'streck']].head(3))
-            # col2.table(veckans_rad[(veckans_rad.avd == 2)].sort_values(by=['Meta'], ascending=False)[['nr', 'häst', 'Meta', 'streck']].head(3))
-            col1.table(veckans_rad[(veckans_rad.avd == 1) & veckans_rad.välj].sort_values(by=['Meta'], ascending=False)[['nr', 'häst', 'Meta', 'streck']])
-            col2.table(veckans_rad[(veckans_rad.avd == 2) & veckans_rad.välj].sort_values(by=['Meta'], ascending=False)[['nr', 'häst', 'Meta', 'streck']])
+            col1.table(veckans_rad[(veckans_rad.avd == 1) & veckans_rad.välj].sort_values(
+                by=['Meta'], ascending=False)[header_list])
+            col2.table(veckans_rad[(veckans_rad.avd == 2) & veckans_rad.välj].sort_values(
+                by=['Meta'], ascending=False)[header_list])
         elif use == 'Avd 3 och 4':
-            # col1.table(veckans_rad[(veckans_rad.avd == 3)].sort_values(by=['Meta'], ascending=False)[['nr', 'häst', 'Meta', 'streck']].head(3))
-            # col2.table(veckans_rad[(veckans_rad.avd == 4)].sort_values(by=['Meta'], ascending=False)[['nr', 'häst', 'Meta', 'streck']].head(3))
-            col1.table(veckans_rad[(veckans_rad.avd == 3) & veckans_rad.välj].sort_values(by=['Meta'], ascending=False)[['nr', 'häst', 'Meta', 'streck']])
-            col2.table(veckans_rad[(veckans_rad.avd == 4) & veckans_rad.välj].sort_values(by=['Meta'], ascending=False)[
-                        ['nr', 'häst', 'Meta', 'streck']])
+            col1.table(veckans_rad[(veckans_rad.avd == 3) & veckans_rad.välj].sort_values(
+                by=['Meta'], ascending=False)[header_list])
+            col2.table(veckans_rad[(veckans_rad.avd == 4) & veckans_rad.välj].sort_values(
+                by=['Meta'], ascending=False)[header_list])
         elif use == 'Avd 5 och 6':
-            # col1.table(veckans_rad[(veckans_rad.avd == 5)].sort_values(by=['Meta'], ascending=False)[['nr', 'häst', 'Meta', 'streck']].head(3))
-            # col2.table(veckans_rad[(veckans_rad.avd == 6)].sort_values(by=['Meta'], ascending=False)[['nr', 'häst', 'Meta', 'streck']].head(3))
-            col1.table(veckans_rad[(veckans_rad.avd == 5) & veckans_rad.välj].sort_values(by=['Meta'], ascending=False)[
-                        ['nr', 'häst', 'Meta', 'streck']])
-            col2.table(veckans_rad[(veckans_rad.avd == 6) & veckans_rad.välj].sort_values(by=['Meta'], ascending=False)[
-                        ['nr', 'häst', 'Meta', 'streck']])
+            col1.table(veckans_rad[(veckans_rad.avd == 5) & veckans_rad.välj].sort_values(
+                by=['Meta'], ascending=False)[header_list])
+            col2.table(veckans_rad[(veckans_rad.avd == 6) & veckans_rad.välj].sort_values(
+                by=['Meta'], ascending=False)[header_list])
         elif use == 'Avd 7':
-            # col1.table(veckans_rad[(veckans_rad.avd == 7)].sort_values(by=['Meta'], ascending=False)[['nr', 'häst', 'Meta', 'streck']].head(3))
-            col1.table(veckans_rad[(veckans_rad.avd == 7) & veckans_rad.välj].sort_values(by=['Meta'], ascending=False)[
-                        ['nr', 'häst', 'Meta', 'streck']])
+            col1.table(veckans_rad[(veckans_rad.avd == 7) & veckans_rad.välj].sort_values(
+                by=['Meta'], ascending=False)[header_list])
         elif use == 'clear':
             st.stop()
         else:

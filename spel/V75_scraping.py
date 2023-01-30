@@ -120,7 +120,7 @@ def scrape_utdelning(the_driver):
     return int(utd7), int(utd6), int(utd5)
 
 # hämta utdelnings-info och spara på fil
-def utdelning(driver_r, dat, bana):
+def get_utdelning(driver_r, dat, bana):
     utd7, utd6, utd5 = scrape_utdelning(driver_r)
     assert utd7 > utd6 or utd7==0, log_print('7 rätt skall ge mer pengar än 6 rätt','e')
     assert utd6 > utd5 or utd6 == 0, log_print('6 rätt skall ge mer pengar än 5 rätt', 'e')
@@ -720,7 +720,7 @@ def v75_threads(resultat=False, history=False, headless=True, avdelningar=None, 
         if resultat:
             try:
                 print('Kör utdelning med driver_r för avd', avdelningar)
-                utdelning(driver_r, datum, bana)  # utdelning för denna omgång
+                get_utdelning(driver_r, datum, bana)  # utdelning för denna omgång
                 print('Klar utdelning med driver_r för avd', avdelningar)
 
             except:

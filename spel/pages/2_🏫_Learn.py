@@ -232,13 +232,13 @@ def TimeSeries_learning(df_ny_, L1_modeller, L2_modeller, n_splits=5, val_fracti
     # Skapa v75-instans
     v75 = td.v75(pref=pref)
 
-    base_features = v75.get_df().columns.to_list()
+    base_features = v75.get_df().columns.to_list() # all features in alla_data.csv
 
     if df_ny_ is not None:  # Har vi en ny omgång?
         df_ny = df_ny_[base_features].copy()
         v75.concat(df_ny, update_work=True, save=True)
 
-    use_features,_,_ = mod.read_in_features()
+    use_features,_,_ = mod.read_in_features()  # De features som används i modellerna
     # Hämta data från v75
     df, enc = v75.förbered_data(missing_num=False)  # num hanteras av catboost
     df_work = v75.test_lägg_till_kolumner(df)
@@ -701,4 +701,4 @@ with buttons:
 
         if st.sidebar.button('Clear'):
             st.empty()
-    st.markdown("<a href='#linkto_top'>Link to top</a>", unsafe_allow_html=True)
+    st.markdown("<a href='#linkto_top'>Top of page</a>", unsafe_allow_html=True)

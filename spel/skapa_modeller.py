@@ -269,9 +269,96 @@ def fix_history_bana(df_):
     df.loc[:, 'h4_bana'] = df.h4_bana.str.split('-').str[0]
     df.loc[:, 'h5_bana'] = df.h5_bana.str.split('-').str[0]
     return df
-    
-#%%
 
+
+def beräkna_utdelning(datum, sjuor, sexor, femmor, df_utdelning):
+    
+    min_utdelning = df_utdelning.loc[df_utdelning.datum == datum, [
+        '7rätt', '6rätt', '5rätt']]
+
+    tot_utdelning = (min_utdelning['7rätt'] * sjuor + min_utdelning['6rätt']
+                     * sexor + min_utdelning['5rätt'] * femmor).values[0]
+
+    print('utdelning', tot_utdelning)
+
+    return tot_utdelning
+
+def rätta_rad(veckans_rad, datum, df_utdelning=None) :
+    """Räkna ut antal 5:or, 6:or resp. 7:or
+    Beräkna ev utdelning
+    
+    Args:
+        veckans_rad: omgångens df ev inkluderat plac
+        datum: datum för veckans rad i string-format (datum = datum.strftime('%Y-%m-%d'))
+        df_utdelning: df med utdelning för alla datum. om None så hämtar vi filen här
+    
+    
+    Returns:  (int) sjuor, sexor, femmor, utdelning
+    """
+    df=veckans_rad.copy()
+    df['y'] = (df.plac==1).astype(int)
+    
+    if df_utdelning is None:
+        df_utdelning = pd.read_csv(pref+'utdelning.csv')   
+    
+    sjuor, sexor, femmor, utdelning = 0, 0, 0, 0
+
+    min_tabell = df[['y', 'avd', 'häst', 'rel_rank', 'välj']].copy()
+    min_tabell.sort_values(by=['avd', 'y'], ascending=False, inplace=True)
+
+    print('Antal rätt', min_tabell.query('välj==True and y==1').y.sum())
+
+    # 1. om jag har max 7 rätt
+    if min_tabell.query('välj==True and y==1').y.sum() == 7:
+        sjuor = 1
+        sexor = (min_tabell.groupby('avd').välj.sum()).sum()-7
+        # antal femmor
+        ant1 = min_tabell.query('avd==1 and välj==True').välj.sum()-1
+        ant2 = min_tabell.query('avd==2 and välj==True').välj.sum()-1
+        ant3 = min_tabell.query('avd==3 and välj==True').välj.sum()-1
+        ant4 = min_tabell.query('avd==4 and välj==True').välj.sum()-1
+        ant5 = min_tabell.query('avd==5 and välj==True').välj.sum()-1
+        ant6 = min_tabell.query('avd==6 and välj==True').välj.sum()-1
+        ant7 = min_tabell.query('avd==7 and välj==True').välj.sum()-1
+        femmor = ant1*ant2+ant1*ant2+ant1*ant3+ant1*ant4+ant1*ant5+ant1*ant6+ant1*ant7 +\
+            ant2*ant3+ant2*ant4+ant2*ant5+ant2*ant6+ant2*ant7 + \
+            ant3*ant4+ant3*ant5+ant3*ant6+ant3*ant7 + \
+            ant4*ant5+ant4*ant6+ant4*ant7 + \
+            ant5*ant6+ant5*ant7 + \
+            ant6*ant7
+
+    # 2. om jag har max 6 rätt
+    if min_tabell.query('välj==True and y==1').y.sum() == 6:
+        avd_fel = min_tabell.loc[((min_tabell.välj == False) & (
+            min_tabell.y == 1)), 'avd'].values[0]
+        # print(min_tabell.query('avd== @avd_fel').välj.sum())
+        sexor = min_tabell.query('avd==@avd_fel').välj.sum()
+        # antal femmor
+        femmor_fel, femmor_rätt = 0, 0
+        for avd in range(1, 8):
+            if avd == avd_fel:
+                femmor_fel += min_tabell.loc[min_tabell.avd ==
+                                             avd_fel].välj.sum()
+
+            femmor_rätt += min_tabell.query(
+                'avd==@avd and välj==True').välj.sum()-1
+        # print(f'femmor_rätt = {femmor_rätt} femmor_fel = {femmor_fel}')
+        femmor = femmor_fel * femmor_rätt
+
+    # 3. om jag har max 5 rätt
+    if min_tabell.query('välj==True and y==1').y.sum() == 5:
+        avd_fel = min_tabell.loc[((min_tabell.välj == False) & (
+            min_tabell.y == 1)), 'avd'].values
+        femmor = min_tabell.loc[min_tabell.avd == avd_fel[0]].välj.sum(
+        ) * min_tabell.loc[min_tabell.avd == avd_fel[1]].välj.sum()
+
+    utdelning = beräkna_utdelning(datum, sjuor, sexor, femmor, df_utdelning)
+   
+    return sjuor, sexor, femmor, utdelning
+        
+        
+        
+#%%
 ##########################
 ####### UNIT TESTS #######
 ##########################

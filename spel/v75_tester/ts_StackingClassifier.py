@@ -128,7 +128,7 @@ if __name__ == '__main__':
     sys.path.append(
         'C:\\Users\\peter\\Documents\\MyProjects\\PyProj\\Trav\\spel')
 
-    import typ_copy as tp
+    import typ as tp
     import travdata as td
 
     from sklearn.ensemble import RandomForestClassifier

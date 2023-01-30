@@ -19,6 +19,7 @@ from sklearn.ensemble import ExtraTreesClassifier
 pref = ''
 sys.path.append(
     'C:\\Users\\peter\\Documents\\MyProjects\\PyProj\\Trav\\spel\\modeller\\')
+import skapa_modeller as mod
 
 plt.style.use('fivethirtyeight')
 
@@ -181,18 +182,18 @@ def compute_total_insats(veckans_rad):
 # %%
 
 
-def beräkna_utdelning(datum, sjuor, sexor, femmor, df_utdelning):
-    datum = datum.strftime('%Y-%m-%d')
+# def beräkna_utdelning(datum, sjuor, sexor, femmor, df_utdelning):
+#     datum = datum.strftime('%Y-%m-%d')
 
-    min_utdelning = df_utdelning.loc[df_utdelning.datum == datum, [
-        '7rätt', '6rätt', '5rätt']]
+#     min_utdelning = df_utdelning.loc[df_utdelning.datum == datum, [
+#         '7rätt', '6rätt', '5rätt']]
 
-    tot_utdelning = (min_utdelning['7rätt'] * sjuor + min_utdelning['6rätt']
-                     * sexor + min_utdelning['5rätt'] * femmor).values[0]
+#     tot_utdelning = (min_utdelning['7rätt'] * sjuor + min_utdelning['6rätt']
+#                      * sexor + min_utdelning['5rätt'] * femmor).values[0]
 
-    print('utdelning', tot_utdelning)
+#     print('utdelning', tot_utdelning)
 
-    return tot_utdelning
+#     return tot_utdelning
 
 
 def varje_avd_minst_en_häst(veckans_rad):
@@ -373,65 +374,66 @@ def ta_fram_meta_rad(veckans_rad_, meta_modeller, spik_strategi, max_cost=300, m
     return plocka_en_efter_en(veckans_rad, spikad_avd, max_cost)
 
 
-def rätta_rad(df, datum, df_utdelning):
-    """
-    Räkna ut antal 5:or, 6:or resp. 7:or
-    Hämta ev utdelning
-    Spara datum, resultat, utdelning och rad-kostnad
-    """
-    sjuor, sexor, femmor, utdelning = 0, 0, 0, 0
+# def rätta_rad(df, datum, df_utdelning):
+#     """
+#     Räkna ut antal 5:or, 6:or resp. 7:or
+#     Hämta ev utdelning
+#     Spara datum, resultat, utdelning och rad-kostnad
+#     """
+#     sjuor, sexor, femmor, utdelning = 0, 0, 0, 0
 
-    min_tabell = df[['y', 'avd', 'häst', 'rel_rank', 'välj']].copy()
-    min_tabell.sort_values(by=['avd', 'y'], ascending=False, inplace=True)
+#     min_tabell = df[['y', 'avd', 'häst', 'rel_rank', 'välj']].copy()
+#     min_tabell.sort_values(by=['avd', 'y'], ascending=False, inplace=True)
 
-    print('Antal rätt', min_tabell.query('välj==True and y==1').y.sum())
+#     print('Antal rätt', min_tabell.query('välj==True and y==1').y.sum())
 
-    # 1. om jag har max 7 rätt
-    if min_tabell.query('välj==True and y==1').y.sum() == 7:
-        sjuor = 1
-        sexor = (min_tabell.groupby('avd').välj.sum()).sum()-7
-        # antal femmor
-        ant1 = min_tabell.query('avd==1 and välj==True').välj.sum()-1
-        ant2 = min_tabell.query('avd==2 and välj==True').välj.sum()-1
-        ant3 = min_tabell.query('avd==3 and välj==True').välj.sum()-1
-        ant4 = min_tabell.query('avd==4 and välj==True').välj.sum()-1
-        ant5 = min_tabell.query('avd==5 and välj==True').välj.sum()-1
-        ant6 = min_tabell.query('avd==6 and välj==True').välj.sum()-1
-        ant7 = min_tabell.query('avd==7 and välj==True').välj.sum()-1
-        femmor = ant1*ant2+ant1*ant2+ant1*ant3+ant1*ant4+ant1*ant5+ant1*ant6+ant1*ant7 +\
-            ant2*ant3+ant2*ant4+ant2*ant5+ant2*ant6+ant2*ant7 + \
-            ant3*ant4+ant3*ant5+ant3*ant6+ant3*ant7 + \
-            ant4*ant5+ant4*ant6+ant4*ant7 + \
-            ant5*ant6+ant5*ant7 + \
-            ant6*ant7
+#     # 1. om jag har max 7 rätt
+#     if min_tabell.query('välj==True and y==1').y.sum() == 7:
+#         sjuor = 1
+#         sexor = (min_tabell.groupby('avd').välj.sum()).sum()-7
+#         # antal femmor
+#         ant1 = min_tabell.query('avd==1 and välj==True').välj.sum()-1
+#         ant2 = min_tabell.query('avd==2 and välj==True').välj.sum()-1
+#         ant3 = min_tabell.query('avd==3 and välj==True').välj.sum()-1
+#         ant4 = min_tabell.query('avd==4 and välj==True').välj.sum()-1
+#         ant5 = min_tabell.query('avd==5 and välj==True').välj.sum()-1
+#         ant6 = min_tabell.query('avd==6 and välj==True').välj.sum()-1
+#         ant7 = min_tabell.query('avd==7 and välj==True').välj.sum()-1
+#         femmor = ant1*ant2+ant1*ant2+ant1*ant3+ant1*ant4+ant1*ant5+ant1*ant6+ant1*ant7 +\
+#             ant2*ant3+ant2*ant4+ant2*ant5+ant2*ant6+ant2*ant7 + \
+#             ant3*ant4+ant3*ant5+ant3*ant6+ant3*ant7 + \
+#             ant4*ant5+ant4*ant6+ant4*ant7 + \
+#             ant5*ant6+ant5*ant7 + \
+#             ant6*ant7
 
-    # 2. om jag har max 6 rätt
-    if min_tabell.query('välj==True and y==1').y.sum() == 6:
-        avd_fel = min_tabell.loc[((min_tabell.välj == False) & (
-            min_tabell.y == 1)), 'avd'].values[0]
-        # print(min_tabell.query('avd== @avd_fel').välj.sum())
-        sexor = min_tabell.query('avd==@avd_fel').välj.sum()
-        # antal femmor
-        femmor_fel, femmor_rätt = 0, 0
-        for avd in range(1, 8):
-            if avd == avd_fel:
-                femmor_fel += min_tabell.loc[min_tabell.avd ==
-                                             avd_fel].välj.sum()
+#     # 2. om jag har max 6 rätt
+#     if min_tabell.query('välj==True and y==1').y.sum() == 6:
+#         avd_fel = min_tabell.loc[((min_tabell.välj == False) & (
+#             min_tabell.y == 1)), 'avd'].values[0]
+#         # print(min_tabell.query('avd== @avd_fel').välj.sum())
+#         sexor = min_tabell.query('avd==@avd_fel').välj.sum()
+#         # antal femmor
+#         femmor_fel, femmor_rätt = 0, 0
+#         for avd in range(1, 8):
+#             if avd == avd_fel:
+#                 femmor_fel += min_tabell.loc[min_tabell.avd ==
+#                                              avd_fel].välj.sum()
 
-            femmor_rätt += min_tabell.query(
-                'avd==@avd and välj==True').välj.sum()-1
-        # print(f'femmor_rätt = {femmor_rätt} femmor_fel = {femmor_fel}')
-        femmor = femmor_fel * femmor_rätt
+#             femmor_rätt += min_tabell.query(
+#                 'avd==@avd and välj==True').välj.sum()-1
+#         # print(f'femmor_rätt = {femmor_rätt} femmor_fel = {femmor_fel}')
+#         femmor = femmor_fel * femmor_rätt
 
-    # 3. om jag har max 5 rätt
-    if min_tabell.query('välj==True and y==1').y.sum() == 5:
-        avd_fel = min_tabell.loc[((min_tabell.välj == False) & (
-            min_tabell.y == 1)), 'avd'].values
-        femmor = min_tabell.loc[min_tabell.avd == avd_fel[0]].välj.sum(
-        ) * min_tabell.loc[min_tabell.avd == avd_fel[1]].välj.sum()
+#     # 3. om jag har max 5 rätt
+#     if min_tabell.query('välj==True and y==1').y.sum() == 5:
+#         avd_fel = min_tabell.loc[((min_tabell.välj == False) & (
+#             min_tabell.y == 1)), 'avd'].values
+#         femmor = min_tabell.loc[min_tabell.avd == avd_fel[0]].välj.sum(
+#         ) * min_tabell.loc[min_tabell.avd == avd_fel[1]].välj.sum()
 
-    return sjuor, sexor, femmor, beräkna_utdelning(datum, sjuor, sexor, femmor, df_utdelning)
+#     return sjuor, sexor, femmor, beräkna_utdelning(datum, sjuor, sexor, femmor, df_utdelning)
 
+# TODO: Använd mod.rätta_rad istället och gör datum till en string datum.strftime('%Y-%m-%d') innan anrop
 
 # def initiera_veckans_rader(X_curr, y_curr, antal_rader):
 #     # ---------- initier veckans rad med aktuell omgång ----------------------
@@ -684,8 +686,7 @@ def backtest(df, df_resultat, modeller, meta_modeller, datumar, gap=0, proba_val
             print('cost', cost)
             kostnad.append(cost)
             veckans_rad.to_csv('veckans_rad'+str(enum)+'.csv', index=False)
-            sju, sex, fem, utd = rätta_rad(
-                veckans_rad, curr_datum, df_utdelning)
+            sju, sex, fem, utd = mod.rätta_rad(veckans_rad, curr_datum, df_utdelning)
             sjuor.append(int(sju))
             sexor.append(int(sex))
             femmor.append(int(fem))
