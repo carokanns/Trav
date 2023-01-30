@@ -12,7 +12,7 @@ spel/.tmp.drivedownload/*
 spel/.tmp.drivedownload/*.*
 spel/.tmp.driveupload/*
 spel/sparad_scrape.csv
-spel/flaml.log
+spel/*.log
 spel/v75_tester/flaml.log
 spel/v75_tester/try_gluon/agModels-predictClass/*.*
 spel/v75_tester/try_pytorch/*.*
