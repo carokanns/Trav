@@ -333,7 +333,7 @@ class Typ():
             # TODO: Ta bort json och bara spara txt-fil
             # with open(self.pref+'modeller/'+self.name+'_columns.json', "w") as f:
             #     json.dump(X[use_features].columns.tolist(), f)
-            with open(self.pref+'modeller/'+self.name+'_columns.txt', "w") as f:
+            with open(self.pref+'modeller/'+self.name+'_columns.txt', "w", encoding="utf-8") as f:
                 for col in X[use_features].columns.tolist():
                     f.write(col + '\n')
                 

@@ -674,30 +674,25 @@ def v75_threads(resultat=False, history=False, headless=True, avdelningar=None, 
             
         # resultat
         if resultat:
-            print('Öppnar resultatsidan med driver_r för avd', avdelningar)
+            log_print(f'Öppnar resultatsidan med driver_r för avd {avdelningar}')
             driver_r.implicitly_wait(10) # seconds
-            driver_r.get(omg+'/resultat')   # öppna resultat
-    
-            print('Öppnade resultatsidan med driver_r för avd', avdelningar)
-            # _ = input('Efter öppnade resultatlistan: Klicka på OK för att fortsätta\n'  )
-            if enum == 0:
-                # ok till första popup om kakor
-                # WebDriverWait(driver_r, 10).until(
-                #     EC.presence_of_element_located((By.ID, "onetrust-accept-btn-handler")))
+            
+            try:
+                driver_r.get(omg+'/resultat')   # öppna resultat
+                log_print(f'Öppnade resultatsidan med driver_r för avd {avdelningar}')
+                 # _ = input('Efter öppnade resultatlistan: Klicka på OK för att fortsätta\n'  )
+            except:
+                log_print(f'Kunde inte öppna resultatsidan för avd {avdelningar} omgång {enum+1}') 
+                log_print(f'Sätter resultat=False för avd {avdelningar} omgång {enum+1}: {omg}')  
+                resultat=False
+                driver_r=None
                 
+            if resultat and enum == 0:  # första gången resultat
                 driver_r.implicitly_wait(10)  # seconds
                 but_kakor = driver_r.find_element(By.ID,"onetrust-accept-btn-handler")
                 driver_r.implicitly_wait(10)  # seconds
                 but_kakor.click()
                 driver_r.fullscreen_window()
-                
-                # try:
-                #     driver_r.implicitly_wait(1)     # seconds
-                #     driver_r.find_element(By.CLASS_NAME, "css-1m9bhvf-Typography-styles--body1-Typography--Typography").click()
-                #     print('******* (resultat) Så länge reklam för vm i travspel finns kvar')   
-                # except:
-                #     print("********Är VM i travspel bortplockat nu?")
-                #     pass
 
         # scraping
         log_print(f'Kör scraping med driver_s och driver_r för avd {avdelningar}')
@@ -764,7 +759,7 @@ if __name__ == '__main__':
     concurrency=False
     resultat=False
     history=True
-    headless=False
+    headless=True
     print(f'Kör med avd_list={avd_list}, resultat={resultat}, history={history}, headless={headless}, omg={omg_df.Link.values}')
     
     def start_scrape(avd_list):

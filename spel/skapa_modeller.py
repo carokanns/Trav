@@ -169,7 +169,7 @@ def learn_L2_modeller(L2_modeller, L2_input_data, use_L2features, save=True):
             # with open(pref+'modeller/'+model_name+'_columns.json', "w") as f:
             #     json.dump(X_meta[use_L2features].columns.tolist(), f)
 
-            with open(pref+'modeller/'+model_name+'_columns..txt', "w") as f:
+            with open(pref+'modeller/'+model_name+'_columns..txt', "w", encoding="utf-8") as f:
                 for col in X_meta[use_L2features].columns.tolist():
                     f.write(col + '\n')
 

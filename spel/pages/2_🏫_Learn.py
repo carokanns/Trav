@@ -66,6 +66,7 @@ L1_modeller, L2_modeller = mod.skapa_modeller()
 def v75_scraping():
     df = vs.v75_scraping(history=True, resultat=True, headless=True)
     logging.info(f'Antal hästar shape: {df.shape}')
+    logging.info(f'plac finns i df: {"plac" in df.columns}')
     for f in ['häst', 'bana', 'kusk', 'h1_kusk', 'h2_kusk', 'h3_kusk', 'h4_kusk', 'h5_kusk', 'h1_bana', 'h2_bana', 'h3_bana', 'h4_bana', 'h5_bana']:
         df[f] = df[f].str.lower()
 
@@ -109,7 +110,7 @@ def normal_learn_meta_models(meta_modeller, L2_input_data, save=True):
             # TODO: Ta bort json och bara spara txt-fil
             # with open(pref+'modeller/'+key+'_columns.json', "w") as f:
             #     json.dump(X_meta.columns.tolist(), f)
-            with open(pref+'modeller/'+key+'_columns.txt', "w") as f:
+            with open(pref+'modeller/'+key+'_columns.txt', "w", encoding="utf-8") as f:
                 for col in X_meta.columns.tolist():
                     f.write(col + '\n')
 
@@ -472,6 +473,7 @@ def get_data_for_validate(fraction):
 
 
 def validate(L1_modeller, L2_modeller, fraction=None):
+    # TODO: Varför blir xgb så dåliga och varför blir L1 bättre än L2?
     logging.info('startar validate-funktionen')
     st.info('skall endast  köras efter "Learn for Validation"')    
     
@@ -575,8 +577,15 @@ def scrape(full=True):
         st.session_state.df_ny = df
 
 
-# modeller = [test1,test2,test3,test4]
+def position_to_top():
+    st.write("""
+        <script>
+            window.scrollTo(0, 0);
+        </script>
+    """, unsafe_allow_html=True)
+    
 
+st.markdown("<div id='linkto_top'></div>", unsafe_allow_html=True)
 # %%
 top = st.container()
 buttons = st.container()
@@ -619,10 +628,11 @@ with top:
 ###########################################
 # control flow with buttons               #
 ###########################################
+position_to_top()
 
 with buttons:
     # TODO: Inför två streamlit-val att köra learn.py antingen med TimeSeriesSplit eller Train_Test_Split
-
+    # TODO: använd sparad_scrape_spela.csv om den finns och om den innehåller plac
     if st.sidebar.button('scrape'):
         st.write(f'web scraping {st.session_state.datum}')
         try:
@@ -670,8 +680,18 @@ with buttons:
 
         if st.sidebar.button('Validate'):
             validate(L1_modeller, L2_modeller, fraction=st.session_state.fraction)
-        if st.sidebar.button('Final learning'):
+            
+        if st.sidebar.button('Final learning'): 
+            st.write("""
+                <script>
+                    setTimeout(function() {
+                        window.scrollTo(0, 0);
+                    }, 10);
+                </script>
+            """, unsafe_allow_html=True)
+                    
             final_learning(L1_modeller, L2_modeller)
 
         if st.sidebar.button('Clear'):
             st.empty()
+    st.markdown("<a href='#linkto_top'>Link to top</a>", unsafe_allow_html=True)

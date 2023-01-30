@@ -102,7 +102,7 @@ def gridsearch_typ(typ, params, proba_kolumner=[], folds=5, save=False):
     
     print('reultat från gridsearch',res)
     if save:
-        # TODO: Gör om dessa json till txt-filer
+        # TODO: Gör om dessa json till txt-filer med encoding="utf-8"
         with open('optimera/params_'+typ.name+'.json', 'w') as f:
             json.dump(res, f)
 
@@ -287,6 +287,7 @@ def optimera_model(typ, folds, proba_kolumner = []):
         
         st.write(f'res {result["AUC"]} {result["Logloss"] if "Logloss" in result else ""}')
         if result["AUC"] > params["AUC"]:
+            # TODO: Gör om dessa json till txt-filer med encoding="utf-8"
             with open(pref+'optimera/params_'+name+'.json', 'w') as f:
                 json.dump(result, f)
             st.success(f'✔️ {name} optimering saved')
