@@ -8,6 +8,21 @@ import xgboost as xgb
 # import skapa_modeller as mod
 
 
+def log_print(text, logging_level='d'):
+    """Skriver ut på loggen och gör en print samt returnerar strängen (för assert)"""
+    if logging_level == 'd':
+        logging.debug(text)
+    else:
+        if logging_level == 'i':
+            logging.info(text)
+        elif logging_level == 'w':
+            logging.warning(text)
+        elif logging_level == 'e':
+            logging.error(text)
+        print(text)
+
+    return text
+
 def remove_features(df_, remove_mer=[]):
     df = df_.copy()
     print(type(df))

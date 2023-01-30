@@ -21,10 +21,8 @@ import logging
     
 # %%
 
-logging.basicConfig(level=logging.DEBUG, filemode='w', filename='v75.log', force=True,
+logging.basicConfig(level=logging.INFO, filemode='w', filename='v75.log', force=True,
                     encoding='utf-8', format='Hyperparms: %(asctime)s - %(levelname)s - %(lineno)d - %(message)s ')
-logging.info('Startar')
-   
 
 pd.set_option('display.max_colwidth', None)
 pd.set_option('display.width', 260)
@@ -43,16 +41,33 @@ import travdata as td
 pref=''   # '../'
 
 
+def log_print(text, logging_level='d'):
+    """Skriver ut på loggen och gör en print samt returnerar strängen (för assert)"""
+    if logging_level == 'd':
+        logging.debug(text)
+    else:
+        if logging_level == 'i':
+            logging.info(text)
+        elif logging_level == 'w':
+            logging.warning(text)
+        elif logging_level == 'e':
+            logging.error(text)
+        print(text)
+
+    return text
+
+log_print('Startar Hyperparms.py')
+
 #%%
 
 ###########################################################################
 #                       skapa modellerna                                  #
 ###########################################################################
-print('Skapar dict med modeller')
+log_print('Skapar dict med modeller','i')
 
 
 L1_modeller,L2_modeller = mod.skapa_modeller()
-logging.info('Modeller är nu skapade')
+log_print('Modeller är nu skapade','i')
 
 #%%
 def gridsearch_typ(typ, params, proba_kolumner=[], folds=5, save=False):
@@ -65,15 +80,15 @@ def gridsearch_typ(typ, params, proba_kolumner=[], folds=5, save=False):
     try :
         _=type(DATA)
     except:
-        print('DATA is not defined')
+        log_print('DATA is not defined','i')
         DATA = None
       
     
     use_features, cat_features, _ = mod.read_in_features()
-    logging.info(f'Skapde L1_features')
+    log_print(f'Skapde L1_features','i')
     
     if DATA is None:
-        print('DATA is None, load_data')
+        log_print('DATA is None, load_data','i')
         DATA=load_data()
         
     df = DATA.copy()
@@ -88,7 +103,7 @@ def gridsearch_typ(typ, params, proba_kolumner=[], folds=5, save=False):
         # Kör L2-modeller
         assert Xy[cat_features].isnull().sum().sum() == 0, 'there are NaN values in cat_features before create_L2_input'
       
-        logging.info(f'Kör create_L2_input')
+        log_print(f'Kör create_L2_input')
         Xy, use_features = mod.create_L2_input(Xy, L1_modeller, use_features)
 
         assert Xy[cat_features].isnull().sum().sum() == 0, 'there are NaN values in cat_features after create_L2_input'
@@ -109,25 +124,24 @@ def gridsearch_typ(typ, params, proba_kolumner=[], folds=5, save=False):
     return res
 
 def do_grid_search(X,y, typ, params, use_features, cat_features, folds=5,randomsearch=False, verbose=False):
-    logging.info(f'Startar do_grid_search')
+    log_print(f'Startar do_grid_search')
     
     tscv = TimeSeriesSplit(n_splits=folds)
     grid = eval(params)  # str -> dict
 
     if not typ.streck:
-        print('remove streck')
-        logging.info(f'remove streck')
+        log_print(f'remove streck','i')
         use_features.remove('streck')
         
     if 'cat' in typ.name:
-        logging.info(f'catboost')
+        log_print(f'catboost','i')
         X = tp.prepare_for_catboost(X)
         
         model = CatBoostClassifier(iterations=500, loss_function='Logloss', eval_metric='AUC',
                                 use_best_model=False, early_stopping_rounds=200, verbose=verbose,)
         if randomsearch:
             st.info(f'Randomized search {typ.name}')
-            logging.info(f'Randomized search {typ.name}')
+            log_print(f'Randomized search {typ.name}')
             grid_search_result = model.randomized_search(grid,
                                             X=Pool(X[use_features], y, cat_features=cat_features),
                                             cv=tscv.split(X),
@@ -156,31 +170,19 @@ def do_grid_search(X,y, typ, params, use_features, cat_features, folds=5,randoms
         grid_search_result = {'params': best_params, 'AUC': round(AUC,5), 'Logloss': round(Logloss,5)}    
             
     elif 'xgb' in typ.name:
-        logging.info(f'xgboost')
+        log_print(f'xgboost','i')
         # xgb_encoder till ENC
         with open(pref+'xgb_encoder.pkl', 'rb') as f:
             ENC = pickle.load(f)
             
         X, ENC = tp.prepare_for_xgboost(X, encoder=ENC)
-        logging.info(f'Encoding done')
+        log_print(f'Encoding done','i')
         model = xgb.XGBClassifier(
             objective='binary:logistic', eval_metric='auc', scale_pos_weight=9, random_state=2023)
 
         assert X[cat_features].isnull().sum().sum() == 0, 'there are NaN values in cat_features inna xgb gridsearch'
         if randomsearch:
-            logging.info(f'Randomized search {typ.name}')
-            st.info(f'Randomized search {typ.name}')
-            grid_search_result = RandomizedSearchCV(model, param_distributions=grid,
-                                                    cv=tscv.split(X[use_features]),
-                                                    scoring=['roc_auc','neg_log_loss'],
-                                                    random_state=2023,
-                                                    refit='roc_auc',
-                                                    n_jobs=-1,
-                                                    verbose=1)
-            grid_search_result.fit(X[use_features], y)
-            
-        else:
-            logging.info(f'Grid search {typ.name}')
+            log_print(f'Grid search {typ.name}')
             st.info(f'Grid search')
             grid_search_result = model.grid_search(grid,
                                                    X=Pool(
@@ -194,14 +196,14 @@ def do_grid_search(X,y, typ, params, use_features, cat_features, folds=5,randoms
         AUC = grid_search_result.best_score_
         ix = grid_search_result.best_index_
         Logloss = -grid_search_result.cv_results_['mean_test_neg_log_loss'][ix]
-        assert AUC==grid_search_result.cv_results_['mean_test_roc_auc'][ix], f'AUC != mean_test_roc_auc[{ix}]'
+        assert AUC==grid_search_result.cv_results_['mean_test_roc_auc'][ix], log_print(f'AUC != mean_test_roc_auc[{ix}]','e')
         
         grid_search_result = {'params': best_params, 'AUC': round(AUC,5), 'Logloss': round(Logloss,5)}    
     else:
         raise ValueError('typ.name must include cat or xgb')
     
-    logging.info(f'grid_search_result AUC: {AUC}')
-    logging.info(f'grid_search_result best_params: {best_params}')
+    log_print(f'grid_search_result AUC: {AUC}', 'i')
+    log_print(f'grid_search_result best_params: {best_params}', 'i')
     
     print('---------------------------------------')
     display(AUC, Logloss)

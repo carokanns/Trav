@@ -47,12 +47,23 @@ st.markdown("# 🏫 V75 Learning")
 st.sidebar.header("🏫 V75 Learning")
 
 #%%
-def log_print(text):
+
+
+def log_print(text, logging_level='d'):
     """Skriver ut på loggen och gör en print samt returnerar strängen (för assert)"""
-    logging.info(text)
-    print(text)
+    if logging_level == 'd':
+        logging.debug(text)
+    else:
+        if logging_level == 'i':
+            logging.info(text)
+        elif logging_level == 'w':
+            logging.warning(text)
+        elif logging_level == 'e':
+            logging.error(text)
+        print(text)
 
     return text
+
 
 L1_modeller, L2_modeller = mod.skapa_modeller()
 

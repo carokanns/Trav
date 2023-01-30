@@ -37,15 +37,23 @@ st.set_page_config(page_title="v75 Spel copy", page_icon="🐎")
 st.sidebar.header("🐎 V75 Spel copy")
 
 # TODO: Ta bort alla gamla meta-modeller och dess funktioner
-# TODO: Inför val mellan matematiskt eller geometriskt medelvärde 
 
 
-def log_print(text):
+def log_print(text, logging_level='d'):
     """Skriver ut på loggen och gör en print samt returnerar strängen (för assert)"""
-    logging.info(text)
-    print(text)
+    if logging_level == 'd':
+        logging.debug(text)
+    else:
+        if logging_level == 'i':
+            logging.info(text)
+        elif logging_level == 'w':
+            logging.warning(text)
+        elif logging_level == 'e':
+            logging.error(text)
+        print(text)
 
     return text
+
 #%%
 def v75_scraping():
     log_print('vs.v75_scraping: startar')
@@ -100,23 +108,6 @@ def do_scraping(datum):
             logging.info(f'scrape() - klar med threaded v75_scraping - df_scraped.shape = {df_scraped.shape}')
             # use_meta(df_stack, meta)
     return df_scraped
-def build_stack_df(df):
-    """ Bygg stack data som skall bli input till L2-modellerna
-    Args:
-        df (DataFram): Innehåller 'alla' features men endast L1_features kommer att användas 
-
-    Returns:
-        df_stack (DataFrame): df nu kompletterad med L1-modellernas prediktioner
-        use_featuress (list): lista med features som används i L2-modellerna (L1_features + L1-modellernas prediktioner)
-    """
-    logging.info('build_stack_df(df) - startar')
-    df_stack = df.copy()
-    L1_features, cat_features, num_features = mod.read_in_features()
-    
-    df_stack, use_features = mod.create_L2_input(df_stack,st.session_state.L1_modeller, L1_features, with_y=False)
-        
-    logging.info('build_stack_df(df) - klar')   
-    return df_stack, use_features
 
 #%%
 def date_handling():  
@@ -174,9 +165,8 @@ def get_scrape_data(datum):
                         pass
 
                     st.session_state['df'] = df
-                    # logging.info(f'Tar bort session_state["datum"]   - OK???' )
-                    # del st.session_state['datum']  # säkrar att datum sätts samma som i df
             except FileNotFoundError:
+                logging.error('Det finns ingen sparad data')
                 st.error('Det finns ingen sparad data')
                 raise FileNotFoundError('Det finns ingen sparad data')
     return
