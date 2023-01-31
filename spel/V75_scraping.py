@@ -125,7 +125,7 @@ def get_utdelning(driver_r, dat, bana):
     assert utd7 > utd6 or utd7==0, log_print('7 rätt skall ge mer pengar än 6 rätt','e')
     assert utd6 > utd5 or utd6 == 0, log_print('6 rätt skall ge mer pengar än 5 rätt', 'e')
 
-    log_print(f'utdelning: 7or {utd7}, 6or {utd6}, 5or {utd5}','i')
+    log_print(f'Omgångens totala utdelning: 7or {utd7}, 6or {utd6}, 5or {utd5}','i')
     utd_file = 'C:\\Users\\peter\\Documents\\MyProjects\\PyProj\\Trav\\spel\\utdelning.csv'
     utdelning = pd.read_csv(utd_file)
     utd = pd.DataFrame([[dat, bana, utd7, utd6, utd5]])
@@ -228,12 +228,15 @@ def en_rad(vdict, datum, bana, start, lopp_dist, avd, anr, r, rad, voddss, podds
             
         if len(h_dates) < 5:
             # Duplicera hist_x
+            log_print(f'len h_dates {len(h_dates)} < 5 avd {anr+1}','w')
             ln=len(h_dates)
-            log_print(f'{names[r].text} avd {anr+1} ')
-            log_print(f'len h_dates {len(h_dates)} avd {anr+1} ')
-            log_print(f'h_banor {h_banor} {[len(h_banor)-1].text} avd {anr+1}')
+            log_print(f'{names[r].text} avd {anr+1} ','i')
+            log_print(f'len h_dates {len(h_dates)} avd={anr+1} startnr={r+1}','i')
+            log_print(f'len(h_banor) {[len(h_banor)-1]} avd {anr+1}','i')
+            log_print(f'datum-text = {dtext} avd={anr+1} för startnr={r+1}','i')
             for h in range(ln, 5):
                 fld = 'h'+str(h+1)+'_'
+                log_print(f'fld={fld}, h={h}, ln={ln}, avd {anr+1} för startnr {r+1}')
                 vdict[fld+'dat'].append(dtext)
                 vdict[fld+'bana'].append(h_banor[ln-1].text)
                 vdict[fld+'kusk'].append(h_kuskar[ln-1].text)
@@ -242,7 +245,8 @@ def en_rad(vdict, datum, bana, start, lopp_dist, avd, anr, r, rad, voddss, podds
                 vdict[fld+'spår'].append(h_spår[ln-1].text)
                 vdict[fld+'kmtid'].append(h_kmtid[ln-1].text)
                 vdict[fld+'odds'].append(h_odds[ln-1].text)
-                vdict[fld+'pris'].append(h_pris[ln-1].text)    
+                vdict[fld+'pris'].append(h_pris[ln-1].text) 
+                log_print(f'vdict {vdict}')   
                         
         log_print(f'klart history avd {anr+1} för startnr {r+1}')
     log_print(f'klart rad {r+1} avd {anr+1}', 'i')
@@ -250,11 +254,12 @@ def en_rad(vdict, datum, bana, start, lopp_dist, avd, anr, r, rad, voddss, podds
 
 
 def do_scraping(driver_s, driver_r, avdelningar, history, datum):  # get data from web site
-
+    
     vdict = {'datum': [], 'bana': [], 'avd': [], 'startnr': [], 'häst': [], 'ålder': [], 'kön': [], 'kusk': [], 'lopp_dist': [],
              'start': [], 'dist': [], 'pris': [], 'spår': [], 'streck': [], 'vodds': [], 'podds': [], 'kr': [], }
     if driver_r:
         vdict.update({'plac': []})
+        driver_r.implicitly_wait(10)     # seconds
     if history:
         vdict.update(
             {'h1_dat': [], 'h1_bana': [], 'h1_kusk': [], 'h1_plac': [], 'h1_dist': [], 'h1_spår': [], 'h1_odds': [], 'h1_pris': [], 'h1_kmtid': [],
@@ -266,13 +271,8 @@ def do_scraping(driver_s, driver_r, avdelningar, history, datum):  # get data fr
 
  
     if driver_r:
-        log_print(f'find driver_r game-table avd {avdelningar}','i')
+        log_print(f'find driver_r game-table avd {avdelningar}','i')     
         
-        # WebDriverWait(driver_r, 10).until(
-        #     EC.presence_of_element_located((By.CLASS_NAME, 'game-table')))
-        # print('1r ############################### ')
-        
-        driver_r.implicitly_wait(10)     # seconds
         result_tab = driver_r.find_elements(
             By.CLASS_NAME, 'game-table')[:]  # alla lopp med resultatordning
         log_print(f'2r ############################### len result_tab = {len(result_tab)} avd={avdelningar}', 'i')

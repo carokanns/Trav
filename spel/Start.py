@@ -5,7 +5,7 @@ st.set_page_config(
     page_icon="👋",
 )
 st.sidebar.header("Välj sida ovan")
-st.markdown("# Min kompletta v75-applikation")
+st.markdown("# Start av v75-applikation")
 
 st.image('winning_horse.png')  # ,use_column_width=True)
 

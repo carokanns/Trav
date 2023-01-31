@@ -1,7 +1,6 @@
 spel/version 3/catboost_info/**
 spel/sparad_scrape.csv
 spel/__pycache__/V75_scraping.cpython-38.pyc
-spel/sparad_scrape.csv
 spel/catboost_info/**
 spel/catboost_info/*.*
 spel/catboost_info/*.tsv
@@ -11,7 +10,6 @@ spel/.tmp.drivedownload/**
 spel/.tmp.drivedownload/*
 spel/.tmp.drivedownload/*.*
 spel/.tmp.driveupload/*
-spel/sparad_scrape.csv
 spel/*.log
 spel/v75_tester/flaml.log
 spel/v75_tester/try_gluon/agModels-predictClass/*.*
@@ -26,4 +24,6 @@ spel/__pycache__/*.*
 spel/temp.csv
 spel/sparad_scrape_learn.csv
 spel/sparad_scrape_spela.csv
-spel/sparad_stack_meta.csv
+spel/sparad_stack_L1.csv
+spel/sparad_stack_L2.csv
+spel/veckans_rad.csv

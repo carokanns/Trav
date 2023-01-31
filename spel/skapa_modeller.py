@@ -74,7 +74,7 @@ def read_in_features():
 def create_L2_input(df_,L1_modeller, L1_features,with_y=True):
     """ Använder L1_modeller för att skapa input till L2_modeller
     Args:
-        df_ (DataFrame): All tvättad input från scraping en endast L1_features används
+        df_ (DataFrame): All tvättad input från scraping men endast L1_features används
         L1_modeller (Dict): av typen {'model_namn': model (instans av Typ)}
         L1_features (List): De features som används för att träna L1_modeller
         with_y (bool, optional): y är med om vi har en Learning-situation annars inte. Defaults to True.

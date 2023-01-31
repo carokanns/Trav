@@ -260,7 +260,7 @@ def TimeSeries_learning(df_ny_, L1_modeller, L2_modeller, n_splits=5, val_fracti
     ########################################################################################
     #         Step 1: Learn the Layer1 on ts X_train and predict on ts X_test              #
     ########################################################################################
-    st.write('Skapar stacked_data till Layer2')
+    st.info('Learn L1 och skapar stacked_data till L2')
     my_bar = st.progress(0)
 
     step = 1/(n_splits*len(L1_modeller))-0.0000001
@@ -276,10 +276,10 @@ def TimeSeries_learning(df_ny_, L1_modeller, L2_modeller, n_splits=5, val_fracti
         temp_stack = X_test.copy()
         temp_stack['y'] = y_test
 
-        print('start datum i X_train:', X_train.datum.min())
-        print('start datum i X_test:', X_test.datum.min())
+        log_print('start datum i X_train:', X_train.datum.min())
+        log_print('start datum i X_test:', X_test.datum.min())
 
-        ###### Learn L1-modeller på X_train från ts.split#######
+        ###### Learn L1-modeller på X_train från ts.split #######
 
         for model_name, model in L1_modeller.items():
             steps += step
@@ -299,29 +299,31 @@ def TimeSeries_learning(df_ny_, L1_modeller, L2_modeller, n_splits=5, val_fracti
         # Alla L1_modeller är nu tränade på X_train från ts.split 
         # och vi kan nu göra predict av L!_modellerna på X_test från ts.split
         
-        assert 'streck' in X.columns, f'streck is missing in X före create_L2_data med L1_modeller'
+        assert 'streck' in X.columns, log_print(f'streck is missing in X före create_L2_data med L1_modeller', 'e')
         Xy = X_test.copy()
         Xy['y'] = y_test
         L1_output_data, use_L2features = mod.create_L2_input(Xy, L1_modeller, use_features)
         
-        assert 'streck' in L1_output_data.columns, f'streck is missing in L1_output_data efter predict med {model_name}'
+        assert 'streck' in L1_output_data.columns, \
+                log_print(f'streck is missing in L1_output_data efter predict med {model_name}', 'e')
         
     # Nu har vi en stack från alla L1_modeller som ska användas som input till L2_modeller
-    
+    # OBS att vi inte skapar spara_stack_L1 eller _L2 här, eftersom de omfattar hela df och inte bara en omgång 
     # Kolla att vi har korrekta proba-kolumner i L1_output_data
     proba_features = [col for col in L1_output_data.columns if 'proba_' in col]
-    assert len(proba_features) == 4, f'proba-kolumner saknas i L1_output_data'
+    assert len(proba_features) == 4, log_print(f'proba-kolumner saknas i L1_output_data', 'e')
     
     my_bar.progress(1.0)
 
     ###############################################################################
     #         Step 2:       Learn Layer2                                          #
     ###############################################################################
-    st.write('Learning L2 models')
+    st.info('Learning L2 models')
     # use_L2features = use_features + proba_features   - use_L2features är redan satt i create_L2_input
-    assert 'streck' in use_L2features, f'streck is missing in use_L2features innan learn L2_modeller'
-    assert 'datum' in L1_output_data, 'datum is missing in L1_output_data'
-    assert len([col for col in use_L2features if 'proba_' in col]) == 4,f' proba-kolumner saknas för L2-modell {model_name}'
+    assert 'streck' in use_L2features, log_print(f'streck is missing in use_L2features innan learn L2_modeller', 'e')
+    assert 'datum' in L1_output_data, log_print('datum is missing in L1_output_data', 'e')
+    assert len([col for col in use_L2features if 'proba_' in col]) == 4,  \
+            log_print(' proba-kolumner saknas för L2-modell {model_name}', 'e')
     
     L2_modeller = mod.learn_L2_modeller(L2_modeller, L1_output_data, use_L2features)
     
@@ -329,8 +331,8 @@ def TimeSeries_learning(df_ny_, L1_modeller, L2_modeller, n_splits=5, val_fracti
     ###############################################################################
     #         Step 3: learn L1-modeller on all of X - what iteration to use?      #
     ###############################################################################
-    st.write('Learn models on all of X - why not plus X_test as well?')
-    print('Starting to learn models on all of X')
+    st.info('Learn models on all of X - why not plus X_test as well?')
+    log_print('Starting to learn models on all of X','i')
     my_bar2 = st.progress(0)
     ant_meta_models = 4
     step = 1/(ant_meta_models) - 0.0000001
@@ -512,7 +514,7 @@ def validate(L1_modeller, L2_modeller, fraction=None):
     # Bara för att stila! Kunde lika gärna göra som med L!-modeller nedan
     for model in L2_output.filter(regex="^proba_.*L2$", axis=1).columns:
         st.write('\n')
-        st.info(f'förbereder {model} plot')
+        # st.info(f'förbereder {model} plot')
         plot_confusion_matrix(y_true, L2_output[model], model, fr=0.0, to=0.9)
 
     st.write('\n')
@@ -638,8 +640,8 @@ with top:
 position_to_top()
 
 with buttons:
-    # TODO: Inför två streamlit-val att köra learn.py antingen med TimeSeriesSplit eller Train_Test_Split
-    # TODO: använd sparad_scrape_spela.csv om den finns och om den innehåller plac
+    # TODO: Inför ett streamlit-val att köra learn.py antingen med TimeSeriesSplit eller Train_Test_Split
+
     if st.sidebar.button('scrape'):
         st.write(f'web scraping {st.session_state.datum}')
         try:
@@ -650,26 +652,41 @@ with buttons:
 
     if st.sidebar.button('reuse scrape'):
         try:
-            df_ny = pd.read_csv('sparad_scrape_learn.csv')
+            df_spela = pd.read_csv('sparad_scrape_spela.csv')
+            log_print(f'Försöker först använda sparad_scrape_spela.csv om den är ok', 'i')
+            if df_spela.datum.iloc[0] == st.session_state.datum and 'plac' in df_spela.columns:
+                log_print(f'Den har rätt datum och innehåller "plac"- den är ok ', 'i')
+                df_ny = df_spela
+        except:
+            log_print(f'Kunde inte använda först-avalet: sparad_scrape_spela.csv', 'i')
+            df_ny=None
+            pass
+            
+        try:
+            if df_ny is None:
+                log_print(f'Försöker använda andra-valet: sparad_scrape_learn.csv', 'i')
+                df_ny = pd.read_csv('sparad_scrape_learn.csv')
+                
             st.session_state.df_ny = df_ny
             if df_ny.datum.iloc[0] != st.session_state.datum:
-                logging.error(f'Datum i data = {df_ny.datum.iloc[0]} \n\n är inte samma som i omgång')
+                log_print(f'Datum i data = {df_ny.datum.iloc[0]} \n\n är inte samma som i omgång','e')
                 st.error(f'Datum i data = {df_ny.datum.iloc[0]} \n\n är inte samma som i omgång')
             else:
-                logging.info(f'inläst data med datum = {df_ny.datum.iloc[0]}')
-                st.success(f'inläst data med datum = {df_ny.datum.iloc[0]}')
+                log_print(f'inläst sparad_scrape med datum = {df_ny.datum.iloc[0]}','i')
+                st.success(f'inläst sparad_scrape med datum = {df_ny.datum.iloc[0]}')
         except:
             # write error message
-            logging.error('Ingen data sparad')
-            st.error('Ingen data sparad')
+            log_print('Ingen användbar data finns sparad','e')
+            st.error('Ingen amvändbar data finns sparad')
 
     if st.session_state.df_ny is not None:
         if st.sidebar.button('Learn for validation'):    
             st.write('TimeSeries learning for validation')
+            log_print('TimeSeries learning for validation')
             fraction = st.session_state.fraction
             df_ny = st.session_state.df_ny
-            st.write(
-                f'learn models and meta models on first {(1-fraction)*100} % of the data')
+            st.write(f'learn models and meta models on first {(1-fraction)*100} % of the data')
+            log_print(f'learn models and meta models on first {(1-fraction)*100} % of the data')
 
             stacked_data = TimeSeries_learning(df_ny,
                                                L1_modeller, L2_modeller,
@@ -677,28 +694,24 @@ with buttons:
                                                val_fraction=fraction,
                                                save=True)
 
-            assert 'datum' in stacked_data.columns, 'datum saknas i stacked_data'
-            assert 'streck' in stacked_data.columns, 'datum saknas i stacked_data'
-            assert len([col for col in stacked_data.columns if 'proba' in col]
-                       ) == 4, 'proba saknas i stacked_data'
+            assert 'datum' in stacked_data.columns, \
+                        log_print('"datum" saknas i stacked_data','e')
+            assert 'streck' in stacked_data.columns, \
+                        log_print('"streck" saknas i stacked_data','e')
+            assert len([col for col in stacked_data.columns if 'proba' in col]) == 4, \
+                        log_print('"proba" saknas i stacked_data','e')
             st.success('✔️ TimeSeries learning done')
 
-        st.session_state['mean_type'] = st.sidebar.selectbox('Välj typ av medelvärde', ['arithmetic', 'geometric'], index=1)
+        st.session_state['mean_type'] = st.sidebar.selectbox \
+                    ('Välj typ av medelvärde', ['arithmetic', 'geometric'], index=1)
 
         if st.sidebar.button('Validate'):
             validate(L1_modeller, L2_modeller, fraction=st.session_state.fraction)
             
         if st.sidebar.button('Final learning'): 
-            st.write("""
-                <script>
-                    setTimeout(function() {
-                        window.scrollTo(0, 0);
-                    }, 10);
-                </script>
-            """, unsafe_allow_html=True)
-                    
             final_learning(L1_modeller, L2_modeller)
 
         if st.sidebar.button('Clear'):
             st.empty()
+            
     st.markdown("<a href='#linkto_top'>Top of page</a>", unsafe_allow_html=True)

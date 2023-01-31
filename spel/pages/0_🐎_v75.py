@@ -36,9 +36,6 @@ logging.info('V75.py Startar')
 st.set_page_config(page_title="v75 Spel copy", page_icon="🐎")
 st.sidebar.header("🐎 V75 Spel copy")
 
-# TODO: Ta bort alla gamla meta-modeller och dess funktioner
-
-
 def log_print(text, logging_level='d'):
     """Skriver ut på loggen och gör en print samt returnerar strängen (för assert)"""
     if logging_level == 'd':
@@ -74,7 +71,8 @@ def v75_scraping():
 
 #%%
 def do_scraping(datum):
-    logging.info(f'scrape() - startar ny scraping')
+    log_print(f'scrape() - startar ny scraping','i')
+    
     st.write('web-scraping för ny data')
     placeholder = st.empty()
     i = 0.0
@@ -105,7 +103,6 @@ def do_scraping(datum):
             my_bar.empty()
             placeholder.empty()
             logging.info(f'scrape() - klar med threaded v75_scraping - df_scraped.shape = {df_scraped.shape}')
-            # use_meta(df_stack, meta)
     return df_scraped
 
 #%%
@@ -142,9 +139,11 @@ def get_scrape_data(datum):
     st.session_state['scrape_type'] = None
 
     with col1:
-        if st.button('scrape'):
-            st.session_state['scrape_type'] = 'scrape'
-            st.session_state['df'] = do_scraping(datum)
+        scrape_button = st.button('scrape')
+    if scrape_button:
+        st.session_state['scrape_type'] = 'scrape'
+        st.session_state['df'] = do_scraping(datum)
+ 
     with col2:
         if st.button('Resue scrape'):
             st.session_state['scrape_type'] = 'resue scrape'
@@ -166,23 +165,30 @@ def get_scrape_data(datum):
     return
 
 def mesta_diff_per_avd(X_):
-    logging.info('räknar ut mesta_diff_per_avd')
-    sm = X_.copy()
-    # select the highest meta per avd
-    sm['first'] = sm.groupby('avd')['meta'].transform(
-        lambda x: x.nlargest(2).reset_index(drop=True)[0])
-    sm['second'] = sm.groupby('avd')['meta'].transform(
-        lambda x: x.nlargest(2).reset_index(drop=True)[1])
+    """Räknar ut den största och näst största diffen av meta per avd
+    Args:
+        X_ (DataFrame): veckans_rad (ej färdig)
 
-    sm = sm.query("(first==meta or second==meta)").copy()
-    sm['diff'] = sm['first'] - sm['second']
+    Returns:
+        DataFrame: 1 rad per avd med kolumnerna [first, second, diff] tillagda
+    """
+    log_print(f'räknar ut mesta_diff_per_avd')
+    df = X_.copy()
+    # select the highest meta per avd
+    df['first'] = df.groupby('avd')['meta'].transform(
+        lambda x: x.nlargest(2).iloc[0])
+    df['second'] = df.groupby('avd')['meta'].transform(
+        lambda x: x.nlargest(2).iloc[1])
+
+    df = df.dropna(subset=['first', 'second'])  # behåll endast first och second med värde. De andra är NaN
+    df['diff'] = df['first'] - df['second']
 
     # drop duplicates per avd
-    sm = sm.drop_duplicates(subset='avd', keep='first')
+    df = df.drop_duplicates(subset='avd', keep='first')
 
-    sm.sort_values(by='diff', ascending=False, inplace=True)
-    # sm.to_csv('mesta_diff_per_avd.csv')
-    return sm
+    df.sort_values(by='diff', ascending=False, inplace=True)
+    # st.write(f'kolumnerna i df = {df.columns}')
+    return df
 
 def compute_total_insats(df):
     summa = df.groupby('avd').avd.count().prod() / 2
@@ -209,7 +215,15 @@ def välj_rad(df, max_insats=300):
     veckans_rad = veckans_rad.reset_index(drop=True)
     
     mest_diff = mesta_diff_per_avd(veckans_rad)
+    # TODO: Kolla att mest_diff har exakt samma ordning som veckans rad
+    assert len(mest_diff) == 7, \
+            log_print(f'len(mest_diff) {len(mest_diff)} != 7 (antal lopp)','e')
     
+    assert set(mest_diff['avd'].unique()).issubset(veckans_rad['avd'].unique()), \
+            log_print(f"Alla avd i mest_diff måste finnas i veckans_rad")
+    assert len(mest_diff['avd'].unique()) == len(veckans_rad['avd'].unique()), \
+            log_print(f"Antalet unique avd i mest_diff och i veckans_rad skall vara samma")
+            
     cost = 0.5 # 1 rad
     
     # now select the rest of the horses one by one sorted by meta
@@ -263,33 +277,36 @@ with scraping:
     get_scrape_data(datum)
 
 if st.session_state['scrape_type'] is not None: 
-    logging.info('Nu bygger vi df_stack')
-    df_stack = st.session_state['df'].copy()
+    logging.info('Nu bygger vi df_stack_L1')
+    df_stack_L1 = st.session_state['df'].copy()
     L1_features, cat_features, num_features = mod.read_in_features()
     
     # Layer 1
-    df_stack = mod.lägg_till_extra_kolumner(df_stack)
-    df_stack = mod.fix_history_bana(df_stack)
+    df_stack_L1 = mod.lägg_till_extra_kolumner(df_stack_L1)
+    df_stack_L1 = mod.fix_history_bana(df_stack_L1)
     
-    df_stack, use_features = mod.create_L2_input(df_stack,st.session_state.L1_modeller, L1_features, with_y=False)    
-    logging.info('sparar df_stack till csv')
-    df_stack.to_csv('sparad_stack.csv', index=False)
+    df_stack_L1, use_features = mod.create_L2_input(df_stack_L1, st.session_state.L1_modeller, L1_features, with_y=False)
+    logging.info('sparar df_stack_L1 till csv')
+    df_stack_L1.to_csv('sparad_stack_L1.csv', index=False)
     
     # Layer 2
-    df_stack = mod.predict_med_L2_modeller(st.session_state.L2_modeller, df_stack, use_features, mean_type='geometric', with_y = False)
-    logging.info(f'Vi har en df_stack med meta_kolumn. shape = {df_stack.shape}')
-    df_stack.to_csv('sparad_stack_meta.csv', index=False)
+    logging.info('Nu bygger vi df_stack_L2')
+    df_stack_L2 = mod.predict_med_L2_modeller(
+        st.session_state.L2_modeller, df_stack_L1, use_features, mean_type='geometric', with_y=False)
+    logging.info(
+        f'Vi har en df_stack_L2 med meta_kolumn. shape = {df_stack_L2.shape}')
+    df_stack_L2.to_csv('sparad_stack_L2.csv', index=False)
     
 with avd:     
-    df_stack = pd.read_csv('sparad_stack_meta.csv')
-    if df_stack.iloc[0].datum == st.session_state['datum']:    
+    df_stack_L2 = pd.read_csv('sparad_stack_L2.csv')
+    if df_stack_L2.iloc[0].datum == st.session_state['datum']:    
         use = avd.radio('Välj avdelning', ('Avd 1 och 2', 'Avd 3 och 4', 'Avd 5 och 6', 'Avd 7', 'clear'))
         avd.subheader(use)
         col1, col2 = st.columns(2)
         if st.session_state['rätta'] == False:
             st.session_state['rätta'] = avd.button('Rätta raden')
     
-        veckans_rad, kostnad = välj_rad(df_stack, max_insats=375)
+        veckans_rad, kostnad = välj_rad(df_stack_L2, max_insats=375)
         assert 'meta' in veckans_rad.columns, f"meta finns inte i veckans_rad"
         veckans_rad.rename(columns={'startnr': 'nr', 'meta': 'Meta'}, inplace=True)
         
@@ -302,8 +319,12 @@ with avd:
             veckans_rad.to_csv('veckans_rad.csv', index=False)
             header_list = ['nr', 'häst', 'Meta', 'streck', 'plac']
             sju, sex, fem, utd = mod.rätta_rad(veckans_rad, datum)
-            
-            st.info(f'utdelning={utd:.0f}, vinst={(utd-kostnad):.0f} kr, {sju} sjuor {sex} sexor {fem} femmor')
+            vinst = utd - kostnad
+            vinst_text= "vinst"
+            if vinst<0:
+                vinst_text = 'förlust'
+
+            st.info(f'utdelning={utd:.0f}, {vinst_text}={(vinst):.0f} kr, {sju} sjuor {sex} sexor {fem} femmor')
         ################################################
         #    Denna kod döljer radindex i dataframe     #
         #    När man t.ex. gör en st.write(df)         #
@@ -341,5 +362,5 @@ with avd:
         else:
             st.write('ej klart')
     else:
-        st.warning(f"datum i session_state={st.session_state['datum']} är inte samma som i sparad_stack_meta={df_stack.iloc[0].datum}")
+        st.warning(f"datum i session_state={st.session_state['datum']} är inte samma som i sparad_stack_L2={df_stack_L2.iloc[0].datum}")
         st.stop()
