@@ -33,9 +33,9 @@ logging.basicConfig(level=logging.INFO, filemode='a', filename='v75.log', force=
 logging.info('V75.py Startar')
 
 #%%
-st.set_page_config(page_title="v75 Spel copy", page_icon="🐎")
-st.sidebar.header("🐎 V75 Spel copy")
-
+st.set_page_config(page_title="v75 Spel", page_icon="🐎")
+st.sidebar.header("🐎 V75 Spel")
+ 
 def log_print(text, logging_level='d'):
     """Skriver ut på loggen och gör en print samt returnerar strängen (för assert)"""
     if logging_level == 'd':
@@ -161,8 +161,8 @@ def get_scrape_data(datum):
             except FileNotFoundError:
                 log_print('Det finns ingen sparad data','e')
                 st.error('Det finns ingen sparad data')
-                raise FileNotFoundError('Det finns ingen sparad data')
-    return
+                return False    # raise FileNotFoundError('Det finns ingen sparad data')
+    return True
 
 def mesta_diff_per_avd(X_):
     """Räknar ut den största och näst största diffen av meta per avd
@@ -194,6 +194,16 @@ def compute_total_insats(df):
     summa = df.groupby('avd').avd.count().prod() / 2
     return summa
 
+def compute_weights(scores):
+    """ Compute normalized weights to use to get the meta column. 
+    Args:
+        (list) scores: list of (i.e. F1 or AUC) scores from L2 models on validation set
+    Returns:
+        (list) weights: weights to use to get the meta column    
+    """
+    weights = scores / np.sum(scores)
+    return weights
+
 def välj_rad(df, max_insats=300):
     """_summary_
     Args:   df_ (dataframe): Predicted med Layer2. meta-kolumnen är den som ska användas
@@ -217,7 +227,7 @@ def välj_rad(df, max_insats=300):
     mest_diff = mesta_diff_per_avd(veckans_rad)
     # TODO: Kolla att mest_diff har exakt samma ordning som veckans rad
     assert len(mest_diff) == 7, \
-            log_print(f'len(mest_diff) {len(mest_diff)} != 7 (antal lopp)','e')
+            log_print(f'len(mest_diff) {len(mest_diff)} != 7 (antal lopp) {mest_diff[["avd","diff"]]}','e')
     
     assert set(mest_diff['avd'].unique()).issubset(veckans_rad['avd'].unique()), \
             log_print(f"Alla avd i mest_diff måste finnas i veckans_rad")
@@ -274,7 +284,8 @@ with scraping:
     logging.info('Nu kör vi "with scraping"')
     datum = date_handling()
     st.title('🐎 v75 -  ' + st.session_state.datum)
-    get_scrape_data(datum)
+    if get_scrape_data(datum) == False:
+        st.session_state['scrape_type'] = None
 
 if st.session_state['scrape_type'] is not None: 
     logging.info('Nu bygger vi df_stack_L1')
@@ -291,76 +302,84 @@ if st.session_state['scrape_type'] is not None:
     
     # Layer 2
     logging.info('Nu bygger vi df_stack_L2')
-    df_stack_L2 = mod.predict_med_L2_modeller(
+    df_stack_L2 = mod.predict_med_L2_modeller(  \
         st.session_state.L2_modeller, df_stack_L1, use_features, mean_type='geometric', with_y=False)
     logging.info(
         f'Vi har en df_stack_L2 med meta_kolumn. shape = {df_stack_L2.shape}')
     df_stack_L2.to_csv('sparad_stack_L2.csv', index=False)
     
 with avd:     
-    df_stack_L2 = pd.read_csv('sparad_stack_L2.csv')
-    if df_stack_L2.iloc[0].datum == st.session_state['datum']:    
-        use = avd.radio('Välj avdelning', ('Avd 1 och 2', 'Avd 3 och 4', 'Avd 5 och 6', 'Avd 7', 'clear'))
-        avd.subheader(use)
-        col1, col2 = st.columns(2)
-        if st.session_state['rätta'] == False:
-            st.session_state['rätta'] = avd.button('Rätta raden')
+    try:
+        df_stack_L2 = pd.read_csv('sparad_stack_L2.csv')
+    except:
+        df_stack_L2 = None    
     
-        veckans_rad, kostnad = välj_rad(df_stack_L2, max_insats=375)
-        assert 'meta' in veckans_rad.columns, f"meta finns inte i veckans_rad"
-        veckans_rad.rename(columns={'startnr': 'nr', 'meta': 'Meta'}, inplace=True)
-        
-        st.info(f'Kostnad för veckans rad: {kostnad:.0f} kr')
-        
-        log_print(f'Visar veckans rad för {use}','i')
-        
-        header_list = ['nr', 'häst', 'Meta', 'streck']
-        if st.session_state['rätta']:
-            veckans_rad.to_csv('veckans_rad.csv', index=False)
-            header_list = ['nr', 'häst', 'Meta', 'streck', 'plac']
-            sju, sex, fem, utd = mod.rätta_rad(veckans_rad, datum)
-            vinst = utd - kostnad
-            vinst_text= "vinst"
-            if vinst<0:
-                vinst_text = 'förlust'
-
-            st.info(f'utdelning={utd:.0f}, {vinst_text}={(vinst):.0f} kr, {sju} sjuor {sex} sexor {fem} femmor')
-        ################################################
-        #    Denna kod döljer radindex i dataframe     #
-        #    När man t.ex. gör en st.write(df)         #
-        ################################################
-        # CSS to inject contained in a strin
-        hide_dataframe_row_index = """
-                <style>
-                .row_heading.level0 {display:none}
-                .blank {display:none}
-                </style>
-                """
-        # Inject CSS with Markdown
-        st.markdown(hide_dataframe_row_index, unsafe_allow_html=True)
-        ############ CSS klart ###########################
-        if use == 'Avd 1 och 2':
-            col1.table(veckans_rad[(veckans_rad.avd == 1) & veckans_rad.välj].sort_values(
-                by=['Meta'], ascending=False)[header_list])
-            col2.table(veckans_rad[(veckans_rad.avd == 2) & veckans_rad.välj].sort_values(
-                by=['Meta'], ascending=False)[header_list])
-        elif use == 'Avd 3 och 4':
-            col1.table(veckans_rad[(veckans_rad.avd == 3) & veckans_rad.välj].sort_values(
-                by=['Meta'], ascending=False)[header_list])
-            col2.table(veckans_rad[(veckans_rad.avd == 4) & veckans_rad.välj].sort_values(
-                by=['Meta'], ascending=False)[header_list])
-        elif use == 'Avd 5 och 6':
-            col1.table(veckans_rad[(veckans_rad.avd == 5) & veckans_rad.välj].sort_values(
-                by=['Meta'], ascending=False)[header_list])
-            col2.table(veckans_rad[(veckans_rad.avd == 6) & veckans_rad.välj].sort_values(
-                by=['Meta'], ascending=False)[header_list])
-        elif use == 'Avd 7':
-            col1.table(veckans_rad[(veckans_rad.avd == 7) & veckans_rad.välj].sort_values(
-                by=['Meta'], ascending=False)[header_list])
-        elif use == 'clear':
-            st.stop()
-        else:
-            st.write('ej klart')
-    else:
-        st.warning(f"datum i session_state={st.session_state['datum']} är inte samma som i sparad_stack_L2={df_stack_L2.iloc[0].datum}")
+    if df_stack_L2 is None :
+        st.warning('Ingen df_stack_L2 hittades')
         st.stop()
+    else:    
+        if df_stack_L2.iloc[0].datum == st.session_state['datum']:    
+            use = avd.radio('Välj avdelning', ('Avd 1 och 2', 'Avd 3 och 4', 'Avd 5 och 6', 'Avd 7', 'clear'))
+            avd.subheader(use)
+            col1, col2 = st.columns(2)
+            if st.session_state['rätta'] == False:
+                st.session_state['rätta'] = avd.button('Rätta raden')
+        
+            veckans_rad, kostnad = välj_rad(df_stack_L2, max_insats=375)
+            assert 'meta' in veckans_rad.columns, f"meta finns inte i veckans_rad"
+            veckans_rad.rename(columns={'startnr': 'nr', 'meta': 'Meta'}, inplace=True)
+            
+            st.info(f'Kostnad för veckans rad: {kostnad:.0f} kr')
+            
+            log_print(f'Visar veckans rad för {use}','i')
+            
+            header_list = ['nr', 'häst', 'Meta', 'streck']
+            if st.session_state['rätta']:
+                veckans_rad.to_csv('veckans_rad.csv', index=False)
+                header_list = ['nr', 'häst', 'Meta', 'streck', 'plac']
+                sju, sex, fem, utd = mod.rätta_rad(veckans_rad, datum)
+                vinst = utd - kostnad
+                vinst_text= "vinst"
+                if vinst<0:
+                    vinst_text = 'förlust'
+
+                st.info(f'utdelning={utd:.0f}, {vinst_text}={(vinst):.0f} kr, {sju} sjuor {sex} sexor {fem} femmor')
+            ################################################
+            #    Denna kod döljer radindex i dataframe     #
+            #    När man t.ex. gör en st.write(df)         #
+            ################################################
+            # CSS to inject contained in a strin
+            hide_dataframe_row_index = """
+                    <style>
+                    .row_heading.level0 {display:none}
+                    .blank {display:none}
+                    </style>
+                    """
+            # Inject CSS with Markdown
+            st.markdown(hide_dataframe_row_index, unsafe_allow_html=True)
+            ############ CSS klart ###########################
+            if use == 'Avd 1 och 2':
+                col1.table(veckans_rad[(veckans_rad.avd == 1) & veckans_rad.välj].sort_values(
+                    by=['Meta'], ascending=False)[header_list])
+                col2.table(veckans_rad[(veckans_rad.avd == 2) & veckans_rad.välj].sort_values(
+                    by=['Meta'], ascending=False)[header_list])
+            elif use == 'Avd 3 och 4':
+                col1.table(veckans_rad[(veckans_rad.avd == 3) & veckans_rad.välj].sort_values(
+                    by=['Meta'], ascending=False)[header_list])
+                col2.table(veckans_rad[(veckans_rad.avd == 4) & veckans_rad.välj].sort_values(
+                    by=['Meta'], ascending=False)[header_list])
+            elif use == 'Avd 5 och 6':
+                col1.table(veckans_rad[(veckans_rad.avd == 5) & veckans_rad.välj].sort_values(
+                    by=['Meta'], ascending=False)[header_list])
+                col2.table(veckans_rad[(veckans_rad.avd == 6) & veckans_rad.välj].sort_values(
+                    by=['Meta'], ascending=False)[header_list])
+            elif use == 'Avd 7':
+                col1.table(veckans_rad[(veckans_rad.avd == 7) & veckans_rad.välj].sort_values(
+                    by=['Meta'], ascending=False)[header_list])
+            elif use == 'clear':
+                st.stop()
+            else:
+                st.write('ej klart')
+        else:
+            st.warning(f"datum i session_state={st.session_state['datum']} är inte samma som i sparad_stack_L2={df_stack_L2.iloc[0].datum}")
+            st.stop()

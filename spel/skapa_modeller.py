@@ -172,7 +172,7 @@ def learn_L2_modeller(L2_modeller, L2_input_data, use_L2features, save=True):
     return L2_modeller
 
 
-def predict_med_L2_modeller(L2_modeller, L2_input, use_features, mean_type='geometric', with_y = True):
+def predict_med_L2_modeller(L2_modeller, L2_input, use_features, weights=[0.25, 0.25, 0.25, 0.25],mean_type='geometric', with_y = True):
     """
     Predicts med L2_modeller på stack_data och beräknar meta_proba med mean_type
 
@@ -180,6 +180,7 @@ def predict_med_L2_modeller(L2_modeller, L2_input, use_features, mean_type='geom
         L2_modeller (Dict): Definierad från start
         L2_input (DataFrame): Skapad av L1-modeller. Är input-data till L1 plus deras resp predict_proba  
         use_features (List): Lista med kolumner som används i L2-modeller
+        weights (List, optional): Vikter för L2-modeller. [cat1L2, cat2L2, cat3L2, cat4L2].
         mean_type (str, optional): 'arithmetic' or 'geometric'. Defaults to 'geometric'.
 
     Returns:
@@ -212,13 +213,27 @@ def predict_med_L2_modeller(L2_modeller, L2_input, use_features, mean_type='geom
 
         temp['proba_'+model_name] = model.predict(temp, use_features)
 
+    proba_cols = ['proba_cat1L2', 'proba_cat2L2', 'proba_xgb1L2', 'proba_xgb2L2']
+    # multiply each column with its corresponding weight
+    # weights = pd.Series(weights * len(temp), index=temp.index)
+    # weights_matrix = np.repeat(weights, len(temp), axis=0).reshape(-1, len(weights))
+
+    # weighted_cols = temp[proba_cols].mul(weights, axis=0)
+    # weighted_cols = temp[proba_cols].values * weights_matrix
+    for col in proba_cols:
+        temp[col] = temp[col] * weights[proba_cols.index(col)]
+    
     if mean_type == 'arithmetic':
         # aritmetisk medelvärde
-        temp['meta'] = temp.filter(like='proba_').mean(axis=1)
+        temp['meta'] = temp[proba_cols].mean(axis=1)
+
+        # temp['meta'] = temp.filter(like='proba_').mean(axis=1)
     else:
         # geometriskt medelvärde
-        temp['meta'] = temp.filter(like='proba_').prod(
-            axis=1) ** (1/len(L2_modeller))
+        temp['meta'] = (temp[proba_cols].prod(axis=1)) ** (1/len(weights))
+        
+        # temp['meta'] = temp.filter(like='proba_').prod(
+        #     axis=1) ** (1/len(L2_modeller))
 
     return temp
 

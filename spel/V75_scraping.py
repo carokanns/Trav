@@ -28,7 +28,6 @@ from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.common.action_chains import ActionChains
 from selenium.webdriver.common.keys import Keys
 
-
 import sys
 sys.path.append(
     'C:\\Users\\peter\\Documents\\MyProjects\\PyProj\\Trav\\spel\\')
@@ -83,6 +82,8 @@ def quit_drivers(driver_r, driver_s):
 # %%
 def städa_och_rensa(df, history):
     före = len(df)
+    efter = före
+    df.to_csv('temp.csv', index=False)
     try:
         df = ff2.fixa_mer_features(df, history)
         efter = len(df)
@@ -160,7 +161,7 @@ def inkludera_resultat(res_avd, anr):
 # %%
 
 def en_rad(vdict, datum, bana, start, lopp_dist, avd, anr, r, rad, voddss, poddss, strecks, names, pris, history):
-    log_print(f'en_rad() called with avd={anr+1} and vdict["avd"]={vdict["avd"]}','i')
+    log_print(f'en_rad() {names[r].text} called with avd={anr+1} and vdict["avd"]={vdict["avd"]}')
 
     vdict['datum'].append(datum)
     vdict['bana'].append(bana)
@@ -171,6 +172,7 @@ def en_rad(vdict, datum, bana, start, lopp_dist, avd, anr, r, rad, voddss, podds
     vdict['lopp_dist'].append(lopp_dist)
     vdict['pris'].append(pris)
     vdict['vodds'].append(voddss[r].text)  # vodds i lopp 1 utan rubrik
+    # log_print(f'en_rad() r={r} vodds={voddss[r].text}  avd={anr+1}','i') if anr+1==5 else None
     vdict['podds'].append(poddss[r].text)  # podds i lopp 1 utan rubrik
     # streck i lopp 1  utan rubrik
     vdict['streck'].append(strecks[r].text)
@@ -181,22 +183,29 @@ def en_rad(vdict, datum, bana, start, lopp_dist, avd, anr, r, rad, voddss, podds
         rad.find_elements(By.CLASS_NAME, "horse-age")[0].text)
     vdict['kön'].append(
         rad.find_elements(By.CLASS_NAME, "horse-sex")[0].text)
-
-    vdict['kr'].append(rad.find_elements(
-        By.CLASS_NAME, "earningsPerStart-col")[0].text)  # kr/start i lopp 1 utan rubrik
+    
+    kr = rad.find_elements(By.CLASS_NAME, "earningsPerStart-col")[0].text  # kr/start i lopp 1 utan rubrik
+    # log_print(f'en_rad() r={r} kr={kr}  avd={anr+1}','i') if anr+1==5 else None
+    vdict['kr'].append(kr)
 
     # dist och spår i lopp 1 utan rubrik
     dist_sp = rad.find_elements(By.CLASS_NAME, "postPositionAndDistance-col")
-
-    assert len(dist_sp) > 0, f'dist_sp ej len>0 len={len(dist_sp)} {dist_sp}'
-    # print('rad',rad)
-
-    # print(dist_sp)
-    vdict['dist'].append(dist_sp[0].text.split(':')[0])
-    vdict['spår'].append(dist_sp[0].text.split(':')[1])
-
+    # log_print(f'1 en_rad() r={r} len(dist_sp)={len(dist_sp)}  avd={anr+1}','i') if anr+1 == 5 else None
+    assert len(dist_sp) > 0, log_print(f'dist_sp ej len>0 len={len(dist_sp)} {dist_sp}','e')
+   
+    dist_sp_text = dist_sp[0].text.split(':')
+    # log_print(f'2 en_rad() r={r} dist_sp_text={dist_sp_text} len(dist_sp_text)={len(dist_sp_text)} type={type(dist_sp_text)} avd={anr+1}', 'i') if anr+1 == 5 else None
+    dist = dist_sp_text[0]
+    # log_print(f'3 en_rad() r={r} dist={dist} type={type(dist)} avd={anr+1}', 'i') if anr+1 == 5 else None
+    spår = 99
+    if len(dist_sp_text) > 1:
+        spår = dist_sp_text[1]
+    # log_print(f'4 en_rad() r={r} spår={spår}  avd={anr+1}', 'i') if anr+1 == 5 else None
+    vdict['dist'].append(dist)
+    vdict['spår'].append(spår)
+    # log_print(f'5 en_rad() r={r} dist={dist} spår={spår}  avd={anr+1}','i') if anr+1==5 else None
     if history:
-        log_print(f'history avd {anr+1} för startnr {r+1}')
+        log_print(f'history avd {anr+1} för startnr {r+1}') if anr+1==5 else None
         ## history från startlistan ##
         # print(f'history avd {anr+1} för startnr {r+1}')
         hist = avd.find_elements(By.CLASS_NAME, "start-info-panel")  # all history för loppet
@@ -249,7 +258,7 @@ def en_rad(vdict, datum, bana, start, lopp_dist, avd, anr, r, rad, voddss, podds
                 log_print(f'vdict {vdict}')   
                         
         log_print(f'klart history avd {anr+1} för startnr {r+1}')
-    log_print(f'klart rad {r+1} avd {anr+1}', 'i')
+    log_print(f'klart rad {r+1} avd {anr+1}')
     return vdict
 
 
@@ -311,7 +320,7 @@ def do_scraping(driver_s, driver_r, avdelningar, history, datum):  # get data fr
     comb = driver_s.find_elements(By.CLASS_NAME,'race-combined-info')  # alla bana,dist,start
     priselement = driver_s.find_elements(By.CLASS_NAME,
         'css-1lnkuf6-startlistraceinfodetails-styles--infoContainer')
-    NOK, EUR = False, False
+    NOK, DKK, EUR = False, False, False
     for p in priselement:
         if 'EUR' in p.text:
             EUR = True
@@ -319,8 +328,12 @@ def do_scraping(driver_s, driver_r, avdelningar, history, datum):  # get data fr
         elif 'NOK' in p.text:
             NOK = True
             break
-    if EUR or NOK:
-        log_print(f'EUR: {EUR}, NOK: {NOK} avd={avdelningar}', 'w')
+        elif 'DKK' in p.text:
+            DKK = True
+            break
+        
+    if EUR or NOK or DKK:
+        log_print(f'EUR: {EUR}, NOK: {NOK} DKK: {DKK} avd={avdelningar}', 'w')
     # alla lopps priser
     priser = [p.text for p in priselement if 'Pris:' in p.text]
 
@@ -328,7 +341,7 @@ def do_scraping(driver_s, driver_r, avdelningar, history, datum):  # get data fr
         priser = [p.text for p in priselement 
                   if 'åriga' not in p.text and 
                   ('Tillägg' not in p.text) and 
-                  ('EUR' in p.text or 'NOK' in p.text)]  # alla lopps priser
+                  ('EUR' in p.text or 'NOK' in p.text or 'DKK' in p.text)]  # alla lopps priser
     
     assert len(priser) == 7, log_print(f'Antal priser är fel: {len(priser)} avd={avdelningar}','e')
     
@@ -348,13 +361,15 @@ def do_scraping(driver_s, driver_r, avdelningar, history, datum):  # get data fr
             pris = priser[anr].split('-')[0] + '0'    # Euro -> SEK
         elif NOK:
             pris = priser[anr].split('-')[0].replace('.', '')  # NOK -> SEK
+        elif DKK:
+            pris = priser[anr].split('-')[0].replace('.', '')  # DKK -> SEK
         else:
             pris = priser[anr].split('-')[0].split(' ')[1]
             
         pris=pris.replace(' ','')
         pris=pris.replace('.','')
         assert len(pris) > 0, log_print(f'Pris saknas: {pris} avd={avdelningar}','e')
-        
+        log_print(f' pris={pris} Avd {anr+1}')
     
         names = avd.find_elements(By.CLASS_NAME, "horse-name")  # alla hästar/kön/åldet i loppet
         assert len(names) > 0, 'no names found avd {avdelningar}'
@@ -366,7 +381,7 @@ def do_scraping(driver_s, driver_r, avdelningar, history, datum):  # get data fr
         assert len(rader) > 0, 'no rows found   avd {avdelningar}'
         strecks = avd.find_elements(By.CLASS_NAME, "betDistribution-col")[1:]  # streck i loppet  utan rubrik
         assert len(strecks) > 0, log_print(f'no strecks found avd {avdelningar}','e')
-        log_print(f'ant i avd {avdelningar}: names={len(names)}, vodds={len(voddss)}, podds={len(poddss)}, rader={len(rader)}, streck={len(strecks)} avd={avdelningar}', 'i')
+        log_print(f'ant i avd {avdelningar}: names={len(names)}, vodds={len(voddss)}, podds={len(poddss)}, rader={len(rader)}, streck={len(strecks)}', 'i')
         assert len(names) == len(voddss) == len(poddss) == len(rader) == len(strecks), log_print(f'antal i loppet är fel avd={avdelningar}','e')
         if driver_r:
             # resultat från resultatsidan
@@ -475,7 +490,7 @@ def anpassa(driver_s, avd):
     log_print(f'Välj knappen "Anpassa" avd={avd}')
     anpassa_button = avd_buttons[2]
     knapp_text = anpassa_button.text.replace("\n", "")
-    log_print(f' Klickar nu på {knapp_text}, avdelning {avd}','i')
+    log_print(f' Klickar nu på {knapp_text}, avdelning {avd}')
     actions = ActionChains(driver_s)
     actions.move_to_element(anpassa_button).click().perform()
     log_print(f' Klickar nu med JavaScript på {knapp_text}, avdelning {avd}')
