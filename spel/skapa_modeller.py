@@ -390,5 +390,5 @@ def test_skapa_modeller():
         assert key == value.name, "key and value.name should be the same in modeller"
     for key, value in L2_modeller.items():
         assert key == value.name, "key and value.name should be the same in meta_modeller"
-test_skapa_modeller()
+# test_skapa_modeller()
 

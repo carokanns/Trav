@@ -62,9 +62,6 @@ def v75_scraping():
         
     if 'plac' in df.columns:
         log_print(f'HITTADE PLAC i df.columns')
-        log_print(f'HITTADE PLAC i df.columns')
-        log_print(f'HITTADE PLAC i df.columns')
-        log_print(f'HITTADE PLAC i df.columns')
     else:
         log_print(f'plac finns inte i df.columns')  
     return df
@@ -322,9 +319,12 @@ with avd:
             use = avd.radio('Välj avdelning', ('Avd 1 och 2', 'Avd 3 och 4', 'Avd 5 och 6', 'Avd 7', 'clear'))
             avd.subheader(use)
             col1, col2 = st.columns(2)
-            if st.session_state['rätta'] == False:
-                st.session_state['rätta'] = avd.button('Rätta raden')
-        
+            if 'plac' in df_stack_L2.columns:
+                if st.session_state['rätta'] == False:
+                    st.session_state['rätta'] = avd.button('Rätta raden')
+            else:
+                st.session_state['rätta'] = False
+                
             veckans_rad, kostnad = välj_rad(df_stack_L2, max_insats=375)
             assert 'meta' in veckans_rad.columns, f"meta finns inte i veckans_rad"
             veckans_rad.rename(columns={'startnr': 'nr', 'meta': 'Meta'}, inplace=True)

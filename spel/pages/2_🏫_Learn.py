@@ -533,7 +533,7 @@ def validate(L1_modeller, L2_modeller, fraction=None):
 #            FINAL LEARNING                                  #
 ##############################################################
 
-
+# TODO: Mät tiden för olika val
 def final_learning(modeller, meta_modeller, n_splits=5):
     st.info('Final learning on all the data')
 

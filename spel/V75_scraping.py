@@ -66,7 +66,7 @@ def get_webdriver(res, headless=True):
         driver = webdriver.Chrome(
             executable_path=EXECUTABLE_PATH, options=options)
         driver.implicitly_wait(10)
-        print(f'startade webdriver för {"resultat" if res else "startlista"}')
+        log_print(f'startade webdriver för {"resultat" if res else "startlista"}','i')
         return driver
     except Exception as e:
         log_print(f'Error: {e}','e')
@@ -74,10 +74,10 @@ def get_webdriver(res, headless=True):
 def quit_drivers(driver_r, driver_s):
     if driver_s:
         driver_s.quit()
-        log_print('quit driver_s klar','i')
+        log_print(f'quit driver_s klar','i')
     if driver_r:
         driver_r.quit()
-        log_print('quit driver_r klar','i')
+        log_print(f'quit driver_r klar','i')
         
 # %%
 def städa_och_rensa(df, history):
@@ -88,7 +88,7 @@ def städa_och_rensa(df, history):
         df = ff2.fixa_mer_features(df, history)
         efter = len(df)
     except:
-        log_print('++++++++++något gick fel i fixa_mer_features++++++++++++','e')
+        log_print(f'++++++++++något gick fel i fixa_mer_features++++++++++++','e')
         st.error('något gick fel i fixa_mer_features')
             
     if före-efter != 0:
@@ -123,8 +123,8 @@ def scrape_utdelning(the_driver):
 # hämta utdelnings-info och spara på fil
 def get_utdelning(driver_r, dat, bana):
     utd7, utd6, utd5 = scrape_utdelning(driver_r)
-    assert utd7 > utd6 or utd7==0, log_print('7 rätt skall ge mer pengar än 6 rätt','e')
-    assert utd6 > utd5 or utd6 == 0, log_print('6 rätt skall ge mer pengar än 5 rätt', 'e')
+    assert utd7 > utd6 or utd7==0, log_print(f'7 rätt skall ge mer pengar än 6 rätt','e')
+    assert utd6 > utd5 or utd6 == 0, log_print(f'6 rätt skall ge mer pengar än 5 rätt', 'e')
 
     log_print(f'Omgångens totala utdelning: 7or {utd7}, 6or {utd6}, 5or {utd5}','i')
     utd_file = 'C:\\Users\\peter\\Documents\\MyProjects\\PyProj\\Trav\\spel\\utdelning.csv'
@@ -207,7 +207,7 @@ def en_rad(vdict, datum, bana, start, lopp_dist, avd, anr, r, rad, voddss, podds
     if history:
         log_print(f'history avd {anr+1} för startnr {r+1}') if anr+1==5 else None
         ## history från startlistan ##
-        # print(f'history avd {anr+1} för startnr {r+1}')
+        #log_print(f'history avd {anr+1} för startnr {r+1}')
         hist = avd.find_elements(By.CLASS_NAME, "start-info-panel")  # all history för loppet
 
         h_dates = hist[r].find_elements(By.CLASS_NAME, 'date-col')[1:]
@@ -278,44 +278,36 @@ def do_scraping(driver_s, driver_r, avdelningar, history, datum):  # get data fr
              'h5_dat': [], 'h5_bana': [], 'h5_kusk': [], 'h5_plac': [], 'h5_dist': [], 'h5_spår': [], 'h5_odds': [], 'h5_pris': [], 'h5_kmtid': [],
              })
 
- 
+    
     if driver_r:
-        log_print(f'find driver_r game-table avd {avdelningar}','i')     
-        
-        result_tab = driver_r.find_elements(
-            By.CLASS_NAME, 'game-table')[:]  # alla lopp med resultatordning
+        log_print(f'find driver_r lopp för avd {avdelningar}','i')     
+        # söksträng = f"//div[@class='game-view'][starts-with(@name, '{datum}')]"
+        söksträng = f"//div[starts-with(@name, '{datum}')]"
+        result_tab = driver_r.find_elements_by_xpath(söksträng)
+
+        # result_tab = driver_r.find_elements(
+        #     By.CLASS_NAME, 'game-table')[:]  # alla lopp med resultatordning
         log_print(f'2r ############################### len result_tab = {len(result_tab)} avd={avdelningar}', 'i')
-        
-        if len(result_tab) == 0:
-            log_print(f'result_tab not found - try again avd={avdelningar}','w')
-            # driver_r.implicitly_wait(10)     # seconds
-            # WebDriverWait(driver_r, 10).until(
-            #     EC.presence_of_element_located((By.CLASS_NAME, 'game-table')))[:]
-            
-            driver_r.implicitly_wait(10)     # seconds
-            result_tab = driver_r.find_elements(By.CLASS_NAME, 'game-table')[:]  # alla lopp med resultatordning
-        
         
         if len(result_tab) == 8:
             result_tab = result_tab[1:]
 
-        assert len(result_tab) == 7, log_print(f'################################ Antal resultat är fel i avd {avdelningar}: {len(result_tab)}','e')
+        assert len(result_tab) == 7, log_print(f'################## driver_r  Antal resultat är fel i avd {avdelningar}: {len(result_tab)}','e')
         
         
-    log_print(f'find driver_s game-table avd {avdelningar}','i')
-    # driver_s.implicitly_wait(10)     # seconds
-    # WebDriverWait(driver_s, 10).until(
-    #     EC.presence_of_element_located((By.CLASS_NAME, 'game-table')))
-    # print('1 ############################### ')
-    
     driver_s.implicitly_wait(10)     # seconds
-    start_tab = driver_s.find_elements(By.CLASS_NAME, 'game-table')[:]  # alla lopp med startlistor
-    log_print(f'2 ############################### len start_tab = {len(start_tab)} avd={avdelningar}', 'i')
+    # start_tab = driver_s.find_elements(By.CLASS_NAME, 'game-table')[:]  # alla lopp med startlistor
+    # söksträng = f"//div[@class='game-view'][starts-with(@name, '{datum}')]"
+    söksträng = f"//div[starts-with(@name, '{datum}')]"
+    
+    log_print(f'find driver_s lopp för avd {avdelningar} med sök {söksträng}','i')
+    start_tab = driver_s.find_elements_by_xpath(söksträng)
+    log_print(f'1 ########## driver_s, len start_tab = {len(start_tab)} avd={avdelningar}', 'i')
             
     if len(start_tab) == 8:
         start_tab = start_tab[1:]
 
-    assert len(start_tab) == 7, log_print(f'################################### Antal lopp är fel: {len(start_tab)} avd {avdelningar}','e')
+    assert len(start_tab) == 7, log_print(f'############ driver_s Antal lopp är fel: {len(start_tab)} avd {avdelningar}','e')
     
     comb = driver_s.find_elements(By.CLASS_NAME,'race-combined-info')  # alla bana,dist,start
     priselement = driver_s.find_elements(By.CLASS_NAME,
@@ -392,7 +384,7 @@ def do_scraping(driver_s, driver_r, avdelningar, history, datum):  # get data fr
             # res_startnr = res_avd.find_elements(By.CLASS_NAME,"css-1jc4209-horseview-styles--startNumber")[1:]
             vdict['plac'] += places    # konkatenera listorna
 
-        # print('AVD', anr+1, bana, lopp_dist, start, end=' ')
+        # print(f'AVD', anr+1, bana, lopp_dist, start, end=' ')
     
         # from concurrent.futures import ThreadPoolExecutor 
         # from concurrent.futures import as_completed
@@ -402,16 +394,15 @@ def do_scraping(driver_s, driver_r, avdelningar, history, datum):  # get data fr
 
         for r, rad in enumerate(rader):
             vdict = en_rad(vdict, datum, bana, start, lopp_dist, avd, anr, r, rad, voddss, poddss, strecks, names, pris, history)
-            print('.', end='')
+            # print(f'.', end='')
             
-            # print(f'anr={anr+1} r={r+1}')
+            #log_print(f'anr={anr+1} r={r+1}')
             # v = [e.submit(en_rad, vdict, datum, bana, start,lopp_dist, avd, anr, r, rad, voddss, poddss, strecks, names, pris, history)
             
             
         # vdict=v[0].result()
         # print(vdict)
         log_print(f'Klar avd {anr+1}','i')    
-    
     
     return vdict, bana
 
@@ -490,10 +481,10 @@ def anpassa(driver_s, avd):
     log_print(f'Välj knappen "Anpassa" avd={avd}')
     anpassa_button = avd_buttons[2]
     knapp_text = anpassa_button.text.replace("\n", "")
-    log_print(f' Klickar nu på {knapp_text}, avdelning {avd}')
+    log_print(f' Klickar nu på {knapp_text}, avdelning {avd}', 'i')
     actions = ActionChains(driver_s)
     actions.move_to_element(anpassa_button).click().perform()
-    log_print(f' Klickar nu med JavaScript på {knapp_text}, avdelning {avd}')
+    log_print(f' Klickar nu med JavaScript på {knapp_text}, avdelning {avd}', 'i')
     driver_s.execute_script("arguments[0].click();", anpassa_button)
 
     # Hitta nästa huvud-element "Inför loppet" och vänta tills det är klickbart
@@ -605,68 +596,67 @@ def v75_scraping(resultat=False, history=False, headless=True, driver_s=None, dr
             df = pd.concat([df, temp_df])
 
     df.sort_values(by=['datum', 'avd', 'startnr', ], inplace=True)
-    
-    print('\ndet tog', round(time.perf_counter() - start_time, 3), 'sekunder')
+    log_print(f'', 'i')
+    log_print(f'det tog {round(time.perf_counter() - start_time, 3)} sekunder', 'i')
     
     return df
 
 #%%
 def v75_threads(resultat=False, history=False, headless=True, avdelningar=None, driver_s=None, driver_r=None):
     ### Hela loopen med alla lopp i alla veckor i omg_df ###
-    print('avdelningar', avdelningar)
+    log_print(f'avdelningar={avdelningar}')
     omg_df = pd.read_csv(
         'C:\\Users\\peter\\Documents\\MyProjects\\PyProj\\Trav\\spel\\omg_att_spela_link.csv')
 
     if not driver_r:
         if resultat:
-            print('startar webdriver driver_r för avd', avdelningar)
+            log_print(f'startar webdriver driver_r för avd={avdelningar}', 'i')
             driver_r = get_webdriver(True,headless)  # get web driver for results
-            print('Startade driver_r för avd', avdelningar)
+            log_print(f'Startade driver_r för avd={avdelningar}', 'i')
         else:
             driver_r = None
 
     if not driver_s:
-        print('Startar webdriver driver_s för avd', avdelningar)
+        log_print(f'Startar webdriver driver_s för avd={avdelningar}', 'i')
         driver_s = get_webdriver(False,headless)  # web driver för startlista
-        print('Startade driver_s för avd', avdelningar)
+        log_print(f'Startade driver_s för avd={avdelningar}', 'i')
 
     for enum, omg in enumerate(omg_df.Link.values):
-        print(f'omgång {enum+1}:', omg)
+        log_print(f'omgång {enum+1}={omg}', 'i')
         datum = omg.split('spel/')[1][0:10]
         df = pd.DataFrame()
-        print('Öppnar startlist-sidan med driver_s för avd', avdelningar)
-        print('omg', omg)
+        log_print(f'Öppnar startlist-sidan med driver_s för omg={omg} avd={avdelningar}', 'i')
         
         # _=input('Tryck enter för att öppna startlistan\n')
         driver_s.implicitly_wait(10)     # seconds
         driver_s.get(omg)              # öppna startlista
         
-        print('############## Öppnade startlist-sidan med driver_s för avd', avdelningar)
+        log_print(f'############## Öppnade startlist-sidan med driver_s för avd={avdelningar}')
 
         if enum == 0:  # första gången startlista
             # ok till första popup om kakor
             
-            print('find cookie popup')
+            log_print(f'find cookie popup')
             # _ = input('Tryck enter för find cookie popup\n')
             driver_s.implicitly_wait(20)  # seconds
             but_kakor = driver_s.find_element(By.ID,"onetrust-accept-btn-handler")
             but_kakor_text = but_kakor.text
             
-            print('klickar på ', but_kakor_text, 'för avd', avdelningar)
+            log_print(f'klickar på {but_kakor_text} för avd={avdelningar}', 'i')
             # _ = input(f'Tryck enter för att klicka på {but_kakor_text}\n')
             
             driver_s.implicitly_wait(10)     # seconds
             but_kakor.click()
             driver_s.fullscreen_window()
             
-            print( 'klickade på ', but_kakor_text, 'för avd', avdelningar)
+            log_print(f'klickade på {but_kakor_text} för avd={avdelningar}', 'i')
             
             # _ = input('Tryck enter för att klicka bort reklamen\n')
             
             # try:
             #     driver_s.implicitly_wait(1)     # seconds
             #     driver_s.find_element(By.CLASS_NAME, "css-1m9bhvf-Typography-styles--body1-Typography--Typography").click()
-            #     print('********Så länge reklam för vm i travspel finns kvar gör vi Try hät')
+            #     log_print(f'********Så länge reklam för vm i travspel finns kvar gör vi Try hät')
             # except:
             #     print("*********Är VM i travspel bortplockat nu? Ta bort denn kod i så fall.")
             #     pass
@@ -683,45 +673,59 @@ def v75_threads(resultat=False, history=False, headless=True, avdelningar=None, 
                 driver_s.implicitly_wait(10)  # seconds
                 race_info = driver_s.find_elements(By.CLASS_NAME, "race-info-toggle")
                 
-            print(f'len(race_info)= {len(race_info)} för avd {avdelningar} resultat={resultat}')
-            assert len(race_info) > 0, f'race_info måste innehålla en info per lopp men är tom, avd={avdelningar} resultat={resultat}' 
+            log_print(f'len(race_info)= {len(race_info)} för avd {avdelningar} resultat={resultat}')
+            assert len(race_info) > 0, log_print(f'race_info måste innehålla en info per lopp men är tom avd={avdelningar} resultat={resultat}', 'e') 
             
             driver_s.find_elements(By.CLASS_NAME, "race-info-toggle")[1].click()  # prissummor mm
             
             # _ = input('Efter prissummor mm: Klicka på OK för att fortsätta\n'  )
             
-            print('Kör "anpassa" med driver_s för avd', avdelningar)
+            log_print(f'Kör "anpassa" med driver_s för avd={avdelningar}')
             anpassa(driver_s,avdelningar)
-            print('Klar "anpassa" med driver_s för avd', avdelningar)
+            log_print(f'Klar "anpassa" med driver_s för avd={avdelningar}')
             # _ = input('Efter anpassa: Klicka på OK för att fortsätta\n'  )
             
-        # resultat
+        # resultat (driver_r)
         if resultat:
-            log_print(f'Öppnar resultatsidan med driver_r för avd {avdelningar}','i')
+            log_print(f'Öppnar resultatsidan med driver_r för avd={avdelningar}','i')
             driver_r.implicitly_wait(10) # seconds
             
             try:
                 driver_r.get(omg+'/resultat')   # öppna resultat
-                log_print(f'Öppnade resultatsidan med driver_r för avd {avdelningar}')
-                 # _ = input('Efter öppnade resultatlistan: Klicka på OK för att fortsätta\n'  )
+                log_print(f'Öppnade resultatsidan med driver_r för avd {avdelningar}','i')
+                if resultat and enum == 0:  # första gången resultat
+                    log_print(f'Första gången med driver_r för avd {avdelningar}','i')
+
+                    but_kakor = driver_r.find_element(By.ID, "onetrust-accept-btn-handler")
+                    but_kakor.click()
+                    driver_r.fullscreen_window()
+                    log_print(f'Klickade på {but_kakor.text} med driver_r för avd={avdelningar}', 'i')
+                # _ = input('Efter öppnade resultatlistan: Klicka på OK för att fortsätta\n'  )
             except:
                 log_print(f'Kunde inte öppna resultatsidan för avd {avdelningar} omgång {enum+1}','w') 
-                log_print(f'Sätter resultat=False för avd {avdelningar} omgång {enum+1}: {omg}','w')  
+                log_print(f'Sätter resultat=False, driver_r.quit() och driver_r=None \
+                            för avd {avdelningar} omgång {enum+1}: {omg}', 'w')
                 resultat=False
+                driver_r.quit()
                 driver_r=None
+            
+            # Check if warning about 'resultat' is not present
+            if resultat:
+                warnings = driver_r.find_elements_by_css_selector('.css-qev7py-Alert-styles--StyledAlert-Alert-styles--alertWarning-Alert-styles--StyledAlert[data-test-id="alert-warning"]')
+                if len(warnings) > 0:
+                    log_print(f"Varningstext: {warnings[0].text} finns på sidan", 'w')
+                    log_print(f'Sätter resultat=False, driver_r.quit() och driver_r=None \
+                                för avd {avdelningar} omgång {enum+1}: {omg}', 'w')
+                    resultat=False
+                    driver_r.quit()
+                    driver_r=None    
                 
-            if resultat and enum == 0:  # första gången resultat
-                driver_r.implicitly_wait(10)  # seconds
-                but_kakor = driver_r.find_element(By.ID,"onetrust-accept-btn-handler")
-                driver_r.implicitly_wait(10)  # seconds
-                but_kakor.click()
-                driver_r.fullscreen_window()
-
         # scraping
-        log_print(f'Kör scraping med driver_s och driver_r för avd {avdelningar}','i')
+        driver_text = 'och driver_r' if driver_r is not None else ''
+        log_print(f'Kör scraping med driver_s {driver_text} för avd {avdelningar}','i')
         try:
             komplett, bana = do_scraping(driver_s, driver_r, avdelningar, history, datum)
-            log_print(f'Klar scraping med driver_s och driver_r för avd {avdelningar}','i')
+            log_print(f'Klar scraping med driver_s {driver_text} för avd {avdelningar}','i')
         except:
             log_print(f'************************** Något gick fel i do_scraping avd {avdelningar} - quit drive *******************************','e') 
             quit_drivers(driver_s, driver_r)    
@@ -734,12 +738,12 @@ def v75_threads(resultat=False, history=False, headless=True, avdelningar=None, 
         # utdelning
         if resultat:
             try:
-                print('Kör utdelning med driver_r för avd', avdelningar)
+                log_print(f'Kör utdelning med driver_r för avd={avdelningar}','i')
                 get_utdelning(driver_r, datum, bana)  # utdelning för denna omgång
-                print('Klar utdelning med driver_r för avd', avdelningar)
+                log_print(f'Klar utdelning med driver_r för avd={avdelningar}','i')
 
             except:
-                print(f'************************** Något gick fel i utdelning(...) avd {avdelningar} - quit drivers *******************************') 
+                log_print(f'************************** Något gick fel i utdelning(...) avd {avdelningar} - quit drivers *******************************','e')
                 quit_drivers(driver_s, driver_r)    
                 return df
             
@@ -767,7 +771,7 @@ if __name__ == '__main__':
     pd.options.display.max_rows = 200
     import concurrent.futures
     start_time = time.perf_counter()
-    print('START GOING')
+    log_print(f'START GOING')
     
     ######### settings #########
     omg_df = pd.read_csv(
@@ -783,11 +787,11 @@ if __name__ == '__main__':
     resultat=False
     history=True
     headless=True
-    print(f'Kör med avd_list={avd_list}, resultat={resultat}, history={history}, headless={headless}, omg={omg_df.Link.values}')
+    log_print(f'Kör med avd_list={avd_list}, resultat={resultat}, history={history}, headless={headless}, omg={omg_df.Link.values}','i')
     
     def start_scrape(avd_list):
         df = v75_threads(resultat=resultat, history=history, headless=headless, avdelningar=avd_list)
-        print('STOP GOING')
+        log_print(f'STOP GOING')
         return df
     
     # df_list = ['df1','df2','df3','df4','df5','df6','df7']
