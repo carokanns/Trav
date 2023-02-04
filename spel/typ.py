@@ -5,8 +5,7 @@ import pickle
 import json
 from catboost import CatBoostClassifier, Pool
 import xgboost as xgb
-# import skapa_modeller as mod
-
+import skapa_modeller as mod
 
 def log_print(text, logging_level='d'):
     """Skriver ut på loggen och gör en print samt returnerar strängen (för assert)"""
@@ -237,6 +236,7 @@ class Typ():
         if X_test_ is not None:
             X_test = X_test_.copy()
 
+        use_features, cat_features, num_features = mod.read_in_features()
         # läs in NUM_FEATURES.txt till num_features
         with open(self.pref+'NUM_FEATURES.txt', 'r', encoding='utf-8') as f:
             num_features = f.read().split()

@@ -161,35 +161,6 @@ def get_scrape_data(datum):
                 return False    # raise FileNotFoundError('Det finns ingen sparad data')
     return True
 
-def mesta_diff_per_avd(X_):
-    """Räknar ut den största och näst största diffen av meta per avd
-    Args:
-        X_ (DataFrame): veckans_rad (ej färdig)
-
-    Returns:
-        DataFrame: 1 rad per avd med kolumnerna [first, second, diff] tillagda
-    """
-    log_print(f'räknar ut mesta_diff_per_avd')
-    df = X_.copy()
-    # select the highest meta per avd
-    df['first'] = df.groupby('avd')['meta'].transform(
-        lambda x: x.nlargest(2).iloc[0])
-    df['second'] = df.groupby('avd')['meta'].transform(
-        lambda x: x.nlargest(2).iloc[1])
-
-    df = df.dropna(subset=['first', 'second'])  # behåll endast first och second med värde. De andra är NaN
-    df['diff'] = df['first'] - df['second']
-
-    # drop duplicates per avd
-    df = df.drop_duplicates(subset='avd', keep='first')
-
-    df.sort_values(by='diff', ascending=False, inplace=True)
-    # st.write(f'kolumnerna i df = {df.columns}')
-    return df
-
-def compute_total_insats(df):
-    summa = df.groupby('avd').avd.count().prod() / 2
-    return summa
 
 def compute_weights(scores):
     """ Compute normalized weights to use to get the meta column. 
@@ -201,56 +172,7 @@ def compute_weights(scores):
     weights = scores / np.sum(scores)
     return weights
 
-def välj_rad(df, max_insats=300):
-    """_summary_
-    Args:   df_ (dataframe): Predicted med Layer2. meta-kolumnen är den som ska användas
-            max_insats (int): Max insats per omgång
-    Returns:
-        DataFrame: Kolumnen välj är True för de rader som ska spelas
-        int: total insats
-    """
-    logging.info('Väljer rad')
-    veckans_rad = df.copy()
-    veckans_rad['välj'] = False   # inga rader valda ännu
-
-    # first of all: select one horse per avd
-    for avd in veckans_rad.avd.unique():
-        max_pred = veckans_rad[veckans_rad.avd == avd]['meta'].max()
-        veckans_rad.loc[(veckans_rad.avd == avd) & (veckans_rad.meta == max_pred), 'välj'] = True
-    
-    veckans_rad = veckans_rad.sort_values(by=['meta'], ascending=False)
-    veckans_rad = veckans_rad.reset_index(drop=True)
-    
-    mest_diff = mesta_diff_per_avd(veckans_rad)
-    # TODO: Kolla att mest_diff har exakt samma ordning som veckans rad
-    assert len(mest_diff) == 7, \
-            log_print(f'len(mest_diff) {len(mest_diff)} != 7 (antal lopp) {mest_diff[["avd","diff"]]}','e')
-    
-    assert set(mest_diff['avd'].unique()).issubset(veckans_rad['avd'].unique()), \
-            log_print(f"Alla avd i mest_diff måste finnas i veckans_rad")
-    assert len(mest_diff['avd'].unique()) == len(veckans_rad['avd'].unique()), \
-            log_print(f"Antalet unique avd i mest_diff och i veckans_rad skall vara samma")
-            
-    cost = 0.5 # 1 rad
-    
-    # now select the rest of the horses one by one sorted by meta
-    for i, row in veckans_rad.iterrows():
-        if row.avd == mest_diff.avd.iloc[0]: 
-            continue
-        if row.avd == mest_diff.avd.iloc[1]: 
-            continue
-        
-        veckans_rad.loc[i, 'välj'] = True
-        cost = compute_total_insats(veckans_rad[veckans_rad.välj])
-        if cost > max_insats:
-            veckans_rad.loc[i, 'välj'] = False        
-            break
-    
-    cost = compute_total_insats(veckans_rad[veckans_rad.välj])
-    veckans_rad.sort_values(by=['välj', 'avd'], ascending=[False, True], inplace=True)
-
-    return veckans_rad, cost           
-            
+     
             
 #############################################
 #         streamlit kod följer              #
@@ -325,7 +247,7 @@ with avd:
             else:
                 st.session_state['rätta'] = False
                 
-            veckans_rad, kostnad = välj_rad(df_stack_L2, max_insats=375)
+            veckans_rad, kostnad = mod.välj_rad(df_stack_L2, max_insats=375)
             assert 'meta' in veckans_rad.columns, f"meta finns inte i veckans_rad"
             veckans_rad.rename(columns={'startnr': 'nr', 'meta': 'Meta'}, inplace=True)
             

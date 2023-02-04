@@ -1,3 +1,7 @@
+#%%
+import sys
+sys.path.append('C:\\Users\\peter\\Documents\\MyProjects\\PyProj\\Trav\\spel')
+import typ as tp
 import matplotlib.pyplot as plt
 from IPython.display import display
 import pandas as pd
@@ -6,8 +10,7 @@ import pickle
 import streamlit as st
 from category_encoders import TargetEncoder
 from catboost import CatBoostClassifier, Pool
-import sys
-import typ as tp
+
 import travdata as td
 import json
 import concurrent.futures
@@ -17,8 +20,7 @@ from sklearn.linear_model import RidgeClassifier
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.ensemble import ExtraTreesClassifier
 pref = ''
-sys.path.append(
-    'C:\\Users\\peter\\Documents\\MyProjects\\PyProj\\Trav\\spel\\modeller\\')
+
 import skapa_modeller as mod
 
 plt.style.use('fivethirtyeight')
@@ -30,41 +32,38 @@ pd.set_option('display.max_rows', 120)
 
 import logging
 logging.basicConfig(level=logging.DEBUG, filemode='w' , filename='v75.log', force=True, encoding='utf-8', format='Backtest: %(asctime)s - %(levelname)s - %(lineno)d - %(message)s ')
-logging.info('Startar')
+logging.info('***************** Startar *******************')
    
-st.set_page_config(page_title="Backtest av modeller + meta", page_icon="💪")
+st.set_page_config(page_title="Backtesting av L1 + L2", page_icon="💪")
 
-st.markdown("# 💪 Backtest av modeller + meta")
-st.sidebar.header("💪 Backtest")
+st.markdown("# 💪 Backtesting av modeller + meta")
+st.sidebar.header("💪 Backtesting")
 
+#%%
 exp = st.expander('Beskrivning av testet')
 exp.write("""
-## Först bas-modellerna
-Starta tre år tidigare (2020-08-01).  
-TimeSequence 3 folders maybe....   
+## Först L1-modellerna
+Sätt start_datum tex start_datum = '2016-08-01.    
 
 0. Varje modell har indivduella kolumner samt strategi för att ta fram raden.  
     a. Speca per modell i Typ-klassen.
 1. Loop över veckor. Learn fram till aktuell vecka och spara modell.  
-    a. Fördel med cv? 
-    b. Spara modell med aktuell datum i namnet.
+    a. Skit i cv tillsvidare
+    b. Ev Spara modell med aktuell datum i namnet.
 2. Predict nästa vecka (generera rad enl modellens strategi)
 3. Rätta, Hämta ev priser och Spara resultat som en df i en csv-fil.
 4. plot resultat
-5. Repeat för varje modell 
+5. Repeat för varje modell och strategi 
 
 ## Gör detsamma för meta-modeller (rf, knn, ridge)
-- Använd sparade typ-modeller och generara stack-data från allt tom aktuell vecka  
-- vad skall tas med i stacken?
-    1. Alla predict från typ-modellerna
-    2. Kelly-data
-    3. bana? kusk? distans? streck för någon meta? 
-- Lär upp meta-modeller på stack-data, använd sparade hyperparms 
+- Använd sparade L1-modeller och generara stack-data från start_datum till aktuell_datum  
+- Lär upp L2-modeller på stack-data, använd strategins hyperparms 
 - Hur vet vi hur länge meta-modellen skall köra?  
     - Kanske göra ett test innan på ganska stor test-data och spara som hyperparm
-- Predict nästa vecka enl strategi för resp meta-modell 
+- Predict nästa vecka enl strategi för resp L2_modell skapa kolumnerna 'proba_cat1L2', etc  
 
-- Ta medelvärdet av meta-modelerna aritmetiskt eller gemoetriskt
+- Beräkna viktade meta_värden från L2-modellernas output ('proba_cat1L2', etc)
+- Ta medelvärdet av L2-modelerna aritmetiskt eller gemoetriskt
 - Rätta och spara resultat plus ev priser
 - plot resultat
 - Repeat för varje meta-modell
@@ -72,50 +71,25 @@ TimeSequence 3 folders maybe....
 """
           )
 
+def log_print(text, logging_level='d'):
+    """Skriver ut på loggen och gör en print samt returnerar strängen (för assert)"""
+    if logging_level == 'd':
+        logging.debug(text)
+    else:
+        if logging_level == 'i':
+            logging.info(text)
+        elif logging_level == 'w':
+            logging.warning(text)
+        elif logging_level == 'e':
+            logging.error(text)
+        print(text)
 
-# def välj_rad_orginal(df_meta_predict, max_insats=300):
-#     veckans_rad = df_meta_predict.copy()
-#     veckans_rad['välj'] = False   # inga rader valda ännu
-
-#     # first of all: select one horse per avd
-#     for avd in veckans_rad.avd.unique():
-#         max_pred = veckans_rad[veckans_rad.avd == avd]['meta_predict'].max()
-#         veckans_rad.loc[(veckans_rad.avd == avd) & (
-#             veckans_rad.meta_predict == max_pred), 'välj'] = True
-#     # veckans_rad.query("välj==True").to_csv('veckans_basrad.csv')
-#     veckans_rad = veckans_rad.sort_values(by=['meta_predict'], ascending=False)
-#     veckans_rad = veckans_rad.reset_index(drop=True)
-
-#     mest_diff = 0
-#     #mest_diff = mesta_diff_per_avd(veckans_rad)
-
-#     cost = 0.5  # 1 rad
-
-#     # now select the rest of the horses one by one sorted by meta_predict
-#     for i, row in veckans_rad.iterrows():
-#         if row.avd == mest_diff.avd.iloc[0]:
-#             continue
-#         if row.avd == mest_diff.avd.iloc[1]:
-#             continue
-#         # print('i',i)
-#         veckans_rad.loc[i, 'välj'] = True
-#         #cost = compute_total_insats(veckans_rad[veckans_rad.välj])
-#         # print('cost',cost)
-#         if cost > max_insats:
-#             # veckans_rad.loc[i, 'välj'] = False
-#             break
-
-#     # print('cost', cost_before)
-#     veckans_rad.sort_values(by=['välj', 'avd'], ascending=[
-#                             False, True], inplace=True)
-#     # display(veckans_rad[veckans_rad.välj])
-#     return veckans_rad
+    return text
 
 # %%
 def compute_total_insats(veckans_rad):
     summa = veckans_rad.groupby('avd').avd.count().prod() / 2
     return summa
-
 
 def starta_upp(df, start_ix=220):
     import datetime
@@ -147,8 +121,6 @@ def starta_upp(df, start_ix=220):
     return df.datum.unique(), df_resultat
 
 # %%
-
-
 def skapa_data_för_datum(df_, curr_datum_ix, frac=0.5):
     df = df_.copy()
     datumar = df.datum.unique()
@@ -170,31 +142,10 @@ def skapa_data_för_datum(df_, curr_datum_ix, frac=0.5):
 
     return X_train, y_train, X_meta, y_meta, X_curr, y_curr
 
-    # from sklearn.ensemble import RandomForestRegressor as rf
-
 # %%
-
-
 def compute_total_insats(veckans_rad):
     summa = veckans_rad.groupby('avd').avd.count().prod() / 2
     return summa
-
-# %%
-
-
-# def beräkna_utdelning(datum, sjuor, sexor, femmor, df_utdelning):
-#     datum = datum.strftime('%Y-%m-%d')
-
-#     min_utdelning = df_utdelning.loc[df_utdelning.datum == datum, [
-#         '7rätt', '6rätt', '5rätt']]
-
-#     tot_utdelning = (min_utdelning['7rätt'] * sjuor + min_utdelning['6rätt']
-#                      * sexor + min_utdelning['5rätt'] * femmor).values[0]
-
-#     print('utdelning', tot_utdelning)
-
-#     return tot_utdelning
-
 
 def varje_avd_minst_en_häst(veckans_rad):
     # ta ut en häst i varje avd - markera valda i df
@@ -206,8 +157,6 @@ def varje_avd_minst_en_häst(veckans_rad):
     return veckans_rad
 
 # %%
-
-
 def hitta_spikar(veckans_rad, spikad_avd, spik_strategi, min_avst):
     print('spik_strategi', spik_strategi)
     if spik_strategi == None:
@@ -295,7 +244,6 @@ def hitta_spikar(veckans_rad, spikad_avd, spik_strategi, min_avst):
 
     return veckans_rad, spikad_avd
 
-
 def plocka_en_efter_en(veckans_rad, spikad_avd, max_cost=300):
     """_summary_
     Args:
@@ -322,12 +270,11 @@ def plocka_en_efter_en(veckans_rad, spikad_avd, max_cost=300):
 
     return veckans_rad, cost
 
-
-def ta_fram_meta_rad(veckans_rad_, meta_modeller, spik_strategi, max_cost=300, min_avst=0.07, mean='geometric'):
+def ta_fram_meta_rad(veckans_rad_, L2_modeller, strategi, max_cost=300, min_avst=0.07, mean='geometric'):
     """ Denna funktion tar fram en rad för meta-modellerna via medelvärdet på alla meta-modeller
     veckans_rad innehåller _en omgång_
-    _spik_strategi_: None - inget, '1a' - forcera 1 spik, '2a' - forcera 2 spikar, '1b' - 1 spik endast om klar favorit, '2b' - 2 spikar för endast klara favoriter 
-    _mean_: 'arithmetic or geometric formula for mean
+    strategi: None - inget, vi får se
+    mean: 'arithmetic or geometric formula for mean
     """
     veckans_rad = veckans_rad_.copy()
     # veckans_rad['kelly_val'] = False
@@ -338,7 +285,7 @@ def ta_fram_meta_rad(veckans_rad_, meta_modeller, spik_strategi, max_cost=300, m
     # veckans_rad['kelly'] = 0
 
     ### Här tar vi medelvärdet av predict_proba från meta-modellerna ######
-    for enum, key in enumerate(meta_modeller.keys()):
+    for enum, key in enumerate(L2_modeller.keys()):
         if mean == 'arithmetic':
             veckans_rad['proba'] += veckans_rad[key]
             # veckans_rad['kelly'] += veckans_rad['kelly'+enum]
@@ -349,19 +296,18 @@ def ta_fram_meta_rad(veckans_rad_, meta_modeller, spik_strategi, max_cost=300, m
             veckans_rad['proba'] *= veckans_rad[key]
 
     if mean == 'arithmetic':
-        veckans_rad['proba'] /= len(meta_modeller)
+        veckans_rad['proba'] /= len(L2_modeller)
 
     else:  # geometric
-        veckans_rad['proba'] = veckans_rad['proba'] ** (1/len(meta_modeller))
+        veckans_rad['proba'] = veckans_rad['proba'] ** (1/len(L2_modeller))
 
     #################################################################
 
     veckans_rad = varje_avd_minst_en_häst(veckans_rad)
 
     spikad_avd = []
-    if spik_strategi:
-        veckans_rad, spikad_avd = hitta_spikar(
-            veckans_rad, spikad_avd, spik_strategi, min_avst)
+    if strategi:
+        print('strategi ej klar')
     else:
         print('ingen spik-strategi')
 
@@ -372,79 +318,6 @@ def ta_fram_meta_rad(veckans_rad_, meta_modeller, spik_strategi, max_cost=300, m
     # plocka en efter en tills kostnaden är för stor
     # return veckans_rad, cost
     return plocka_en_efter_en(veckans_rad, spikad_avd, max_cost)
-
-
-# def rätta_rad(df, datum, df_utdelning):
-#     """
-#     Räkna ut antal 5:or, 6:or resp. 7:or
-#     Hämta ev utdelning
-#     Spara datum, resultat, utdelning och rad-kostnad
-#     """
-#     sjuor, sexor, femmor, utdelning = 0, 0, 0, 0
-
-#     min_tabell = df[['y', 'avd', 'häst', 'rel_rank', 'välj']].copy()
-#     min_tabell.sort_values(by=['avd', 'y'], ascending=False, inplace=True)
-
-#     print('Antal rätt', min_tabell.query('välj==True and y==1').y.sum())
-
-#     # 1. om jag har max 7 rätt
-#     if min_tabell.query('välj==True and y==1').y.sum() == 7:
-#         sjuor = 1
-#         sexor = (min_tabell.groupby('avd').välj.sum()).sum()-7
-#         # antal femmor
-#         ant1 = min_tabell.query('avd==1 and välj==True').välj.sum()-1
-#         ant2 = min_tabell.query('avd==2 and välj==True').välj.sum()-1
-#         ant3 = min_tabell.query('avd==3 and välj==True').välj.sum()-1
-#         ant4 = min_tabell.query('avd==4 and välj==True').välj.sum()-1
-#         ant5 = min_tabell.query('avd==5 and välj==True').välj.sum()-1
-#         ant6 = min_tabell.query('avd==6 and välj==True').välj.sum()-1
-#         ant7 = min_tabell.query('avd==7 and välj==True').välj.sum()-1
-#         femmor = ant1*ant2+ant1*ant2+ant1*ant3+ant1*ant4+ant1*ant5+ant1*ant6+ant1*ant7 +\
-#             ant2*ant3+ant2*ant4+ant2*ant5+ant2*ant6+ant2*ant7 + \
-#             ant3*ant4+ant3*ant5+ant3*ant6+ant3*ant7 + \
-#             ant4*ant5+ant4*ant6+ant4*ant7 + \
-#             ant5*ant6+ant5*ant7 + \
-#             ant6*ant7
-
-#     # 2. om jag har max 6 rätt
-#     if min_tabell.query('välj==True and y==1').y.sum() == 6:
-#         avd_fel = min_tabell.loc[((min_tabell.välj == False) & (
-#             min_tabell.y == 1)), 'avd'].values[0]
-#         # print(min_tabell.query('avd== @avd_fel').välj.sum())
-#         sexor = min_tabell.query('avd==@avd_fel').välj.sum()
-#         # antal femmor
-#         femmor_fel, femmor_rätt = 0, 0
-#         for avd in range(1, 8):
-#             if avd == avd_fel:
-#                 femmor_fel += min_tabell.loc[min_tabell.avd ==
-#                                              avd_fel].välj.sum()
-
-#             femmor_rätt += min_tabell.query(
-#                 'avd==@avd and välj==True').välj.sum()-1
-#         # print(f'femmor_rätt = {femmor_rätt} femmor_fel = {femmor_fel}')
-#         femmor = femmor_fel * femmor_rätt
-
-#     # 3. om jag har max 5 rätt
-#     if min_tabell.query('välj==True and y==1').y.sum() == 5:
-#         avd_fel = min_tabell.loc[((min_tabell.välj == False) & (
-#             min_tabell.y == 1)), 'avd'].values
-#         femmor = min_tabell.loc[min_tabell.avd == avd_fel[0]].välj.sum(
-#         ) * min_tabell.loc[min_tabell.avd == avd_fel[1]].välj.sum()
-
-#     return sjuor, sexor, femmor, beräkna_utdelning(datum, sjuor, sexor, femmor, df_utdelning)
-
-# TODO: Använd mod.rätta_rad istället och gör datum till en string datum.strftime('%Y-%m-%d') innan anrop
-
-# def initiera_veckans_rader(X_curr, y_curr, antal_rader):
-#     # ---------- initier veckans rad med aktuell omgång ----------------------
-#     veckans_rader = []
-#     for i in range(antal_rader):
-#         veckans_rader.append(X_curr[['datum', 'avd', 'häst', 'bana',
-#                                      'kusk', 'streck', 'streck_avst', 'rel_rank']].copy())
-#         veckans_rader[i]['y'] = y_curr
-#         veckans_rader[i]['välj'] = False
-
-#     return veckans_rader
 
 # %%
 def build_stack_data(modeller, X_meta, y_meta):
@@ -464,7 +337,6 @@ def build_stack_data(modeller, X_meta, y_meta):
         stack_data['proba'+nr] = this_proba
 
     return stack_data
-
 
 def prepare_stack_data(stack_data_, y, ENC=None):
     """Hantera missing values, NaN, etc för meta-modellerna"""
@@ -504,21 +376,19 @@ def prepare_stack_data(stack_data_, y, ENC=None):
     # stack_data[target_encode_list] = stack_data_encoded[target_encode_list]  # update with encoded values
     return stack_data, ENC
 
-
-def train_modeller(modeller, X_train, y_train):
+def train_L1_models(L1_modeller, X_train, y_train):
     ############################################################################################################
-    #                        Här görs en learn av modeller och sedan skapas stack_data
+    #                        Här görs en learn av modeller
     #                        - Learn modeller på X_train,y_train
-    #                        - Skapa stack_data med learned model på X_meta
-    #                        - prepare stack_data
     ############################################################################################################
 
     # features = X_train.drop(['datum','avd','y'], axis=1).columns.tolist()
     # X_train skall innehålla datum och avd
-    for model in modeller:
+    for model in L1_modeller:
         name = model.name
         print(f'Learn {name} {X_train.datum.min()} t.o.m {X_train.datum.max()}')
-        # print(X_train)
+ 
+        # Learn(X_, y=None, X_test_=None, y_test=None, params=None, use_L2_features_=None, save=True)
         model.learn(X_train, y_train, params=None, save=True)
 
     return
@@ -527,8 +397,7 @@ def train_modeller(modeller, X_train, y_train):
 #                       Här gör vi learn av meta_modeller på stack_data
 ############################################################################################################
 
-
-def learn_meta_models(meta_modeller, stack_data, save=True):
+def train_L2_models(meta_modeller, stack_data, save=True):
     # global ENC
     # print('Learn meta_modeller på stack_data')
     assert 'y' in stack_data.columns, 'y is missing in stack_data'
@@ -559,23 +428,7 @@ def learn_meta_models(meta_modeller, stack_data, save=True):
     # print('Done Learn meta_modeller på stack_data')
     return meta_modeller
 
-
-# Denna skall inte köras
-def final_train_modeller(modeller, X, y, X_meta, y_meta):
-    print('Final_learn modeller ')
-    assert False, 'Detta skall inte köras'
-    X_train = pd.concat([X, X_meta])
-    y_train = pd.concat([y, y_meta])
-    print(
-        f'X_train.shape = {X_train.shape} X.shape = {X.shape}, X_meta.shape = {X_meta.shape}')
-    # print(f'X_train.columns = {X_train.columns}')
-    for model in modeller:
-        model.learn(X_train, y_train, save=True)
-    print('Done Final_learn modeller')
-    return modeller
-
-
-def initiera_veckans_rader(X_curr, y_curr, antal_rader):
+def initiera_veckans_rader_old(X_curr, y_curr, antal_rader):
     # ---------- initier veckans rad med aktuell omgång ----------------------
     veckans_rader = []
     for i in range(antal_rader):
@@ -585,7 +438,6 @@ def initiera_veckans_rader(X_curr, y_curr, antal_rader):
         veckans_rader[i]['välj'] = False
 
     return veckans_rader
-
 
 def predict_curr_omgang(modeller, meta_modeller, X_curr, y_curr):
     """
@@ -622,30 +474,199 @@ def predict_curr_omgang(modeller, meta_modeller, X_curr, y_curr):
 
     return veckans_rad
 
-
-def learn_all_and_predict(modeller, meta_modeller, X_train, y_train, X_meta, y_meta, X_curr, y_curr):
+def old_learn_all_and_predict(L1_models, L2_models, X_train, y_train, X_meta, y_meta, X_curr, y_curr):
     """Learn alla modeller och meta_modeller och gör prediktioner på X_curr"""
 
-    # display(X.shape)
+    # train L1-modeller på allt <= L1_datum
+    train_L1_models(L1_models, X_train, y_train)
 
-    #""" train modeller"""
-    train_modeller(modeller, X_train, y_train)
-
-    # bygg stack_data från modeller
-    stack_data = build_stack_data(modeller, X_meta, y_meta)
+    # bygg stack_data från L1-modeller på date > L1_datum och <= L2_datum
+    stack_data = build_stack_data(L1_models, X_meta, y_meta)
     assert 'y' in stack_data.columns, 'y is missing in stack_data'
     stack_data.to_csv('first_stack_data.csv', index=False)
 
     #""" Learn meta_modeller på stack_data"""
-    meta_modeller = learn_meta_models(meta_modeller, stack_data)
+    L2_models = train_L2_models(L2_models, stack_data)
 
-    # Vilka predictors skall vi ha i learn_meta_models? Det måste vara samm här.
-    veckans_rad = predict_curr_omgang(modeller, meta_modeller, X_curr, y_curr)
+    # predict date==curr_datum
+    veckans_rad = predict_curr_omgang(L1_models, L2_models, X_curr, y_curr)
 
     return veckans_rad
 
+def learn_modeller_och_predict(df_, curr_datum, L2_datum, L1_modeller, L2_modeller, use_features):
+    log_print(f'learn_modeller_och_predict: med curr_datum={curr_datum} och L2_datum={L2_datum}','i')
+    log_print(f'learn_modeller_och_predict: orginaldata={df_.shape}','i')
+    L1_input_df = df_.query('datum < @L2_datum').copy()
+    log_print(f'learn_modeller_och_predict: L1_input_df shape={L1_input_df.shape} min_dat= \
+              {L1_input_df.datum.min()}, max_dat={L1_input_df.datum.max()}','i')
+    
+    L1_modeller = mod.learn_L1_modeller(L1_modeller, L1_input_df, use_features, save=True)
+    log_print(f'learn_modeller_och_predict: L1_modeller är nu lärt {L1_modeller.keys()}','i')
+  
+    assert L1_input_df.shape[0] > 0, log_print(f'L1_input_df är tom','e')
+    L2_input_df, L2_features = mod.create_L2_input(L1_input_df, L1_modeller, use_features, with_y=True) 
+    assert L2_input_df.shape[0] > 0, log_print(f'L2_input_df är tom','e')
+    log_print(f'learn_modeller_och_predict: L2_input_df shape={L2_input_df.shape} min_dat= \
+              {L2_input_df.datum.min()}, max_dat={L2_input_df.datum.max()}','i')
+    log_print(f'learn_modeller_och_predict: L2_features {L2_features[-5:]}','i')
+    
+    L2_input_df = L2_input_df.query('datum >= @L2_datum and datum < @curr_datum')
+    assert L2_input_df.shape[0] > 0, log_print(f'L2_input_df är tom  - skall den verkligen beräknas igen???','e')
 
-def backtest(df, df_resultat, modeller, meta_modeller, datumar, gap=0, proba_val=0.6, base_ix=100, meta_ix=150, cv=False, step=1):
+    log_print(f'learn_modeller_och_predict: L2_input_df shape={L2_input_df.shape} min_dat= \
+        {L2_input_df.datum.min()}, max_dat={L2_input_df.datum.max()}','i')
+    L2_modeller = mod.learn_L2_modeller(L2_modeller, L2_input_df, L2_features, save=True) 
+    log_print(f'learn_modeller_och_predict: L2_modeller är nu lärt {L2_modeller.keys()}','i')
+    
+    L2_input_df = L2_input_df.query('datum == @curr_datum').copy()
+    log_print(f'learn_modeller_och_predict: L2_input_df shape={L2_input_df.shape} min_dat = \
+        {L2_input_df.datum.min()}, max_dat={L2_input_df.datum.max()}', 'i')
+    
+    L2_output_df, = mod.predict_med_L2_modeller(L2_modeller, L2_input_df, L2_features, weights=[0.25, 0.25, 0.25, 0.25])
+    assert L2_output_df.shape[0] > 0, log_print(f'L2_output_df är tom'  ,'e')
+
+    log_print(f'learn_modeller_och_predict: L2_output_df shape={L2_output_df.shape} min_dat=\
+        {L2_output_df.datum.min()}, max_dat={L2_output_df.datum.max()}','i')
+ 
+    return L2_modeller, L2_features, L2_output_df
+
+def välj_ut_hästar_för_spel(strategi, df_proba, use_features):
+    
+    print(f'df_proba {df_proba.shape}')
+    return mod.välj_rad(df_proba)
+
+def beräkna_resultat(veckans_rad, curr_datum):
+    df_utdelning = pd.read_csv(pref+'data/utdelning.csv')
+    # se sju, sex, fem, utd = mod.rätta_rad(veckans_rad, curr_datum, df_utdelning)
+    return None
+
+def plot_resultat(df_resultat):
+    # Beräkna cumulativ vinst_förlust per strategi över datum
+    df_resultat['cumulative_profit'] = df_resultat.groupby('strategi')['vinst_förlust'].cumsum()
+
+    # Skapa en line plot för cumulativ vinst_förlust per strategi över datum
+    fig, ax = plt.subplots()
+    for strategy in df_resultat['strategy'].unique():
+        strategy_data = df_resultat[df_resultat['strategy'] == strategy]
+        ax.plot(strategy_data['datum'],
+                strategy_data['cumulative_profit'], label=strategy)
+    ax.set_xlabel('Datum')
+    ax.set_ylabel('Kumulativ vinst/förlust')
+    ax.legend()
+    plt.show()
+
+    # Skapa en bar plot för antal 7-5 rätt per strategi per datum
+    fig, ax = plt.subplots()
+    for strategy in df_resultat['strategi'].unique():
+        strategy_data = df_resultat[df_resultat['strategy'] == strategy]
+        ax.bar(strategy_data['datum'], strategy_data['7_rätt'],
+               label=strategy + ' - 7 rätt')
+        ax.bar(strategy_data['datum'], strategy_data['6_rätt'],
+               label=strategy + ' - 6 rätt')
+        ax.bar(strategy_data['datum'], strategy_data['5_rätt'],
+               label=strategy + ' - 5 rätt')
+    ax.set_xlabel('Datum')
+    ax.set_ylabel('Antal 7-5 rätt')
+    ax.legend()
+    plt.show()
+
+def bygg_strategi1(a):
+    return None
+
+def bygg_strategi2(b,c):
+    return None
+
+def next_datum(df, curr_datum=None, step=1):
+    """ Tar fram nästa datum för testet
+    Args:
+        df (dataframe): all_data.csv
+        curr_datum (string, optional): aktuell datum för testet. None betyder första gången.
+        step (int, optional): antal datum som ska stegas framåt. Defaults to 1.
+        gap (int, optional): antal datum utöver nästa mellan learn och predict. Defaults to 0.
+    Returns:
+        tuple: L2_datum, ny curr_datum
+    """
+    
+    alla_datum = df.datum.unique()
+    if curr_datum is None:
+        curr_datum = alla_datum[200]  # första gången är det 200 veckor för rejäl start av training   
+    
+    print('curr_datum', curr_datum)
+    ix2 = np.where(alla_datum == curr_datum)[0][0]+step   # index till ny curr_datum
+    ix1 = int(round(ix2/2)+0.5) # index till L2_datum   (learn fr o m L2_datum till curr_datum)
+    # learn L1_modeller på allt fram till L2_datum
+    
+    ############################### L1_datum    
+    # Gör så att next_datum är L2_datum.index + 1
+    # beräkan 50/50 mha next_datum för L1_datum och L2_datum
+    
+    if ix2 < len(alla_datum):
+        curr_datum = alla_datum[ix2] # nästa omgång att testa på
+        L2_datum = alla_datum[ix1]  # till_datum för att lära L1-modellern (L2-modellerna startar from L2_datum)
+    else:
+        curr_datum, L2_datum = None, None
+         
+    return L2_datum, curr_datum
+
+def backtest(df, L1_modeller, L2_modeller, step=1, gap=0, proba_val=0.6):
+    placeholder0 = st.empty()
+    placeholder1 = st.empty()
+    placeholder2 = st.empty()
+    placeholder3 = st.empty()
+    
+    use_features, cat_features, num_features = mod.read_in_features()
+    # Bygg strategier
+    strategier = [
+        # name           function, modell_lista, hyperparams, use_features
+        (bygg_strategi1, 'a'),
+        (bygg_strategi2, 'b','c'),
+        # ... fler strategier ...
+    ]
+    df_resultat = pd.DataFrame(columns=['datum', 'strategi', 'vinst_forlust', '7_rätt', '6_rätt', '5_rätt'])
+    df_utdelning = pd.read_csv('utdelning.csv')
+    
+    # Dela upp datan i lär- och test-delar
+    L2_datum, curr_datum = next_datum(df, curr_datum=None, step=1)
+
+    # För varje unikt datum i test-delen
+    while curr_datum is not None: 
+        # for strategi_name, (strategi, L1_modeller, L2_modeller, use_features) in strategier.items():
+        for strategi in strategier:
+            placeholder0.empty()
+            placeholder0.info(f'Aktuell datum: {curr_datum} {"        "} \n strategi: {strategi}')
+            
+            # kanske bättre att skicka med func in i de olika funktionerna nedan
+            func = strategi[0]
+            args = strategi[1:]
+            strategy = func(*args)
+            # kanske bättre att skicka med func in i de olika funktionerna nedan
+
+            # TODO: Använd curr_daum mfl för att skapa L1_input och L2_input
+            
+            # Lär modeller
+            L2_modeller, L2_features, L2_output_df = learn_modeller_och_predict(
+                df, curr_datum, L2_datum, L1_modeller, L2_modeller, use_features)
+            
+            # Välj ut hästar för spel df_proba skall innehålla data för en omgång
+            veckans_rad, kostnad = välj_ut_hästar_för_spel(strategi, L2_output_df, L2_features)
+
+            # Beräkna resultat
+            utdelning, _7_rätt, _6_rätt, _5_rätt = mod.rätta_rad(veckans_rad, curr_datum, df_utdelning)
+            vinst_forlust =  utdelning - kostnad
+            
+            # spara resultat i dataframe df_resultat
+            df_resultat.loc[len(df_resultat)] = [curr_datum, strategy, vinst_forlust, _7_rätt, _6_rätt, _5_rätt]
+
+
+            # Plot resultat
+            placeholder1.empty()
+            placeholder2.empty()
+            placeholder3.empty()
+            plot_resultat(df_resultat)
+            
+        L1_datum, L2_datum, curr_datum = next_datum(df, curr_datum, step, gap)
+        
+def backtest_old(df, df_resultat, modeller, meta_modeller, datumar, gap=0, proba_val=0.6, base_ix=100, meta_ix=150, cv=False, step=1):
     """ Backtesting anpassad för travets omgångar, dvs datum istf dagar"""
 
     assert base_ix < meta_ix, f'base_ix ({base_ix}) måste vara mindrea än meta_ix ({meta_ix})'
@@ -668,7 +689,7 @@ def backtest(df, df_resultat, modeller, meta_modeller, datumar, gap=0, proba_val
             break
 
         print(f'learn fram till {curr_datum}')
-        veckans_rad = learn_all_and_predict(modeller,
+        veckans_rad = old_learn_all_and_predict(modeller,
                                             meta_modeller,
                                             X_train, y_train,
                                             X_meta, y_meta,
@@ -727,8 +748,7 @@ def backtest(df, df_resultat, modeller, meta_modeller, datumar, gap=0, proba_val
         
     return df_resultat
 
-
-def kör(df, modeller, meta_modeller, cv=False):
+def kör(df, L1_modeller, L2_modeller, cv=False):
 
     base_ix = 100  # antal omgångar som vi startar bas-modellerna från i backtesting
     meta_ix = 150  # antal omgångar som vi startar meta-modellerna från i backtesting
@@ -742,18 +762,16 @@ def kör(df, modeller, meta_modeller, cv=False):
     datumar, df_resultat = starta_upp(df, base_ix)
 
     # backtesting
-    df_resultat = backtest(df, df_resultat, modeller, meta_modeller,
-                           datumar, gap=0, proba_val=0.6, base_ix=base_ix, meta_ix=meta_ix, cv=cv, step=1)
+    df_resultat = backtest(df, L1_modeller, L2_modeller, gap=0, proba_val=0.6, step=1)
 
     return df_resultat
-
 
 def main():
     # Skapa v75-instans
     v75 = td.v75(pref='')
     # Hämta data från v75
-    _ = v75.förbered_data(missing_num=False)  # num hanteras av catboost
-    df = v75.test_lägg_till_kolumner()
+    df,_ = v75.förbered_data(extra=True, missing_num=False)  # num hanteras av catboost
+    # df = v75.lägg_till_kolumner()
 
     ###############################################################
     # Några idéer på nya kolumner:
@@ -765,52 +783,22 @@ def main():
     #  e - ✔️ hx_bana samma som bana
     #  f - ✔️ hx_kusk samma som kusk
 
-    # -------------- skapa test-modeller
-    #               name,   #häst  #motst,  motst_diff, streck, test,  pref
-    test1 = tp.Typ('test1', False,   0,     False,      False,  True,  pref=pref)
-    test2 = tp.Typ('test2', False,   3,     True,       False,  True,  pref=pref)
-    test3 = tp.Typ('test3', True,    0,     False,      False,  False, pref=pref)
-    test4 = tp.Typ('test4', True,    3,     True,       False,  False, pref=pref)
-
-    modeller = [test1, test2, test3, test4]
-
-    # RandomForestClassifier
-    with open('optimera/params_meta1_rf.json', 'r') as f:
-        params = json.load(f)
-        rf_params = params['params']
-    rf_model = RandomForestClassifier(**rf_params, n_jobs=6, random_state=2022)
-
-    # RidgeClassifier
-    with open('optimera/params_meta2_ridge.json', 'r') as f:
-        ridge_params = json.load(f)['params']
-        # st.write(params)
-    ridge_model = RidgeClassifier(**ridge_params, random_state=2022)
-
-    # KNN classifier
-    with open('optimera/params_meta3_knn.json', 'r') as f:
-        knn_params = json.load(f)['params']
-    KNN_model = KNeighborsClassifier(**knn_params, n_jobs=6)
-
-    # ExtraTreesClassifier
-    with open('optimera/params_meta4_et.json', 'r') as f:
-        params = json.load(f)
-        et_params = params['params']
-    et_model = ExtraTreesClassifier(**et_params, n_jobs=6, random_state=2022)
-
-    meta_modeller = {
-        # 'meta1_rf': {'model': rf_model, 'params': rf_params},
-        'meta2_ridge': {'model': ridge_model, 'params': ridge_params},
-        'meta3_knn': {'model': KNN_model, 'params': knn_params},
-        # testa et istället för rf
-        'meta4_et': {'model': et_model, 'params': et_params},
-    }
-
+    # -------------- skapa modeller för backtesting
+    L1_modeller, L2_modeller = mod.skapa_modeller()
+    
     if st.button('kör'):
         st.write('Införa kör med cv?')
-        df_resultat = kör(df, modeller, meta_modeller, cv=False)
-    # elif st.button('kör med cv'):
-    #     st.warning(f'df_resultat = kör(df, modeller, cv=True)  är inte klar!')
-
+        df_resultat = kör(df, L1_modeller, L2_modeller, cv=False)
 
 if __name__ == "__main__":
-    main()
+    # Skapa v75-instans
+    v75 = td.v75(pref='')
+    # Hämta data från v75
+    # num hanteras av catboost
+    df, encoder = v75.förbered_data(extra=True, missing_num=False)
+
+    # -------------- skapa modeller för backtesting
+    L1_modeller, L2_modeller = mod.skapa_modeller()
+
+    st.write('Införa kör med cv?')
+    df_resultat = kör(df, L1_modeller, L2_modeller, cv=False)

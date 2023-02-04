@@ -5,11 +5,9 @@ import pandas as pd
 from IPython.display import display
 import V75_scraping as vs
 import travdata as td
-import typ as tp
 import json
 import sys
-sys.path.append(
-    'C:\\Users\\peter\\Documents\\MyProjects\\PyProj\\Trav\\spel')
+sys.path.append('C:\\Users\\peter\\Documents\\MyProjects\\PyProj\\Trav\\spel')
 
 #%%
 
@@ -22,16 +20,33 @@ pref = ''   # '../'
 
 ###################################################################################
 
-def skapa_modeller():  
 
-    logging.info('skapa_modeller: Initierar dict med modeller')
+def log_print(text, logging_level='d'):
+    """Skriver ut på loggen och gör en print samt returnerar strängen (för assert)"""
+    if logging_level == 'd':
+        logging.debug(text)
+    else:
+        if logging_level == 'i':
+            logging.info(text)
+        elif logging_level == 'w':
+            logging.warning(text)
+        elif logging_level == 'e':
+            logging.error(text)
+        print(text)
+
+    return text
+
+def skapa_modeller():  
+    """Skapar dict med modeller och returnerar dict med modeller"""
+    import typ as tp
+    log_print('skapa_modeller: Initierar dict med modeller','i')
 
     # skapar dict med modeller
-    modell_dict = {'cat1': {'#hästar': False, '#motst': 3, 'motst_diff': True, 'streck': False},
-                'cat2': {'#hästar': True,  '#motst': 3, 'motst_diff': True, 'streck': True},
-                'xgb1': {'#hästar': False, '#motst': 3, 'motst_diff': True, 'streck': False},
-                'xgb2': {'#hästar': True,  '#motst': 3, 'motst_diff': True, 'streck': True}
-                }
+    modell_dict = { 'cat1': {'#hästar': False, '#motst': 3, 'motst_diff': True, 'streck': False},
+                    'cat2': {'#hästar': False,  '#motst': 3, 'motst_diff': True, 'streck': True},
+                    'xgb1': {'#hästar': False, '#motst': 3, 'motst_diff': True, 'streck': False},
+                    'xgb2': {'#hästar': False,  '#motst': 3, 'motst_diff': True, 'streck': True}
+                  }
 
     L1_modeller = dict()
     L2_modeller = dict()
@@ -46,18 +61,16 @@ def skapa_modeller():
         L2_modeller[L2_key] = model
 
     print('keys and names i modeller')
-    # print keys in dict modeller
     for key, value in L1_modeller.items():
         assert key == value.name, "key and value.name should be the same in modeller"
-        logging.info(f'skapa_modeller: {key} klar')
+        log_print(f'skapa_modellen: {key} klar')
 
-    print('keys and names i meta_modeller')
+    log_print('keys and names i meta_modeller')
     for key, value in L2_modeller.items():
         assert key == value.name, "key and value.name should be the same in meta_modeller"
-        logging.info(f'skapa_modeller: {key} klar')
+        logging.info(f'skapa_modellen: {key} klar')
     
     return L1_modeller, L2_modeller    
-
 
 def read_in_features():
     # läs in NUM_FEATURES.txt till num_features
@@ -76,25 +89,26 @@ def create_L2_input(df_,L1_modeller, L1_features,with_y=True):
     Args:
         df_ (DataFrame): All tvättad input från scraping men endast L1_features används
         L1_modeller (Dict): av typen {'model_namn': model (instans av Typ)}
-        L1_features (List): De features som används för att träna L1_modeller
+        L1_features (List): De features som används för predict med L1_modeller
         with_y (bool, optional): y är med om vi har en Learning-situation annars inte. Defaults to True.
 
     Returns:
         df (DataFrame): df kompletterad med proba-data från L1_modeller
         List: L1_features + proba-data från L1_modeller, dvs L2_features
     """
-    logging.info('create_L2_input: Startar create_L2_input')
+    log_print(f'create_L2_input: Startar create_L2_input')
     
+    # TODO: skriv om denna funktion så att vi enbart använder df och inte proba_data
     if with_y:
         #  assert that 'y' is in Xy_
-        assert 'y' in df_.columns, f'y skall finnas i Xy_ '
+        assert 'y' in df_.columns, log_print(f'y skall finnas i Xy_ ', 'e')
     
     df = df_.copy()
 
     df = df.reset_index(drop=True)
     proba_data = pd.DataFrame()
     for model_name, typ in L1_modeller.items():
-        logging.info(f'create_L2_input: predict med {model_name}')
+        log_print(f'create_L2_input: predict med {model_name}')
         proba_data['proba_'+model_name] = typ.predict(df, L1_features)
     
     proba_data = proba_data.reset_index(drop=True)
@@ -106,15 +120,14 @@ def create_L2_input(df_,L1_modeller, L1_features,with_y=True):
     proba_data_missing = proba_data[proba_data_na.any(axis=1)]
 
     if Xy_missing.shape[0] > 0:
-        logging.warning(f'create_L2_input: rader med NaNs i Xy {Xy_missing.shape[0]}')
-        print('rader med NaNs i Xy', Xy_missing.shape[0])
+        log_print(f'create_L2_input: rader med NaNs i Xy {Xy_missing.shape[0]}', 'w')
 
     if proba_data_missing.shape[0] > 0:
-        print(f'rader med NaNs i proba_data_missing {proba_data_missing.shape[0]}')
-        logging.warning(f'create_L2_input: rader med NaNs i proba_data_missing {proba_data_missing.shape[0]}')
+        log_print(f'create_L2_input: rader med NaNs i proba_data_missing {proba_data_missing.shape[0]}')
     ####### slutkollat
 
-    assert df.shape[0] == proba_data.shape[0], f'Xy.shape[0] != proba_data.shape[0] {df.shape[0]} != {proba_data.shape[0]}'
+    assert df.shape[0] == proba_data.shape[0], log_print(
+        f'Xy.shape[0] != proba_data.shape[0] {df.shape[0]} != {proba_data.shape[0]}','e')
 
     assert len(proba_data) == len(df), f'proba_data {len(proba_data)} is not the same length as Xy {len(df)} innan concat'
     assert 'bana' in df.columns, f'bana not in Xy.columns {df.columns} innan concat'
@@ -136,41 +149,69 @@ def create_L2_input(df_,L1_modeller, L1_features,with_y=True):
 
 #%%
 
-def learn_L2_modeller(L2_modeller, L2_input_data, use_L2features, save=True):
-    logging.info('Starting "learn_L2_modeller"')
+def learn_L2_modeller(L2_modeller, L2_input_data, L2_features, save=True):
+    log_print('Starting "learn_L2_modeller"')
     
-    assert 'streck' in use_L2features, f'streck is missing in use_L2features direkt i början'
+    assert 'streck' in L2_features, f'streck is missing in use_L2features direkt i början'
 
     assert 'y' in L2_input_data.columns, 'y is missing in L2_input_data'
     y_meta = L2_input_data.pop('y').astype(int)
 
-    assert len([item for item in L2_input_data.columns if 'proba_' in item]) == 4, "4 proba_ should be in stack_data"
+    # assert len([item for item in L2_input_data.columns if 'proba_' in item]) == 4, "4 proba_ should be in stack_data"
+    assert len(L2_input_data.filter(like='proba').columns) == 4, "4 proba_ should be in stack_data"
 
     X_meta = L2_input_data.copy(deep=True)
     assert 'datum' in X_meta.columns, f'datum is missing in X_meta efter prepare_L2_input_data'
     assert 'streck' in X_meta.columns, f'streck is missing in X_meta efter prepare_L2_input_data'
-    assert 'streck' in use_L2features, f'streck is missing in use_L2features efter prepare_L2_input_data'
+    assert 'streck' in L2_features, f'streck is missing in use_L2features efter prepare_L2_input_data'
 
     for enum, (model_name, model) in enumerate(L2_modeller.items()):
-        display(f'#### learn {model_name} Layer2 på L2_input_data (stack-data)')
-        logging.info(f'Learn_L2: {model_name} Layer2 på L2_input_data (stack-data)')
+        log_print(f'Learn_L2: {model_name} Layer2 på L2_input_data (stack-data)')
         with open(pref+'optimera/params_'+model_name+'.json', 'r') as f:
             params = json.load(f)
             params = params['params']
 
-        assert 'streck' in use_L2features, f'{enum} streck is missing in use_L2features innan learn för {model_name}'
-        my_meta = model.learn(X_meta, y_meta, use_L2_features_=use_L2features, params=params, save=save)
+        assert 'streck' in L2_features, log_print(f'{enum} streck is missing in use_L2features innan learn för {model_name}','d')
+        my_meta = model.learn(X_meta, y_meta, use_L2_features_=L2_features, params=params, save=save)
 
         L2_modeller[model_name] = my_meta
 
         if save:
             # Save the list of column names to a text file
             with open(pref+'modeller/'+model_name+'_columns.txt', "w", encoding="utf-8") as f:
-                for col in X_meta[use_L2features].columns.tolist():
+                for col in X_meta[L2_features].columns.tolist():
                     f.write(col + '\n')
 
     return L2_modeller
 
+
+def learn_L1_modeller(L1_modeller, L1_input_df, L1_features, L1_test_df=None, save=True):
+    """ Lär upp L1_modeller på L1_input_df
+
+    Args:
+        L1_modeller (List): En lista av L1_modeller (Typ-instanser)
+        L1_input_df (DataFrame): Den data som vi ska lära modellerna på
+        L1_features (List): Det urval av features som vi ska använda
+        L1_test_df (DataFrame, opt.): En test-data som vi kan använda för early stopping. Defaults to None.
+        save (bool, optional): Spara modellerna eller inte. Defaults to True.
+    """
+    
+    if 'y' in L1_input_df.columns:
+        y_train = L1_input_df['y'].astype(int)
+    elif 'plac' in L1_input_df.columns:
+        y_train = (L1_input_df['plac']==1).astype(int)
+    else:
+        y_train = None   
+            
+    for model_name, model in L1_modeller.items():
+        with open(pref+'optimera/params_'+model_name+'.json', 'r') as f:
+                params = json.load(f)
+                params = params['params']
+
+        logging.info(f'# learn {model_name} Layer1 på X_train-delen')
+
+        my_model = model.learn(L1_input_df, y_train, params=params, save=save)
+    return L1_modeller
 
 def predict_med_L2_modeller(L2_modeller, L2_input, use_features, weights=[0.25, 0.25, 0.25, 0.25],mean_type='geometric', with_y = True):
     """
@@ -285,6 +326,93 @@ def fix_history_bana(df_):
     df.loc[:, 'h5_bana'] = df.h5_bana.str.split('-').str[0]
     return df
 
+
+def mesta_diff_per_avd(X_):
+    """Räknar ut den största och näst största diffen av meta per avd
+    Args:
+        X_ (DataFrame): veckans_rad (ej färdig)
+
+    Returns:
+        DataFrame: 1 rad per avd med kolumnerna [first, second, diff] tillagda
+    """
+    log_print(f'räknar ut mesta_diff_per_avd')
+    df = X_.copy()
+    # select the highest meta per avd
+    df['first'] = df.groupby('avd')['meta'].transform(
+        lambda x: x.nlargest(2).iloc[0])
+    df['second'] = df.groupby('avd')['meta'].transform(
+        lambda x: x.nlargest(2).iloc[1])
+
+    # behåll endast first och second med värde. De andra är NaN
+    df = df.dropna(subset=['first', 'second'])
+    df['diff'] = df['first'] - df['second']
+
+    # drop duplicates per avd
+    df = df.drop_duplicates(subset='avd', keep='first')
+
+    df.sort_values(by='diff', ascending=False, inplace=True)
+    # st.write(f'kolumnerna i df = {df.columns}')
+    return df
+
+
+def compute_total_insats(df):
+    summa = df.groupby('avd').avd.count().prod() / 2
+    return summa
+
+
+def välj_rad(df, max_insats=360):
+    """_summary_
+    Args:   df_ (dataframe): Predicted med Layer2. meta-kolumnen är den som ska användas
+            max_insats (int): Max insats per omgång
+    Returns:
+        DataFrame: Kolumnen välj är True för de rader som ska spelas
+        int: total insats
+    """
+    logging.info('Väljer rad')
+    veckans_rad = df.copy()
+    veckans_rad['välj'] = False   # inga rader valda ännu
+
+    # first of all: select one horse per avd
+    for avd in veckans_rad.avd.unique():
+        max_pred = veckans_rad[veckans_rad.avd == avd]['meta'].max()
+        veckans_rad.loc[(veckans_rad.avd == avd) & (
+            veckans_rad.meta == max_pred), 'välj'] = True
+
+    veckans_rad = veckans_rad.sort_values(by=['meta'], ascending=False)
+    veckans_rad = veckans_rad.reset_index(drop=True)
+
+    mest_diff = mesta_diff_per_avd(veckans_rad)
+    # TODO: Kolla att mest_diff stämmer med veckans rad
+    assert len(mest_diff) == 7, \
+        log_print(
+            f'len(mest_diff) {len(mest_diff)} != 7 (antal lopp) {mest_diff[["avd","diff"]]}', 'e')
+
+    assert set(mest_diff['avd'].unique()).issubset(veckans_rad['avd'].unique()), \
+        log_print(f"Alla avd i mest_diff måste finnas i veckans_rad")
+    assert len(mest_diff['avd'].unique()) == len(veckans_rad['avd'].unique()), \
+        log_print(
+            f"Antalet unique avd i mest_diff och i veckans_rad skall vara samma")
+
+    cost = 0.5  # 1 rad
+
+    # now select the rest of the horses one by one sorted by meta
+    for i, row in veckans_rad.iterrows():
+        if row.avd == mest_diff.avd.iloc[0]:
+            continue
+        if row.avd == mest_diff.avd.iloc[1]:
+            continue
+
+        veckans_rad.loc[i, 'välj'] = True
+        cost = compute_total_insats(veckans_rad[veckans_rad.välj])
+        if cost > max_insats:
+            veckans_rad.loc[i, 'välj'] = False
+            break
+
+    cost = compute_total_insats(veckans_rad[veckans_rad.välj])
+    veckans_rad.sort_values(by=['välj', 'avd'], ascending=[
+                            False, True], inplace=True)
+
+    return veckans_rad, cost
 
 def beräkna_utdelning(datum, sjuor, sexor, femmor, df_utdelning):
     

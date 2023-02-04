@@ -199,7 +199,7 @@ class v75():
                 self._handle_high_cardinality(col)
                 
         if extra:
-            self.work_df = self.test_lägg_till_kolumner(self.work_df)
+            self.work_df = self.lägg_till_kolumner(self.work_df)
             
         if len(target_encode_list)>0 and encoder:
             display("WARNING: Don't provide both encoder and target_encode_list - the list is ignored" )    
@@ -264,11 +264,19 @@ class v75():
     #  e - ✔️ hx_bana samma som bana 
     #  f - ✔️ hx_kusk samma som kusk 
     
-    def test_lägg_till_kolumner(self, df_):
+    def lägg_till_kolumner(self, df_):
+        # TODO: Använd skapa_modeller.py i stället för denna
         """
         Lägger till nya kolumner b-f ovan
         Körs typiskt efter förbered_data()
         """
+        print(f'Använd mod.skapa_modeller i stället')
+        print(f'Använd mod.skapa_modeller i stället')
+        print(f'Använd mod.skapa_modeller i stället')
+        print(f'Använd mod.skapa_modeller i stället')
+        print(f'Använd mod.skapa_modeller i stället')
+        print(f'Använd mod.skapa_modeller i stället')
+        
         df = df_.copy()
         ##### kr/total_kr_avd ******
         sum_kr = df.groupby(['datum', 'avd']).kr.transform(lambda x: x.sum())

@@ -91,25 +91,24 @@ def v75_scraping():
 
 # %%
 
-def normal_learn_meta_models(meta_modeller, L2_input_data, save=True):
+def normal_learn_L2_modeller(L2_modeller, L2_input_data, save=True):
 
     assert 'y' in L2_input_data.columns, 'y is missing in stack_data'
 
     y = L2_input_data.y.astype(int)
-    meta_features = L2_input_data.drop(
-        ['datum', 'avd', 'y'], axis=1).columns.to_list()
+    meta_features = L2_input_data.drop(['datum', 'avd', 'y'], axis=1).columns.to_list()
     
     assert 'y' not in L2_input_data.columns, "y shouldn't be in stack_data"
     assert len([item for item in L2_input_data.columns if 'proba' in item]) == 4, "4 proba should be in stack_data"
     X_meta = L2_input_data[meta_features].copy(deep=True)
 
     y_meta = y
-    for key, items in meta_modeller.items():
+    for key, items in L2_modeller.items():
         meta_model = items['model']
 
         items['model'] = meta_model.fit(X_meta, y_meta)
-        meta_modeller[key] = items
-        meta_modeller[key]['model'] = meta_model
+        L2_modeller[key] = items
+        L2_modeller[key]['model'] = meta_model
 
         if save:
             # Save the model to a pckle file
@@ -121,7 +120,7 @@ def normal_learn_meta_models(meta_modeller, L2_input_data, save=True):
                 for col in X_meta.columns.tolist():
                     f.write(col + '\n')
 
-    return meta_modeller
+    return L2_modeller
 # %%
 
 def skapa_data_för_datum(df_, curr_datum_ix, frac=0.5):
@@ -214,7 +213,7 @@ def normal_learning(modeller, meta_modeller, X_train, y_train, X_meta, y_meta):
 
     use_features,_,_ = mod.read_in_features()
 
-    meta_modeller = normal_learn_meta_models(meta_modeller, stacked_data, use_features)
+    meta_modeller = normal_learn_L2_modeller(meta_modeller, stacked_data, use_features)
 
     return stack_data
 
