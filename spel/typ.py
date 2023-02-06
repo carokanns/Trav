@@ -80,7 +80,7 @@ def prepare_for_xgboost(X_, y=None, cat_features=None, encoder=None, pred=False,
         X, ENC = _catboost_encode(X, y, cat_features)
 
         # save encoder
-        with open(pref + 'xgb_encoder.pkl', 'wb') as f:
+        with open(pref + 'modeller/xgb_encoder.pkl', 'wb') as f:
             pickle.dump(ENC, f)
             
     assert 'streck' in X.columns, 'streck not in X.columns'
@@ -212,15 +212,15 @@ class Typ():
 
     # Ny Learn metod som tar hänsyn till att vi kan ha CatBoost eller XGBoost
     def learn(self, X_, y=None, X_test_=None, y_test=None, params=None, use_L2_features_=None, iterations=ITERATIONS, save=True, verbose=False):
-        logging.info(f'Typ: startar learn() för {self.name}')
-        assert X_ is not None, 'X skall inte vara None'
-        assert 'streck' in list(X_.columns), 'streck saknas i learn X'
+        log_print(f'Typ: startar learn() för {self.name}')
+        assert X_ is not None, log_print(f'X skall inte vara None')
+        assert 'streck' in list(X_.columns), log_print(f'streck saknas i learn X')
         use_L2_features = None
         if use_L2_features_:
-            assert 'streck' in use_L2_features_, 'streck saknas i use_L2_features_'
+            assert 'streck' in use_L2_features_, log_print(f'streck saknas i use_L2_features_')
             use_L2_features = use_L2_features_.copy()
-        assert verbose == False, 'verbose=True är inte implementerat i learn'
-        assert 'datum' in X_.columns, 'datum saknas i learn X_ i början av learn'
+        assert verbose == False, log_print(f'verbose=True är inte implementerat i learn')
+        assert 'datum' in X_.columns, log_print(f'datum saknas i learn X_ i början av learn')
 
         if self.name.startswith('cat'):
             model_type = 'catboost'
@@ -247,9 +247,9 @@ class Typ():
 
         if use_L2_features is None:
             use_features = cat_features + num_features
-            assert 'streck' in use_features, f'streck saknas i Learn: use_features ({self.name})'
+            assert 'streck' in use_features, log_print(f'streck saknas i Learn: use_features ({self.name})')
         else:
-            assert 'streck' in use_L2_features, f'streck saknas i Learn: use_L2_features ({self.name})'
+            assert 'streck' in use_L2_features, log_print(f'streck saknas i Learn: use_L2_features ({self.name})')
             use_features = use_L2_features
 
         ENC = None
@@ -266,14 +266,14 @@ class Typ():
             iterations = params['iterations'] 
             params.pop('iterations')
 
-        assert 'datum' in X.columns, 'datum saknas i learn X before prepare_for_model'
+        assert 'datum' in X.columns, log_print(f'datum saknas i learn X before prepare_for_model')
         X = self.prepare_for_model(X)
 
         if not self.streck:
             # X.drop('streck', axis=1, inplace=True)
             use_features.remove('streck')
 
-        assert X[cat_features].isnull().sum().sum() == 0,'there are NaN values in cat_features'
+        assert X[cat_features].isnull().sum().sum() == 0,log_print(f'there are NaN values in cat_features')
 
         if model_type == 'catboost':
             X = prepare_for_catboost(X, verbose=verbose)
@@ -286,17 +286,17 @@ class Typ():
             # Kolla att alla kolumner är numeriska i use_features
             non_numeric_columns = [
                 c for c in X[use_features].columns if X[c].dtype.name == 'object']
-            assert len(non_numeric_columns) == 0, f'X innehåller non-numeric columns: {non_numeric_columns.columns}'
+            assert len(non_numeric_columns) == 0, log_print(f'X innehåller non-numeric columns: {non_numeric_columns.columns}')
 
             model = xgb.XGBClassifier(**params,
                                       #   iterations=iterations,
                                       early_stopping_rounds=Typ.EARLY_STOPPING_ROUNDS if X_test is not None else None,
                                       objective='binary:logistic', eval_metric='auc')
         else:
-            raise Exception('unknown model type')
+            raise Exception(log_print(f'unknown model type'))
 
         if self.name[-2:] == 'L1':
-            assert len([col for col in X.columns if 'proba' in col]) == 0, f'X innehåller proba-kolumner för L1-modell {self.name}'
+            assert len([col for col in X.columns if 'proba' in col]) == 0, log_print(f'X innehåller proba-kolumner för L1-modell {self.name}')
 
         if X_test is None or y_test is None:
             if model_type == 'catboost':
@@ -304,10 +304,10 @@ class Typ():
             elif model_type == 'xgboost':
                 model.fit(X[use_features], y, verbose=0)
             else:
-                raise Exception('unknown model type')
+                raise Exception(log_print(f'unknown model type'))
 
         else:
-            assert 'datum' in X_test.columns, 'datum saknas i learn X_test'
+            assert 'datum' in X_test.columns, log_print(f'datum saknas i learn X_test')
             X_test = self.prepare_for_model(X_test)
 
             if model_type == 'catboost':
@@ -315,7 +315,7 @@ class Typ():
             elif model_type == 'xgboost':
                 X_test, _ = prepare_for_xgboost(X_test, encoder=ENC, verbose=verbose, pref=self.pref)
             else:
-                raise Exception('unknown model type')
+                raise Exception(log_print(f'unknown model type'))
 
             if model_type == 'catboost':
                 eval_pool = Pool(X_test[use_features],
@@ -325,22 +325,22 @@ class Typ():
             elif model_type == 'xgboost':
                 # Kolla att alla kolumner är numeriska i use_features
                 non_numeric_columns = [c for c in X_test[use_features].columns if X_test[c].dtype.name == 'object']
-                assert len(non_numeric_columns) == 0, f'X innehåller non-numeric columns: {non_numeric_columns.columns}'
+                assert len(non_numeric_columns) == 0, log_print(f'X innehåller non-numeric columns: {non_numeric_columns.columns}')
 
                 if set(X.columns.tolist()) != set(X_test.columns.tolist()):
-                    assert False, f'fit av {model.name}: X and X_test have different columns \nX     : {X.columns} \nX_test: {X_test.columns}'
+                    assert False, log_print(f'fit av {model.name}: X and X_test have different columns \nX     : {X.columns} \nX_test: {X_test.columns}')
 
                 # Fit the model on the training data and evaluate on the testing data
                 model.fit(X[use_features], y, eval_set=[(X_test[use_features], y_test)], verbose=0)
             else:
-                raise Exception('unknown model type')
+                raise Exception(log_print(f'unknown model type'))
 
         if verbose:
-            print('best score', model.best_score_)
+            log_print(f'best score {model.best_score_}')
 
         if save:
             if self.name[-2:] == 'L2':
-                assert len([col for col in use_features if 'proba' in col]) == 4, f' fel antal proba-kolumner för L2-modell {self.name}'
+                assert len([col for col in use_features if 'proba' in col]) == 4, log_print(f' fel antal proba-kolumner för L2-modell {self.name}')
                 
             self.save_model(model)
             
@@ -366,7 +366,7 @@ class Typ():
         Returns:
             Series: Med första kolumnen i alla proba_predict
         """
-        logging.info(f'Typ: startar predict med {self.name}')
+        log_print(f'Typ: startar predict med {self.name}','i')
         X = X_.copy(deep=True)
         if self.name[-2:] == 'L1':
             assert len([col for col in X.columns if 'proba' in col]) == 0, f'X innehåller proba-kolumner för L1-modell {self.name}'
@@ -409,7 +409,7 @@ class Typ():
         elif model_name == 'xgboost':
             logging.info(f'Typ: {self.name} - xgboost')
             # xgb_encoder till ENC
-            with open(self.pref+'xgb_encoder.pkl', 'rb') as f:
+            with open(self.pref+'modeller/xgb_encoder.pkl', 'rb') as f:
                 ENC = pickle.load(f)
 
             X, _ = prepare_for_xgboost(X, encoder=ENC, pred=True, pref=self.pref)

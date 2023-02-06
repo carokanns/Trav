@@ -174,7 +174,7 @@ def learn_L2_modeller(L2_modeller, L2_input_data, L2_features, save=True):
         assert 'streck' in L2_features, log_print(f'{enum} streck is missing in use_L2features innan learn för {model_name}','d')
         my_meta = model.learn(X_meta, y_meta, use_L2_features_=L2_features, params=params, save=save)
 
-        L2_modeller[model_name] = my_meta
+        # L2_modeller[model_name] = my_meta
 
         if save:
             # Save the list of column names to a text file
@@ -183,7 +183,6 @@ def learn_L2_modeller(L2_modeller, L2_input_data, L2_features, save=True):
                     f.write(col + '\n')
 
     return L2_modeller
-
 
 def learn_L1_modeller(L1_modeller, L1_input_df, L1_features, L1_test_df=None, save=True):
     """ Lär upp L1_modeller på L1_input_df
@@ -242,18 +241,34 @@ def predict_med_L2_modeller(L2_modeller, L2_input, use_features, weights=[0.25, 
     proba_names.append('meta')
 
     temp = df.copy()
+    assert 'datum' in temp.columns, f'datum saknas i temp.columns {temp.columns}'
     # extend temp.columns with column_names with None values
     temp = temp.reindex(columns=temp.columns.tolist() +
                         proba_names, fill_value=np.nan)
-
+    assert 'datum' in temp.columns, f'datum saknas i temp.columns {temp.columns}'
+    # temp.to_csv(pref+'temp1.csv', index=False)
     for model_name, model in L2_modeller.items():
-        print(f'{model_name} predicts for validate')
+        log_print(f'{model_name} predicts for validate','i')
 
         missing_items = set(use_features) - set(temp.columns)
         assert not missing_items, f'{missing_items} in use_features not in temp.columns {temp.columns}'
-
-        temp['proba_'+model_name] = model.predict(temp, use_features)
-
+        
+        # temp_describe = temp.describe(include='all').T
+        # log_print(f'temp.describe() = {temp_describe}','i')
+        # temp_describe = temp[use_features].describe(include='all').T
+        # log_print(f'temp[use_features].describe() = {temp_describe}','i')
+        
+        
+        # # skriv ut use_features som textfil
+        # with open(pref+'temp_'+model_name+'_columns.txt', "w", encoding="utf-8") as f:
+        #     for col in use_features:
+        #         f.write(col + '\n') 
+                
+        # temp.to_csv(pref+'temp2.csv', index=False)
+        log_print(f'predict_med_L2_modeller: {model_name} {type(model)}','i')
+        temp['proba_' + model_name] = model.predict(temp, use_features_=use_features)
+        log_print(f'model.predict klar','i')
+        
     proba_cols = ['proba_cat1L2', 'proba_cat2L2', 'proba_xgb1L2', 'proba_xgb2L2']
     # multiply each column with its corresponding weight
     # weights = pd.Series(weights * len(temp), index=temp.index)
@@ -326,7 +341,6 @@ def fix_history_bana(df_):
     df.loc[:, 'h5_bana'] = df.h5_bana.str.split('-').str[0]
     return df
 
-
 def mesta_diff_per_avd(X_):
     """Räknar ut den största och näst största diffen av meta per avd
     Args:
@@ -354,11 +368,9 @@ def mesta_diff_per_avd(X_):
     # st.write(f'kolumnerna i df = {df.columns}')
     return df
 
-
 def compute_total_insats(df):
     summa = df.groupby('avd').avd.count().prod() / 2
     return summa
-
 
 def välj_rad(df, max_insats=360):
     """_summary_
@@ -415,6 +427,10 @@ def välj_rad(df, max_insats=360):
     return veckans_rad, cost
 
 def beräkna_utdelning(datum, sjuor, sexor, femmor, df_utdelning):
+    # kolla om datum finns i df_utdelning
+    log_print(f'finns datum {datum}, typ={type(datum)}, {(df_utdelning.datum==datum).sum()}', 'i')
+    log_print(df_utdelning.query('datum == "2017-09-03"'), 'i')
+    assert len(df_utdelning.query('datum == @datum')) > 0, log_print(f'datum {datum} finns inte i df_utdelning', 'e')
     
     min_utdelning = df_utdelning.loc[df_utdelning.datum == datum, [
         '7rätt', '6rätt', '5rätt']]
@@ -422,7 +438,7 @@ def beräkna_utdelning(datum, sjuor, sexor, femmor, df_utdelning):
     tot_utdelning = (min_utdelning['7rätt'] * sjuor + min_utdelning['6rätt']
                      * sexor + min_utdelning['5rätt'] * femmor).values[0]
 
-    print('utdelning', tot_utdelning)
+    log_print(f'utdelning: {tot_utdelning}', 'i')
 
     return tot_utdelning
 
@@ -439,7 +455,7 @@ def rätta_rad(veckans_rad, datum, df_utdelning=None) :
     Returns:  (int) sjuor, sexor, femmor, utdelning
     """
     df=veckans_rad.copy()
-    df['y'] = (df.plac==1).astype(int)
+    assert 'y' in df.columns, log_print(f'Kolumnen y saknas i df')
     
     if df_utdelning is None:
         df_utdelning = pd.read_csv(pref+'utdelning.csv')   
@@ -449,7 +465,7 @@ def rätta_rad(veckans_rad, datum, df_utdelning=None) :
     min_tabell = df[['y', 'avd', 'häst', 'rel_rank', 'välj']].copy()
     min_tabell.sort_values(by=['avd', 'y'], ascending=False, inplace=True)
 
-    print('Antal rätt', min_tabell.query('välj==True and y==1').y.sum())
+    log_print(f'rätta_rad: Antal rätt={min_tabell.query("välj==True and y==1").y.sum()}', 'i')
 
     # 1. om jag har max 7 rätt
     if min_tabell.query('välj==True and y==1').y.sum() == 7:

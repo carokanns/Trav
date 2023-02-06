@@ -172,7 +172,7 @@ def do_grid_search(X,y, typ, params, use_features, cat_features, folds=5,randoms
     elif 'xgb' in typ.name:
         log_print(f'xgboost','i')
         # xgb_encoder till ENC
-        with open(pref+'xgb_encoder.pkl', 'rb') as f:
+        with open(pref+'modeller/xgb_encoder.pkl', 'rb') as f:
             ENC = pickle.load(f)
             
         X, ENC = tp.prepare_for_xgboost(X, encoder=ENC)

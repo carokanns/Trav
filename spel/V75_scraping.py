@@ -83,7 +83,7 @@ def quit_drivers(driver_r, driver_s):
 def städa_och_rensa(df, history):
     före = len(df)
     efter = före
-    df.to_csv('temp.csv', index=False)
+    # df.to_csv('temp.csv', index=False)
     try:
         df = ff2.fixa_mer_features(df, history)
         efter = len(df)
@@ -97,26 +97,31 @@ def städa_och_rensa(df, history):
 
 # %% utdelning
 def scrape_utdelning(the_driver):
-    # gammal lösn: utdelningar = the_driver.find_elements_by_class_name("css-mxas0-Payouts-styles--amount")
+    
+    elem = the_driver.find_element_by_xpath("//span[text()='Utdelning 7 rätt']")
+    utd7 = elem.find_element_by_xpath("following-sibling::span").text
 
-    utdelningar = the_driver.find_elements(By.CLASS_NAME, "css-fu45i8-Payouts-styles--amount")
-
-    utd7 = utdelningar[0].text.replace(' ', '')
+    utd7 = utd7.replace(' ', '')
     utd7 = utd7.replace('kr', '')
     utd7 = utd7.replace('Jackpot', '0')
     
     assert utd7.isdigit(), log_print(f'utdelning 7 rätt är inte ett tal: {utd7}','e')
     
-    utd6 = utdelningar[1].text.replace(' ', '')
+    elem = the_driver.find_element_by_xpath("//span[text()='Utdelning 6 rätt']")
+    utd6 = elem.find_element_by_xpath("following-sibling::span").text
+
+    utd6 = utd6.replace(' ', '')
     utd6 = utd6.replace('kr', '')
     utd6 = utd6.replace('Jackpot', '0')
     assert utd6.isdigit(), log_print(f'utdelning 6 rätt är inte ett tal: {utd6}','e')
     
-    utd5 = utdelningar[2].text.replace(' ', '')
+    elem = the_driver.find_element_by_xpath("//span[text()='Utdelning 5 rätt']")
+    utd5 = elem.find_element_by_xpath("following-sibling::span").text
+
+    utd5 = utd5.replace(' ', '')
     utd5 = utd5.replace('kr', '')
     utd5 = utd5.replace('Jackpot', '0')
-    assert utd5.isdigit(), log_print(
-        f'utdelning 5 rätt är inte ett tal: {utd5}', 'e')
+    assert utd5.isdigit(), log_print(f'utdelning 5 rätt är inte ett tal: {utd5}', 'e')
     
     return int(utd7), int(utd6), int(utd5)
 
@@ -126,7 +131,7 @@ def get_utdelning(driver_r, dat, bana):
     assert utd7 > utd6 or utd7==0, log_print(f'7 rätt skall ge mer pengar än 6 rätt','e')
     assert utd6 > utd5 or utd6 == 0, log_print(f'6 rätt skall ge mer pengar än 5 rätt', 'e')
 
-    log_print(f'Omgångens totala utdelning: 7or {utd7}, 6or {utd6}, 5or {utd5}','i')
+    log_print(f'{dat} Utdelning: 7or {utd7}, 6or {utd6}, 5or {utd5}','i')
     utd_file = 'C:\\Users\\peter\\Documents\\MyProjects\\PyProj\\Trav\\spel\\utdelning.csv'
     utdelning = pd.read_csv(utd_file)
     utd = pd.DataFrame([[dat, bana, utd7, utd6, utd5]])
@@ -141,10 +146,18 @@ def get_utdelning(driver_r, dat, bana):
 # %%
 # returnerar en lista av placeringar i startnr-ordning
 def inkludera_resultat(res_avd, anr):
+    log_print(f'inkludera_resultat för avd {anr}','i')
+    
     res_rader = res_avd.find_elements(By.CLASS_NAME,
-        "startlist__row")  # alla rader i loppet
+            "startlist__row")  # alla rader i loppet
+    log_print(f'antal rader i resultat: {len(res_rader)}','i')
+    assert len(res_rader) > 0, log_print(f'Inga resultat hittade för avd {anr}','e')
+
     res_startnr = res_avd.find_elements(By.CLASS_NAME,
-        "css-1jc4209-horseview-styles--startNumber")  # alla startnr
+        "horse-u536nn")  # alla startnr
+    log_print(f'antal startnr i resultat: {len(res_startnr)}','i')
+    assert len(res_startnr) > 0, log_print(f'Inga startnr hittade för avd {anr}','e')
+
     d = {'plac': [], 'startnr': []}
     for nr, rad in enumerate(res_rader):
         plac = rad.text.split(' ')[0]
@@ -155,7 +168,7 @@ def inkludera_resultat(res_avd, anr):
     temp_df = pd.DataFrame(d)
     temp_df['startnr'] = temp_df.startnr.astype(int)
     temp_df.sort_values(by='startnr', ascending=True, inplace=True)
-
+    assert len(temp_df) > 0, log_print(f'temp_df tom','e')
     return temp_df.plac.to_list()
 
 # %%
@@ -172,7 +185,7 @@ def en_rad(vdict, datum, bana, start, lopp_dist, avd, anr, r, rad, voddss, podds
     vdict['lopp_dist'].append(lopp_dist)
     vdict['pris'].append(pris)
     vdict['vodds'].append(voddss[r].text)  # vodds i lopp 1 utan rubrik
-    # log_print(f'en_rad() r={r} vodds={voddss[r].text}  avd={anr+1}','i') if anr+1==5 else None
+    log_print(f'en_rad() r={r} vodds={voddss[r].text}  avd={anr+1}') if anr==0 else None
     vdict['podds'].append(poddss[r].text)  # podds i lopp 1 utan rubrik
     # streck i lopp 1  utan rubrik
     vdict['streck'].append(strecks[r].text)
@@ -185,29 +198,24 @@ def en_rad(vdict, datum, bana, start, lopp_dist, avd, anr, r, rad, voddss, podds
         rad.find_elements(By.CLASS_NAME, "horse-sex")[0].text)
     
     kr = rad.find_elements(By.CLASS_NAME, "earningsPerStart-col")[0].text  # kr/start i lopp 1 utan rubrik
-    # log_print(f'en_rad() r={r} kr={kr}  avd={anr+1}','i') if anr+1==5 else None
     vdict['kr'].append(kr)
 
     # dist och spår i lopp 1 utan rubrik
     dist_sp = rad.find_elements(By.CLASS_NAME, "postPositionAndDistance-col")
-    # log_print(f'1 en_rad() r={r} len(dist_sp)={len(dist_sp)}  avd={anr+1}','i') if anr+1 == 5 else None
+    
     assert len(dist_sp) > 0, log_print(f'dist_sp ej len>0 len={len(dist_sp)} {dist_sp}','e')
    
     dist_sp_text = dist_sp[0].text.split(':')
-    # log_print(f'2 en_rad() r={r} dist_sp_text={dist_sp_text} len(dist_sp_text)={len(dist_sp_text)} type={type(dist_sp_text)} avd={anr+1}', 'i') if anr+1 == 5 else None
     dist = dist_sp_text[0]
-    # log_print(f'3 en_rad() r={r} dist={dist} type={type(dist)} avd={anr+1}', 'i') if anr+1 == 5 else None
     spår = 99
     if len(dist_sp_text) > 1:
         spår = dist_sp_text[1]
-    # log_print(f'4 en_rad() r={r} spår={spår}  avd={anr+1}', 'i') if anr+1 == 5 else None
     vdict['dist'].append(dist)
     vdict['spår'].append(spår)
-    # log_print(f'5 en_rad() r={r} dist={dist} spår={spår}  avd={anr+1}','i') if anr+1==5 else None
     if history:
         log_print(f'history avd {anr+1} för startnr {r+1}') if anr+1==5 else None
         ## history från startlistan ##
-        #log_print(f'history avd {anr+1} för startnr {r+1}')
+        log_print(f'history avd {anr+1} för startnr {r+1}')
         hist = avd.find_elements(By.CLASS_NAME, "start-info-panel")  # all history för loppet
 
         h_dates = hist[r].find_elements(By.CLASS_NAME, 'date-col')[1:]
@@ -294,93 +302,120 @@ def do_scraping(driver_s, driver_r, avdelningar, history, datum):  # get data fr
 
         assert len(result_tab) == 7, log_print(f'################## driver_r  Antal resultat är fel i avd {avdelningar}: {len(result_tab)}','e')
         
-        
+    avd = avdelningar[0]    
     driver_s.implicitly_wait(10)     # seconds
     # start_tab = driver_s.find_elements(By.CLASS_NAME, 'game-table')[:]  # alla lopp med startlistor
     # söksträng = f"//div[@class='game-view'][starts-with(@name, '{datum}')]"
     söksträng = f"//div[starts-with(@name, '{datum}')]"
     
-    log_print(f'find driver_s lopp för avd {avdelningar} med sök {söksträng}','i')
+    log_print(f'find driver_s lopp för avd {avd} med sök {söksträng}','i')
     start_tab = driver_s.find_elements_by_xpath(söksträng)
     log_print(f'1 ########## driver_s, len start_tab = {len(start_tab)} avd={avdelningar}', 'i')
-            
     if len(start_tab) == 8:
         start_tab = start_tab[1:]
 
-    assert len(start_tab) == 7, log_print(f'############ driver_s Antal lopp är fel: {len(start_tab)} avd {avdelningar}','e')
+    assert len(start_tab) == 7, log_print(f'############ driver_s Antal lopp är fel: {len(start_tab)} avd {avd}','e')
     
     comb = driver_s.find_elements(By.CLASS_NAME,'race-combined-info')  # alla bana,dist,start
-    priselement = driver_s.find_elements(By.CLASS_NAME,
-        'css-1lnkuf6-startlistraceinfodetails-styles--infoContainer')
+    
+    priselement = driver_s.find_elements_by_xpath("//span[starts-with(text(), 'Pris:')]")
+
+    # priselement = driver_s.find_elements(By.CLASS_NAME,
+    #     'css-1lnkuf6-startlistraceinfodetails-styles--infoContainer')
+    log_print(f'driver_s: len priselement = {len(priselement)} avd={avd}')
+    assert len(priselement) == 7, log_print(f'Antal priser är fel: {len(priselement)} avd={avd}','e')
+    
+    priser = priselement[avd-1].text
+    log_print(f'Priser: {priser} avd={avdelningar}', 'i')
+
     NOK, DKK, EUR = False, False, False
-    for p in priselement:
-        if 'EUR' in p.text:
-            EUR = True
-            break
-        elif 'NOK' in p.text:
-            NOK = True
-            break
-        elif 'DKK' in p.text:
-            DKK = True
-            break
+    if 'NOK' in priser:
+        NOK = True
+    elif 'DKK' in priser:
+        DKK = True
+    elif 'EUR' in priser:
+        EUR = True
+    
+    # for p in priselement:
+    #     log_print(f'priser: p.text {p.text} avd={avdelningar}', 'i')
+    #     if 'EUR' in p.text:
+    #         EUR = True
+    #         break
+    #     elif 'NOK' in p.text:
+    #         NOK = True
+    #         break
+    #     elif 'DKK' in p.text:
+    #         DKK = True
+    #         break
         
     if EUR or NOK or DKK:
-        log_print(f'EUR: {EUR}, NOK: {NOK} DKK: {DKK} avd={avdelningar}', 'w')
+        log_print(f'EUR: {EUR}, NOK: {NOK} DKK: {DKK} avd={avd}', 'w')
+    else:
+        log_print(f'valuta SEK i priser avd={avd}', 'i')    
     # alla lopps priser
-    priser = [p.text for p in priselement if 'Pris:' in p.text]
-
-    if len(priser) == 0:
-        priser = [p.text for p in priselement 
-                  if 'åriga' not in p.text and 
-                  ('Tillägg' not in p.text) and 
-                  ('EUR' in p.text or 'NOK' in p.text or 'DKK' in p.text)]  # alla lopps priser
+    # priser = [p.text for p in priselement if 'Pris:' in p.text]
     
-    assert len(priser) == 7, log_print(f'Antal priser är fel: {len(priser)} avd={avdelningar}','e')
+    # if len(priser) == 0:
+    #     priser = [p.text for p in priselement 
+    #               if 'åriga' not in p.text and 
+    #               ('Tillägg' not in p.text) and 
+    #               ('EUR' in p.text or 'NOK' in p.text or 'DKK' in p.text)]  # alla lopps priser
     
+  
     # ett lopp (de häst-relaterade som inte kan bli 'missing' tar jag direkt på loppnivå)
-    for anr, avd in enumerate(start_tab):
+    for anr, avd_el in enumerate(start_tab):
+        log_print(f'for-loop anr={anr} Avd={avd}')
         if anr+1 not in avdelningar:
             continue
-        assert anr+1 == avdelningar[0], log_print(f'Start avd {anr+1} ej samma som avdelningar[0] avd={avdelningar}','e')
-
+        assert anr+1 == avd, log_print(f'Start avd {anr+1} ej samma som avdelningar[0] avd={avd}','e')
+        log_print(f'for-loop kör med anr={anr} avd={avd}')
         bana = comb[anr].text.split('\n')[0]
-        assert len(bana) > 0, f'Bana saknas: {bana} avd={avdelningar}'
+        assert len(bana) > 0, f'Bana saknas: {bana} avd={avd}'
         lopp_dist = comb[anr].text.split('\n')[1].split(' ')[0][:-1]
-        assert len(lopp_dist) > 0, f'Loppdist saknas: {lopp_dist} avd={avdelningar}'
+        assert len(lopp_dist) > 0, f'Loppdist saknas: {lopp_dist} avd={avd}'
         start = comb[anr].text.split('\n')[1].split(' ')[1]
-        assert len(start) > 0, f'Start saknas: {start} avd={avdelningar}'
+        assert len(start) > 0, f'Start saknas: {start} avd={avd}'
         if EUR:
-            pris = priser[anr].split('-')[0] + '0'    # Euro -> SEK
+            pris = priser.split('-')[0] + '0'    # Euro -> SEK
         elif NOK:
-            pris = priser[anr].split('-')[0].replace('.', '')  # NOK -> SEK
+            pris = priser.split('-')[0].replace('.', '')  # NOK -> SEK
         elif DKK:
-            pris = priser[anr].split('-')[0].replace('.', '')  # DKK -> SEK
+            pris = priser.split('-')[0].replace('.', '')  # DKK -> SEK
         else:
-            pris = priser[anr].split('-')[0].split(' ')[1]
+            pris = priser.split('-')[0].split(' ')[1]
             
         pris=pris.replace(' ','')
         pris=pris.replace('.','')
-        assert len(pris) > 0, log_print(f'Pris saknas: {pris} avd={avdelningar}','e')
-        log_print(f' pris={pris} Avd {anr+1}')
+        assert len(pris) > 0, log_print(f'Pris saknas: {pris} avd={avd}','e')
+        log_print(f'i loop: pris={pris} Avd={anr+1}')
     
-        names = avd.find_elements(By.CLASS_NAME, "horse-name")  # alla hästar/kön/åldet i loppet
-        assert len(names) > 0, 'no names found avd {avdelningar}'
-        voddss = avd.find_elements(By.CLASS_NAME, "vOdds-col")[1:]  # vodds i loppet utan rubrik
-        assert len(voddss) > 0, 'no vodds found avd {avdelningar}'
-        poddss = avd.find_elements(By.CLASS_NAME, "pOdds-col")[1:]  # podds i loppet utan rubrik
-        assert len(poddss) > 0, 'no podds found avd {avdelningar}'
-        rader = avd.find_elements(By.CLASS_NAME, "startlist__row")  # alla rader i loppet
-        assert len(rader) > 0, 'no rows found   avd {avdelningar}'
-        strecks = avd.find_elements(By.CLASS_NAME, "betDistribution-col")[1:]  # streck i loppet  utan rubrik
-        assert len(strecks) > 0, log_print(f'no strecks found avd {avdelningar}','e')
-        log_print(f'ant i avd {avdelningar}: names={len(names)}, vodds={len(voddss)}, podds={len(poddss)}, rader={len(rader)}, streck={len(strecks)}', 'i')
+        names = avd_el.find_elements(By.CLASS_NAME, "horse-name")  # alla hästar/kön/åldet i loppet
+        assert len(names) > 0, 'no names found avd {avd}'
+        voddss = avd_el.find_elements(By.CLASS_NAME, "vOdds-col")[1:]  # vodds i loppet utan rubrik
+        log_print(f'len voddss={len(voddss)} avd={avd}')
+        assert len(voddss) > 0, 'no vodds found avd {avd}'
+        poddss = avd_el.find_elements(By.CLASS_NAME, "pOdds-col")[1:]  # podds i loppet utan rubrik
+        assert len(poddss) > 0, 'no podds found avd {avd}'
+        
+        rader = avd_el.find_elements(By.CLASS_NAME, "startlist__row")  # alla rader i loppet
+        log_print(f'len rader={len(rader)} avd={avd}')
+        assert len(rader) > 0, 'no rows found   avd {avd}'
+        
+        # streck i loppet  utan rubrik
+        strecks = avd_el.find_elements(By.CLASS_NAME, "betDistribution-col")[1:]
+        assert len(strecks) > 0, log_print(f'no strecks found avd {avd}', 'e')
+        log_print(f'Antal i avd={avd}: names={len(names)}, vodds={len(voddss)}, podds={len(poddss)}, rader={len(rader)}, streck={len(strecks)}', 'i')
         assert len(names) == len(voddss) == len(poddss) == len(rader) == len(strecks), log_print(f'antal i loppet är fel avd={avdelningar}','e')
         if driver_r:
+            log_print(f'driver_r: hämta resultat från resultatsidan avd={avd}', 'i')
             # resultat från resultatsidan
             res_avd = result_tab[anr]
+            log_print(f'res_avd={res_avd} avd={avd}', 'i')
             assert res_avd, f'no result found: avd={anr+1}'
             # placeringar sorterade efter startnr för en avd
             places = inkludera_resultat(res_avd, anr+1)
+            
+            log_print(f'places={places} avd={avd}', 'i')
             # res_startnr = res_avd.find_elements(By.CLASS_NAME,"css-1jc4209-horseview-styles--startNumber")[1:]
             vdict['plac'] += places    # konkatenera listorna
 
@@ -391,17 +426,10 @@ def do_scraping(driver_s, driver_r, avdelningar, history, datum):  # get data fr
         
         # vdicts=[]
         # with ThreadPoolExecutor() as e:
-
+        log_print(f'Kör igenom rader för avd {avd}','i')
         for r, rad in enumerate(rader):
-            vdict = en_rad(vdict, datum, bana, start, lopp_dist, avd, anr, r, rad, voddss, poddss, strecks, names, pris, history)
-            # print(f'.', end='')
-            
-            #log_print(f'anr={anr+1} r={r+1}')
-            # v = [e.submit(en_rad, vdict, datum, bana, start,lopp_dist, avd, anr, r, rad, voddss, poddss, strecks, names, pris, history)
-            
-            
-        # vdict=v[0].result()
-        # print(vdict)
+            vdict = en_rad(vdict, datum, bana, start, lopp_dist, avd_el, anr, r, rad, voddss, poddss, strecks, names, pris, history)
+     
         log_print(f'Klar avd {anr+1}','i')    
     
     return vdict, bana
@@ -409,7 +437,7 @@ def do_scraping(driver_s, driver_r, avdelningar, history, datum):  # get data fr
 
 
 # %% popup för vilken info som ska visas
-def anpassa(driver_s, avd):
+def anpassa(driver_s, avd, datum):
 
     ###########   Lokal funktion   ########################
     def click_element(element_namn, element, avd):
@@ -451,11 +479,13 @@ def anpassa(driver_s, avd):
     avd = avd[0]
     wait = WebDriverWait(driver_s, 10)
     driver_s.implicitly_wait(10)
+    söksträng = f"//div[starts-with(@name, '{datum}')]"
+    sl = driver_s.find_elements_by_xpath(söksträng)
+    # sl = driver_s.find_elements(
+    #     By.CLASS_NAME, "css-8y0fv8-Startlists-styles--startlistelement")  # täcker hela sidan för avd 1-7
+    assert len(sl) == 7, log_print(f'len(sl) avd={avd} är inte 7, {len(sl)}','e')
     
-    sl = driver_s.find_elements(
-        By.CLASS_NAME, "css-8y0fv8-Startlists-styles--startlistelement")  # täcker hela sidan för avd 1-7
-    
-    log_print(f'Hitta de tre knapparna "Andra spel", "Utöka alla" och "Anpassa" avd={avd}')
+    log_print(f'Hitta de tre knapparna "Andra spel", "Utöka alla" och "Anpassa" avd={avd}','i')
     avd_buttons = sl[avd-1].find_elements(
         By.CSS_SELECTOR, "button[class^='MuiButtonBase-root MuiButton-root']")
 
@@ -681,7 +711,7 @@ def v75_threads(resultat=False, history=False, headless=True, avdelningar=None, 
             # _ = input('Efter prissummor mm: Klicka på OK för att fortsätta\n'  )
             
             log_print(f'Kör "anpassa" med driver_s för avd={avdelningar}')
-            anpassa(driver_s,avdelningar)
+            anpassa(driver_s,avdelningar, datum)
             log_print(f'Klar "anpassa" med driver_s för avd={avdelningar}')
             # _ = input('Efter anpassa: Klicka på OK för att fortsätta\n'  )
             
@@ -766,8 +796,8 @@ if __name__ == '__main__':
     
     logging.basicConfig(level=logging.INFO, filemode='a', filename='v75.log', force=True,
                     encoding='utf-8', format='v75:' '%(asctime)s - %(levelname)s - %(lineno)d - %(message)s')
-    logging.info('Startar v75_scraping.py','i')
-    
+    logging.info('Startar v75_scraping.py')
+    print('Startar v75_scraping.py')
     pd.options.display.max_rows = 200
     import concurrent.futures
     start_time = time.perf_counter()
@@ -776,17 +806,17 @@ if __name__ == '__main__':
     ######### settings #########
     omg_df = pd.read_csv(
         'C:\\Users\\peter\\Documents\\MyProjects\\PyProj\\Trav\\spel\\omg_att_spela_link.csv')
-    avd_list=[[1],[2],[3],[4],[5],[6],[7]]
+    # avd_list=[[1],[2],[3],[4],[5],[6],[7]]
     # avd_list=[[1],[2],[3],[4],[5],[6]]
     # avd_list=[[1],[2],[3],[4],[5]]
     # avd_list=[[1],[2],[3],[4]]
     # avd_list=[[1],[2],[3]]
     # avd_list=[[1],[2]]
-    # avd_list=[[1]]
+    avd_list=[[1]]
     concurrency=False
-    resultat=False
+    resultat=True
     history=True
-    headless=True
+    headless=False
     log_print(f'Kör med avd_list={avd_list}, resultat={resultat}, history={history}, headless={headless}, omg={omg_df.Link.values}','i')
     
     def start_scrape(avd_list):
@@ -810,7 +840,7 @@ if __name__ == '__main__':
             
     log_print(f'efter allt klart: df.shape={df.shape}','i')    
     df.sort_values(by=['datum', 'avd', 'startnr', ], inplace=True)        
-    df.to_csv('temp.csv', index=False)
+    # df.to_csv('temp.csv', index=False)
     log_print(f'\ndet tog {round(time.perf_counter() - start_time, 3)} sekunder','i')
     
 import datetime    

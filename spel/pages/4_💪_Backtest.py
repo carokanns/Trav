@@ -494,43 +494,77 @@ def old_learn_all_and_predict(L1_models, L2_models, X_train, y_train, X_meta, y_
     return veckans_rad
 
 def learn_modeller_och_predict(df_, curr_datum, L2_datum, L1_modeller, L2_modeller, use_features):
+    """ Skapar en DataFrame som blir grunden till veckans-rad
+    Args:
+        df_ (DataFrame): allt data rensat och tvättat
+        curr_datum (string): aktuell datum som skall predikteras
+        L2_datum (string): bryt-datum mellan Layer1 och Layer2
+        L1_modeller (list): Layer1-modeller
+        L2_modeller (list): Layer2-modeller
+        use_features (list): Features för Layer1-modeller
+    Returns:
+        DataFrame: Färdig df med proba-kolumner plus meta-kolumn
+    """
+    WEIGHTS = [0.25, 0.25, 0.25, 0.25]
     log_print(f'learn_modeller_och_predict: med curr_datum={curr_datum} och L2_datum={L2_datum}','i')
     log_print(f'learn_modeller_och_predict: orginaldata={df_.shape}','i')
-    L1_input_df = df_.query('datum < @L2_datum').copy()
-    log_print(f'learn_modeller_och_predict: L1_input_df shape={L1_input_df.shape} min_dat= \
-              {L1_input_df.datum.min()}, max_dat={L1_input_df.datum.max()}','i')
     
-    L1_modeller = mod.learn_L1_modeller(L1_modeller, L1_input_df, use_features, save=True)
+    ############# Learn L1-modeller på allt <= L2_datum ############################
+    L1_learn_input_df = df_.query('datum < @L2_datum').copy()
+    assert L1_learn_input_df.shape[0] > 0, log_print(f'L1_learn_input_df är tom','e')
+     
+    log_print(f'learn_modeller_och_predict: L1_input_df shape={L1_learn_input_df.shape} min_dat= \
+    {L1_learn_input_df.datum.min()}, max_dat={L1_learn_input_df.datum.max()}','i')
+    
+    L1_modeller = mod.learn_L1_modeller(L1_modeller, L1_learn_input_df, use_features, save=True)
     log_print(f'learn_modeller_och_predict: L1_modeller är nu lärt {L1_modeller.keys()}','i')
   
-    assert L1_input_df.shape[0] > 0, log_print(f'L1_input_df är tom','e')
-    L2_input_df, L2_features = mod.create_L2_input(L1_input_df, L1_modeller, use_features, with_y=True) 
-    assert L2_input_df.shape[0] > 0, log_print(f'L2_input_df är tom','e')
-    log_print(f'learn_modeller_och_predict: L2_input_df shape={L2_input_df.shape} min_dat= \
-              {L2_input_df.datum.min()}, max_dat={L2_input_df.datum.max()}','i')
-    log_print(f'learn_modeller_och_predict: L2_features {L2_features[-5:]}','i')
-    
-    L2_input_df = L2_input_df.query('datum >= @L2_datum and datum < @curr_datum')
-    assert L2_input_df.shape[0] > 0, log_print(f'L2_input_df är tom  - skall den verkligen beräknas igen???','e')
+    ############# Skapa data till L2 på datum >= L2_datum och datum < curr_datum #############
+    stack_df = df_.query('datum >= @L2_datum and datum < @curr_datum').copy()   # skall utökas med probas
+    assert stack_df.shape[0] > 0, log_print(f'stack_df är tom', 'e')
 
-    log_print(f'learn_modeller_och_predict: L2_input_df shape={L2_input_df.shape} min_dat= \
-        {L2_input_df.datum.min()}, max_dat={L2_input_df.datum.max()}','i')
-    L2_modeller = mod.learn_L2_modeller(L2_modeller, L2_input_df, L2_features, save=True) 
+    stack_df, L2_features = mod.create_L2_input(stack_df, L1_modeller, use_features, with_y=True) 
+    assert stack_df.shape[0] > 0, log_print(f'stack_df är tom', 'e')
+    log_print(f'learn_modeller_och_predict: L2_learn_input_df shape={stack_df.shape} min_dat=\
+    {stack_df.datum.min()}, max_dat={stack_df.datum.max()}', 'i')
+    
+    # filter features in L2_features starting with 'proba_'
+    assert len([x for x in L2_features if x.startswith('proba_')])==4, log_print(f'Antal proba-kolumner skall vara 4', 'e')
+    ############# Nu har vi adderat proba_kolumner till stack_df ############################
+    
+    ############# Learn L2-modeller på stack_df med proba_kolumner ############################
+    L2_modeller = mod.learn_L2_modeller(L2_modeller, stack_df, L2_features, save=True)
     log_print(f'learn_modeller_och_predict: L2_modeller är nu lärt {L2_modeller.keys()}','i')
     
-    L2_input_df = L2_input_df.query('datum == @curr_datum').copy()
-    log_print(f'learn_modeller_och_predict: L2_input_df shape={L2_input_df.shape} min_dat = \
-        {L2_input_df.datum.min()}, max_dat={L2_input_df.datum.max()}', 'i')
+    ############# Skapa data till L2 för curr_datum ############################
+    curr_data_df = df.query('datum == @curr_datum').copy()
+    log_print(f'learn_modeller_och_predict: curr_data_df shape={curr_data_df.shape} min_dat=\
+    {curr_data_df.datum.min()}, max_dat={curr_data_df.datum.max()}', 'i')
+
+    curr_stack_df, L2_features = mod.create_L2_input(curr_data_df, L1_modeller, use_features, with_y=True)
+    assert curr_stack_df.shape[0] > 0, log_print(f'curr_stack_df är tom', 'e')
     
-    L2_output_df, = mod.predict_med_L2_modeller(L2_modeller, L2_input_df, L2_features, weights=[0.25, 0.25, 0.25, 0.25])
-    assert L2_output_df.shape[0] > 0, log_print(f'L2_output_df är tom'  ,'e')
+    log_print(f'learn_modeller_och_predict: curr_stack_df shape={curr_stack_df.shape} min_dat=\
+    {curr_stack_df.datum.min()}, max_dat={curr_stack_df.datum.max()}', 'i')
+    
+    log_print(f'learn_modeller_och_predict: L2_features {L2_features[-5:]}', 'i')
+    
+    assert len([col for col in curr_stack_df.columns if 'proba' in col]) == 4, \
+        log_print(f'curr_stack_df skall ha 4 proba-kolumner', 'e')      
+    ############# Nu ligger proba_kolumner i curr_stack_df  ############################
 
-    log_print(f'learn_modeller_och_predict: L2_output_df shape={L2_output_df.shape} min_dat=\
-        {L2_output_df.datum.min()}, max_dat={L2_output_df.datum.max()}','i')
- 
-    return L2_modeller, L2_features, L2_output_df
+    ############# predict curr_stack_df med L2 dvs läggg till viktad meta #####################
+    curr_stack_df = mod.predict_med_L2_modeller(L2_modeller, curr_stack_df, L2_features, weights=WEIGHTS)
+    assert curr_stack_df.shape[0] > 0, log_print(f'curr_stack_df är tom'  ,'e')
+    assert 'meta' in curr_stack_df.columns, log_print(f'curr_stack_df saknar meta-kolumn'  ,'e')
+    
+    log_print(f'learn_modeller_och_predict: curr_stack_df shape={curr_stack_df.shape} min_dat=\
+    {curr_stack_df.datum.min()}, max_dat={curr_stack_df.datum.max()}','i')
+    ############# Nu ligger proba_kolumner plus viktad meta i den nya curr_stack_df ############################
+    
+    return curr_stack_df
 
-def välj_ut_hästar_för_spel(strategi, df_proba, use_features):
+def välj_ut_hästar_för_spel(strategi, df_proba):
     
     print(f'df_proba {df_proba.shape}')
     return mod.välj_rad(df_proba)
@@ -587,11 +621,11 @@ def next_datum(df, curr_datum=None, step=1):
         tuple: L2_datum, ny curr_datum
     """
     
-    alla_datum = df.datum.unique()
+    alla_datum = df.datum.astype(str).unique().tolist()
     if curr_datum is None:
         curr_datum = alla_datum[200]  # första gången är det 200 veckor för rejäl start av training   
     
-    print('curr_datum', curr_datum)
+    log_print(f'next_datum 1: curr_datum: {curr_datum}, type: {type(curr_datum)}', 'i')
     ix2 = np.where(alla_datum == curr_datum)[0][0]+step   # index till ny curr_datum
     ix1 = int(round(ix2/2)+0.5) # index till L2_datum   (learn fr o m L2_datum till curr_datum)
     # learn L1_modeller på allt fram till L2_datum
@@ -605,7 +639,8 @@ def next_datum(df, curr_datum=None, step=1):
         L2_datum = alla_datum[ix1]  # till_datum för att lära L1-modellern (L2-modellerna startar from L2_datum)
     else:
         curr_datum, L2_datum = None, None
-         
+    
+    log_print(f'next_datum: curr_datum={curr_datum} type={type(curr_datum)}','i'    ) 
     return L2_datum, curr_datum
 
 def backtest(df, L1_modeller, L2_modeller, step=1, gap=0, proba_val=0.6):
@@ -641,15 +676,17 @@ def backtest(df, L1_modeller, L2_modeller, step=1, gap=0, proba_val=0.6):
             strategy = func(*args)
             # kanske bättre att skicka med func in i de olika funktionerna nedan
 
-            # TODO: Använd curr_daum mfl för att skapa L1_input och L2_input
+            # TODO: Använd curr_datum mfl för att skapa L1_input och L2_input
             
-            # Lär modeller
-            L2_modeller, L2_features, L2_output_df = learn_modeller_och_predict(
+            # Lär modeller och predict aktuell datum
+            L2_output_df = learn_modeller_och_predict(
                 df, curr_datum, L2_datum, L1_modeller, L2_modeller, use_features)
+            assert L2_output_df.shape[0] > 0, 'L2_output_df.shape[0] empty'
             
             # Välj ut hästar för spel df_proba skall innehålla data för en omgång
-            veckans_rad, kostnad = välj_ut_hästar_för_spel(strategi, L2_output_df, L2_features)
-
+            veckans_rad, kostnad = välj_ut_hästar_för_spel(strategi, L2_output_df)
+            log_print(f'veckans_rad.shape: {veckans_rad.shape}  Kostnad: {kostnad}')
+            
             # Beräkna resultat
             utdelning, _7_rätt, _6_rätt, _5_rätt = mod.rätta_rad(veckans_rad, curr_datum, df_utdelning)
             vinst_forlust =  utdelning - kostnad
@@ -762,6 +799,7 @@ def kör(df, L1_modeller, L2_modeller, cv=False):
     datumar, df_resultat = starta_upp(df, base_ix)
 
     # backtesting
+    assert 'y' in df,log_print(f'y saknas i df')  
     df_resultat = backtest(df, L1_modeller, L2_modeller, gap=0, proba_val=0.6, step=1)
 
     return df_resultat
