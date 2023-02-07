@@ -150,12 +150,12 @@ def inkludera_resultat(res_avd, anr):
     
     res_rader = res_avd.find_elements(By.CLASS_NAME,
             "startlist__row")  # alla rader i loppet
-    log_print(f'antal rader i resultat: {len(res_rader)}','i')
+    log_print(f'antal rader i resultat: {len(res_rader)}')
     assert len(res_rader) > 0, log_print(f'Inga resultat hittade för avd {anr}','e')
 
     res_startnr = res_avd.find_elements(By.CLASS_NAME,
         "horse-u536nn")  # alla startnr
-    log_print(f'antal startnr i resultat: {len(res_startnr)}','i')
+    log_print(f'antal startnr i resultat: {len(res_startnr)}')
     assert len(res_startnr) > 0, log_print(f'Inga startnr hittade för avd {anr}','e')
 
     d = {'plac': [], 'startnr': []}
@@ -410,12 +410,12 @@ def do_scraping(driver_s, driver_r, avdelningar, history, datum):  # get data fr
             log_print(f'driver_r: hämta resultat från resultatsidan avd={avd}', 'i')
             # resultat från resultatsidan
             res_avd = result_tab[anr]
-            log_print(f'res_avd={res_avd} avd={avd}', 'i')
+            log_print(f'res_avd={res_avd} avd={avd}')
             assert res_avd, f'no result found: avd={anr+1}'
             # placeringar sorterade efter startnr för en avd
             places = inkludera_resultat(res_avd, anr+1)
             
-            log_print(f'places={places} avd={avd}', 'i')
+            log_print(f'places={places} avd={avd}')
             # res_startnr = res_avd.find_elements(By.CLASS_NAME,"css-1jc4209-horseview-styles--startNumber")[1:]
             vdict['plac'] += places    # konkatenera listorna
 
@@ -426,7 +426,7 @@ def do_scraping(driver_s, driver_r, avdelningar, history, datum):  # get data fr
         
         # vdicts=[]
         # with ThreadPoolExecutor() as e:
-        log_print(f'Kör igenom rader för avd {avd}','i')
+        log_print(f'Hämta från alla rader för avd {avd}','i')
         for r, rad in enumerate(rader):
             vdict = en_rad(vdict, datum, bana, start, lopp_dist, avd_el, anr, r, rad, voddss, poddss, strecks, names, pris, history)
      
@@ -768,10 +768,12 @@ def v75_threads(resultat=False, history=False, headless=True, avdelningar=None, 
         # utdelning
         if resultat:
             try:
-                log_print(f'Kör utdelning med driver_r för avd={avdelningar}','i')
-                get_utdelning(driver_r, datum, bana)  # utdelning för denna omgång
-                log_print(f'Klar utdelning med driver_r för avd={avdelningar}','i')
-
+                if 1 in avdelningar: # Behövs bara en gång
+                    log_print(f'Kör utdelning med driver_r för avd={avdelningar}','i')
+                    get_utdelning(driver_r, datum, bana)  # utdelning för denna omgång
+                    log_print(f'Klar utdelning med driver_r för avd={avdelningar}')
+                else:
+                    log_print(f'Skippade utdelning med driver_r för avd={avdelningar}','i')
             except:
                 log_print(f'************************** Något gick fel i utdelning(...) avd {avdelningar} - quit drivers *******************************','e')
                 quit_drivers(driver_s, driver_r)    

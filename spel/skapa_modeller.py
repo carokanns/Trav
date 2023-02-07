@@ -98,7 +98,7 @@ def create_L2_input(df_,L1_modeller, L1_features,with_y=True):
     """
     log_print(f'create_L2_input: Startar create_L2_input')
     
-    # TODO: skriv om denna funktion så att vi enbart använder df och inte proba_data
+    # TODO: skriv om denna funktion så att vi använder df med use_features och inte proba_data
     if with_y:
         #  assert that 'y' is in Xy_
         assert 'y' in df_.columns, log_print(f'y skall finnas i Xy_ ', 'e')

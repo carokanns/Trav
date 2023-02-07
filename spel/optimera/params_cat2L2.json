@@ -1,1 +1,13 @@
-{"params": {"border_count": 48, "random_strength": 6, "depth": 8, "l2_leaf_reg": 5, "iterations": 800, "subsample": 0.08, "learning_rate": 0.008}, "AUC": 0.88633, "Logloss": 0.19162}
+{
+    "params": {
+        "border_count": 48,
+        "random_strength": 6,
+        "depth": 8,
+        "l2_leaf_reg": 5,
+        "iterations": 800,
+        "subsample": 0.08,
+        "learning_rate": 0.008
+    },
+    "AUC": 0.88633,
+    "Logloss": 0.19162
+}

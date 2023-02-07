@@ -222,12 +222,26 @@ def normal_learning(modeller, meta_modeller, X_train, y_train, X_meta, y_meta):
 
 
 def TimeSeries_learning(df_ny_, L1_modeller, L2_modeller, n_splits=5, val_fraction=0.25, save=True):
-    """
-    Skapar en stack med {1 - val_fraction} av X från Layer1. Används som input till Layer2.
-        - learn_models=True betyder att vi både gör en learning och skapar en stack
-        - learn_models=False betyder att vi bara skapar en stack och då har param save ingen funktion
-    """
+    """ 0. Separera ut validation data för framtida användning
+        1. Learn Layer1-modeller, skapar en stack från Layer1. Används som input till Layer2.
+        2. Learn Layer2-modeller med stack-data från Layer1-modeller.
+        3. Learn Layer1-modeller med train + test men ej validate data.
+        Nu kan vi använda Layer1-modellerna + Layer2-modellerna för att göra prediktioner på valideringsdata.
+    Args:
+        df_ny_ (DataFrame): ny data från en omgång som skall konkateneras först. Om None ingen concat.
+        L1_modeller (list): Layer 1 modeller
+        L2_modeller (list): Layer 2 modeller
+        n_splits (int, optional): Antal folders för timeSeries cross-validation. Defaults to 5.
+        val_fraction (float, optional): Fakction för validate data. Defaults to 0.25.
+        save (bool, optional): Spara tränade modeller. Defaults to True.
 
+    Returns:
+        DataFrame: L1_output_data med proba1..n
+    """    """"""
+    
+    #TODO: Kontrollera att vi gör stegen rätt både för learn_for_validation och final_learning 
+    #TODO: varför returnera L1_output_data?
+    
     # Skapa v75-instans
     v75 = td.v75(pref=pref)
 
@@ -240,7 +254,7 @@ def TimeSeries_learning(df_ny_, L1_modeller, L2_modeller, n_splits=5, val_fracti
     use_features,_,_ = mod.read_in_features()  # De features som används i modellerna
     # Hämta data från v75
     df, enc = v75.förbered_data(missing_num=False)  # num hanteras av catboost
-    df_work = v75.test_lägg_till_kolumner(df)
+    df_work = v75.lägg_till_kolumner(df)
 
     X, y, X_val, y_val = hold_out_val_data(df_work, val_fraction)
 
@@ -257,7 +271,7 @@ def TimeSeries_learning(df_ny_, L1_modeller, L2_modeller, n_splits=5, val_fracti
     L1_output_data = pd.DataFrame()
 
     ########################################################################################
-    #         Step 1: Learn the Layer1 on ts X_train and predict on ts X_test              #
+    #         Step 1: Learn the Layer1 on each ts X_train and predict on ts X_test         #
     ########################################################################################
     st.info('Learn L1 och skapar stacked_data till L2')
     my_bar = st.progress(0)
@@ -358,7 +372,7 @@ def TimeSeries_learning(df_ny_, L1_modeller, L2_modeller, n_splits=5, val_fracti
     return L1_output_data
 
 
-def validate_skapa_stack_learning(X_, y, use_features):
+def validate_skapa_stack_learning_old(X_, y, use_features):
     # För validate
     X = X_.copy()
    
@@ -467,7 +481,7 @@ def get_data_for_validate(fraction):
 
     # Hämta data från v75
     df_work,enc = v75.förbered_data(missing_num=False)  # num hanteras av catboost
-    df_work = v75.test_lägg_till_kolumner(df_work)
+    df_work = v75.lägg_till_kolumner(df_work)
 
     _, _, X_val, y_val = hold_out_val_data(
         df_work, fraction)  # validera mot detta
@@ -535,7 +549,7 @@ def validate(L1_modeller, L2_modeller, fraction=None):
 # TODO: Mät tiden för olika val
 def final_learning(modeller, meta_modeller, n_splits=5):
     st.info('Final learning on all the data')
-
+    #TODO: Kontrollera att den verkligen lär på alla data inklusive validation data
     _ = TimeSeries_learning(None,
                             modeller,
                             meta_modeller,
@@ -653,11 +667,16 @@ with buttons:
         try:
             df_spela = pd.read_csv('sparad_scrape_spela.csv')
             log_print(f'Försöker först använda sparad_scrape_spela.csv om den är ok', 'i')
+            log_print(f'df_spela.datum.iloc[0] = {df_spela.datum.iloc[0]}', 'i')
+            log_print(f'st.session_state.datum = {st.session_state.datum}', 'i')
             if df_spela.datum.iloc[0] == st.session_state.datum and 'plac' in df_spela.columns:
                 log_print(f'Den har rätt datum och innehåller "plac"- den är ok ', 'i')
                 df_ny = df_spela
+            else:
+                log_print(f'Den har fel datum eller saknar "plac"- den är inte ok ', 'i')
+                df_ny = None    
         except:
-            log_print(f'Kunde inte använda först-avalet: sparad_scrape_spela.csv', 'i')
+            log_print(f'Kunde inte använda första-valet: sparad_scrape_spela.csv', 'i')
             df_ny=None
             pass
             
@@ -667,6 +686,9 @@ with buttons:
                 df_ny = pd.read_csv('sparad_scrape_learn.csv')
                 
             st.session_state.df_ny = df_ny
+            log_print(f'df_ny.iloc[0] = {df_ny.datum.iloc[0]}', 'i')
+            log_print(f'st.session_state.datum = {st.session_state.datum}', 'i')
+
             if df_ny.datum.iloc[0] != st.session_state.datum:
                 log_print(f'Datum i data = {df_ny.datum.iloc[0]} \n\n är inte samma som i omgång','e')
                 st.error(f'Datum i data = {df_ny.datum.iloc[0]} \n\n är inte samma som i omgång')
@@ -676,7 +698,7 @@ with buttons:
         except:
             # write error message
             log_print('Ingen användbar data finns sparad','e')
-            st.error('Ingen amvändbar data finns sparad')
+            st.error('Ingen användbar data finns sparad')
 
     if st.session_state.df_ny is not None:
         if st.sidebar.button('Learn for validation'):    

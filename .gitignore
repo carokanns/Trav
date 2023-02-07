@@ -27,3 +27,5 @@ spel/sparad_scrape_spela.csv
 spel/sparad_stack_L1.csv
 spel/sparad_stack_L2.csv
 spel/veckans_rad.csv
+spel/__pycache__/V75_scraping.cpython-39.pyc
+spel/__pycache__/*.*

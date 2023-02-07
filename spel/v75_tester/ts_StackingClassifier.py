@@ -143,7 +143,7 @@ if __name__ == '__main__':
     categoricals = df.select_dtypes(include=['object']).columns
     df,enc = v75.förbered_data(target_encode_list=categoricals) 
     
-    df = v75.test_lägg_till_kolumner()
+    df = v75.lägg_till_kolumner()
     ts_stack = ts_stacking([('rf', rf), ('rf2', rf2), ('knn', knn)])
     ts_stack.skapa_stack_data(df.drop('y', axis=1), df['y'])
 
