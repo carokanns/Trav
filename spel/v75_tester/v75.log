@@ -1,0 +1,7 @@
+Hyperparms: 2023-02-07 19:18:46,020 - INFO - 50 - Skapar dict med modeller 
+Hyperparms: 2023-02-07 19:18:46,020 - INFO - 30 - skapa_modeller: Initierar dict med modeller 
+Hyperparms: 2023-02-07 19:18:46,021 - INFO - 71 - skapa_modellen: cat1L2 klar 
+Hyperparms: 2023-02-07 19:18:46,021 - INFO - 71 - skapa_modellen: cat2L2 klar 
+Hyperparms: 2023-02-07 19:18:46,021 - INFO - 71 - skapa_modellen: xgb1L2 klar 
+Hyperparms: 2023-02-07 19:18:46,021 - INFO - 71 - skapa_modellen: xgb2L2 klar 
+Hyperparms: 2023-02-07 19:18:46,021 - INFO - 50 - Modeller är nu skapade 

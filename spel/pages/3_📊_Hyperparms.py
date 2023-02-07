@@ -125,7 +125,10 @@ def gridsearch_typ(typ, params, proba_kolumner=[], folds=5, save=False):
 
 def do_grid_search(X,y, typ, params, use_features, cat_features, folds=5,randomsearch=False, verbose=False):
     log_print(f'Startar do_grid_search')
-    
+
+    import time
+    start = time.time()
+
     tscv = TimeSeriesSplit(n_splits=folds)
     grid = eval(params)  # str -> dict
 
@@ -141,7 +144,7 @@ def do_grid_search(X,y, typ, params, use_features, cat_features, folds=5,randoms
                                 use_best_model=False, early_stopping_rounds=200, verbose=verbose,)
         if randomsearch:
             st.info(f'Randomized search {typ.name}')
-            log_print(f'Randomized search {typ.name}')
+            log_print(f'Randomized search {typ.name}','i')
             grid_search_result = model.randomized_search(grid,
                                             X=Pool(X[use_features], y, cat_features=cat_features),
                                             cv=tscv.split(X),
@@ -178,32 +181,53 @@ def do_grid_search(X,y, typ, params, use_features, cat_features, folds=5,randoms
         X, ENC = tp.prepare_for_xgboost(X, encoder=ENC)
         log_print(f'Encoding done','i')
         model = xgb.XGBClassifier(
-            objective='binary:logistic', eval_metric='auc', scale_pos_weight=9, random_state=2023)
+            objective='binary:logistic', eval_metric='logloss', scale_pos_weight=9, random_state=2023)
 
         assert X[cat_features].isnull().sum().sum() == 0, 'there are NaN values in cat_features inna xgb gridsearch'
         if randomsearch:
-            log_print(f'Grid search {typ.name}')
-            st.info(f'Grid search')
-            grid_search_result = model.grid_search(grid,
-                                                   X=Pool(
-                                                   X[use_features], y, cat_features=cat_features),
-                                                   cv=tscv.split(X),
-                                                   search_by_train_test_split=False,
-                                                   verbose=verbose,
-                                                   plot=True)
+            st.info(f'Randomized search {typ.name}')
+            log_print(f'Randomized search {typ.name}','i')
+            log_print(f'grid={grid}','i')
+            rs = RandomizedSearchCV(
+                model, 
+                param_distributions=grid, 
+                return_train_score = False,
+                # n_iter=100, 
+                cv=tscv.split(X),
+                scoring='roc_auc',
+                verbose=2,
+                n_jobs=-1)
+
+            # Fit the random search to the training data
+            rs.fit(X[use_features], y)
+
+            # Print the best hyperparameters
+            print("Best hyperparameters: ", rs.best_params_)
             
-        best_params = grid_search_result.best_params_
-        AUC = grid_search_result.best_score_
-        ix = grid_search_result.best_index_
-        Logloss = -grid_search_result.cv_results_['mean_test_neg_log_loss'][ix]
-        assert AUC==grid_search_result.cv_results_['mean_test_roc_auc'][ix], log_print(f'AUC != mean_test_roc_auc[{ix}]','e')
+        best_params = rs.best_params_
+        AUC = rs.best_score_
+        log_print(f'rs.best_score_={AUC}','i')
+        
+        # cv_df = pd.DataFrame(rs.cv_results_)
+        # cv_df.to_csv('cv_results.csv', index=False)
+
+        ix = rs.best_index_
+        try:
+            Logloss = rs.cv_results_['test-Logloss-mean'][ix]
+            log_print(f'rs.cv_results_["test-Logloss-mean"][{ix}]={Logloss}','i')
+        except:
+            log_print(f'rs.cv_results_["test-Logloss-mean"][{ix}] not found', 'e')
+            Logloss=1
+            
+        assert AUC == rs.cv_results_['mean_test_score'][ix], \
+                log_print(f'AUC != mean_test_score[{ix}]', 'e')
         
         grid_search_result = {'params': best_params, 'AUC': round(AUC,5), 'Logloss': round(Logloss,5)}    
     else:
         raise ValueError('typ.name must include cat or xgb')
     
-    log_print(f'grid_search_result AUC: {AUC}', 'i')
-    log_print(f'grid_search_result best_params: {best_params}', 'i')
+    log_print(f'RandomizedSearch AUC: {AUC}', 'i')
+    log_print(f'RandomizedSearch best_params: {best_params}', 'i')
     
     print('---------------------------------------')
     display(AUC, Logloss)
@@ -211,6 +235,10 @@ def do_grid_search(X,y, typ, params, use_features, cat_features, folds=5,randoms
     display(best_params)
     print('---------------------------------------')
     print()
+    
+    elapsed = time.time() - start
+    st.write(f"Det tog: {round(elapsed/60,2)} minuter", 'i')
+    log_print(f"Det tog: {round(elapsed/60,2)} minuter", 'i')
     return grid_search_result
 
 #%%
