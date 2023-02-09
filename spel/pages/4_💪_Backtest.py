@@ -1,8 +1,9 @@
 #%%
+import matplotlib.pyplot as plt
+import datetime as dt
 import sys
 sys.path.append('C:\\Users\\peter\\Documents\\MyProjects\\PyProj\\Trav\\spel')
 import typ as tp
-import matplotlib.pyplot as plt
 from IPython.display import display
 import pandas as pd
 import numpy as np
@@ -12,7 +13,6 @@ from category_encoders import TargetEncoder
 from catboost import CatBoostClassifier, Pool
 
 import travdata as td
-import json
 import concurrent.futures
 import time
 from sklearn.neighbors import KNeighborsClassifier
@@ -31,7 +31,7 @@ pd.set_option('display.max_columns', 200)
 pd.set_option('display.max_rows', 120)
 
 import logging
-logging.basicConfig(level=logging.DEBUG, filemode='w' , filename='v75.log', force=True, encoding='utf-8', format='Backtest: %(asctime)s - %(levelname)s - %(lineno)d - %(message)s ')
+logging.basicConfig(level=logging.INFO, filemode='w' , filename='v75.log', force=True, encoding='utf-8', format='Backtest: %(asctime)s - %(levelname)s - %(lineno)d - %(message)s ')
 logging.info('***************** Startar *******************')
    
 st.set_page_config(page_title="Backtesting av L1 + L2", page_icon="💪")
@@ -493,7 +493,88 @@ def old_learn_all_and_predict(L1_models, L2_models, X_train, y_train, X_meta, y_
 
     return veckans_rad
 
-def learn_modeller_och_predict(df_, curr_datum, L2_datum, L1_modeller, L2_modeller, use_features):
+def learn_modeller(df_, curr_datum, L2_datum, L1_modeller, L2_modeller, use_features):
+    """ Skapar en DataFrame som innehåller input till L2-modellers predictioner
+    Args:
+        df_ (DataFrame): allt data rensat och tvättat
+        curr_datum (string): aktuell datum som skall predikteras
+        L2_datum (string): bryt-datum mellan Layer1 och Layer2
+        L1_modeller (list): Layer1-modeller
+        L2_modeller (list): Layer2-modeller
+        use_features (list): Features för Layer1-modeller
+    Returns:
+        DataFrame: stack_för L2_predictions
+        List: L2_features inkluderar proba_features från L1-modeller
+    """
+    log_print(
+        f'learn_modeller: med curr_datum={curr_datum} och L2_datum={L2_datum}', 'i')
+    log_print(f'learn_modeller: orginaldata={df_.shape}', 'i')
+
+    ############# Learn L1-modeller på allt <= L2_datum ############################
+    L1_learn_input_df = df_.query('datum < @L2_datum').copy()
+    assert L1_learn_input_df.shape[0] > 0, log_print(f'L1_learn_input_df är tom', 'e')
+
+    log_print(f'learn_modeller: L1_input_df shape={L1_learn_input_df.shape} min_dat= \
+    {L1_learn_input_df.datum.min()}, max_dat={L1_learn_input_df.datum.max()}', 'i')
+
+    L1_modeller = mod.learn_L1_modeller(
+        L1_modeller, L1_learn_input_df, use_features, save=True)
+    log_print(f'learn_modeller: L1_modeller är nu lärt {L1_modeller.keys()}', 'i')
+
+    ############# Skapa data till L2 på datum >= L2_datum och datum < curr_datum #############
+    # skall utökas med probas
+    stack_df = df_.query('datum >= @L2_datum and datum < @curr_datum').copy()
+    assert stack_df.shape[0] > 0, log_print(f'stack_df är tom', 'e')
+
+    stack_df, L2_features = mod.create_L2_input(
+        stack_df, L1_modeller, use_features, with_y=True)
+    assert stack_df.shape[0] > 0, log_print(f'stack_df är tom', 'e')
+    log_print(f'learn_modeller: L2_learn_input_df shape={stack_df.shape} min_dat=\
+    {stack_df.datum.min()}, max_dat={stack_df.datum.max()}', 'i')
+
+    # filter features in L2_features starting with 'proba_'
+    assert len([x for x in L2_features if x.startswith('proba_')]
+               ) == 4, log_print(f'Antal proba-kolumner skall vara 4', 'e')
+    ############# Nu har vi adderat proba_kolumner till stack_df ############################
+
+    ############# Learn L2-modeller på stack_df med proba_kolumner ############################
+    L2_modeller = mod.learn_L2_modeller(L2_modeller, stack_df, L2_features, save=True)
+    log_print(f'learn_modeller: L2_modeller är nu lärt {L2_modeller.keys()}', 'i')
+
+    ############# Skapa data till L2 för curr_datum ############################
+    curr_data_df = df.query('datum == @curr_datum').copy()
+    log_print(f'learn_modeller: curr_data_df shape={curr_data_df.shape} min_dat=\
+    {curr_data_df.datum.min()}, max_dat={curr_data_df.datum.max()}', 'i')
+
+    curr_stack_df, L2_features = mod.create_L2_input(curr_data_df, L1_modeller, use_features, with_y=True)
+    assert curr_stack_df.shape[0] > 0, log_print(f'curr_stack_df är tom', 'e')
+
+    log_print(f'learn_modeller: curr_stack_df shape={curr_stack_df.shape} min_dat=\
+    {curr_stack_df.datum.min()}, max_dat={curr_stack_df.datum.max()}', 'i')
+
+    log_print(f'learn_modeller: L2_features {L2_features[-5:]}', 'i')
+
+    assert len([col for col in curr_stack_df.columns if 'proba' in col]) == 4, \
+        log_print(f'learn_modeller: curr_stack_df skall ha 4 proba-kolumner', 'e')
+    ############# Nu ligger proba_kolumner i curr_stack_df  ############################
+
+    return curr_stack_df, L2_features
+
+def old_predict_L2(L2_features, L2_modeller, curr_stack_df, mean_type='geometric', weights=None):
+    weights = [0.25, 0.25, 0.25, 0.25] if weights==None else weights
+    ############# predict curr_stack_df med L2 dvs läggg till viktad meta #####################
+    curr_stack_df = mod.predict_med_L2_modeller(L2_modeller, curr_stack_df, L2_features, mean_type=mean_type, weights=weights)
+    assert curr_stack_df.shape[0] > 0, log_print(f'curr_stack_df är tom', 'e')
+    assert 'meta' in curr_stack_df.columns, log_print(f'curr_stack_df saknar meta-kolumn', 'e')
+
+    log_print(f'learn_modeller_och_predict: curr_stack_df shape={curr_stack_df.shape} min_dat=\
+    {curr_stack_df.datum.min()}, max_dat={curr_stack_df.datum.max()}', 'i')
+    ############# Nu ligger proba_kolumner plus viktad meta i den nya curr_stack_df ############################
+
+    return curr_stack_df
+
+    
+def old_learn_modeller_och_predict(df_, curr_datum, L2_datum, L1_modeller, L2_modeller, use_features, mean_type='geometric'):
     """ Skapar en DataFrame som blir grunden till veckans-rad
     Args:
         df_ (DataFrame): allt data rensat och tvättat
@@ -554,7 +635,7 @@ def learn_modeller_och_predict(df_, curr_datum, L2_datum, L1_modeller, L2_modell
     ############# Nu ligger proba_kolumner i curr_stack_df  ############################
 
     ############# predict curr_stack_df med L2 dvs läggg till viktad meta #####################
-    curr_stack_df = mod.predict_med_L2_modeller(L2_modeller, curr_stack_df, L2_features, weights=WEIGHTS)
+    curr_stack_df = mod.predict_med_L2_modeller(L2_modeller, curr_stack_df, L2_features,mean_type=mean_type, weights=WEIGHTS)
     assert curr_stack_df.shape[0] > 0, log_print(f'curr_stack_df är tom'  ,'e')
     assert 'meta' in curr_stack_df.columns, log_print(f'curr_stack_df saknar meta-kolumn'  ,'e')
     
@@ -574,41 +655,60 @@ def beräkna_resultat(veckans_rad, curr_datum):
     # se sju, sex, fem, utd = mod.rätta_rad(veckans_rad, curr_datum, df_utdelning)
     return None
 
-def plot_resultat(df_resultat):
-    # Beräkna cumulativ vinst_förlust per strategi över datum
-    df_resultat['cumulative_profit'] = df_resultat.groupby('strategi')['vinst_förlust'].cumsum()
 
-    # Skapa en line plot för cumulativ vinst_förlust per strategi över datum
-    fig, ax = plt.subplots()
-    for strategy in df_resultat['strategy'].unique():
-        strategy_data = df_resultat[df_resultat['strategy'] == strategy]
-        ax.plot(strategy_data['datum'],
-                strategy_data['cumulative_profit'], label=strategy)
-    ax.set_xlabel('Datum')
-    ax.set_ylabel('Kumulativ vinst/förlust')
-    ax.legend()
-    plt.show()
+def plot_resultat(df_resultat_, placeholder2, placeholder3):
+    import matplotlib.dates as mdates
+    df_resultat = df_resultat_.copy()
+    st.set_option('deprecation.showPyplotGlobalUse', False)
+    
+    #### Skapa en line plot för Kumulativ vinst_förlust per strategi över datum ####
+    
+    # Beräkna kumulativ vinst_förlust per strategi över datum
+    df_resultat['cumulative_profit'] = df_resultat.groupby('strategi')[
+        'vinst_förlust'].cumsum()
+    df_resultat.to_csv(pref+'BacktestPlot.csv', index=False)
+    
+    # Skapa line plot
+    plt.figure()
+    # convert datum to date without time
+    df_resultat['datum'] = pd.to_datetime(df_resultat['datum']).dt.date
+    
+    for strategi in df_resultat['strategi'].unique():
+        strategi_data = df_resultat[df_resultat['strategi'] == strategi]
+        plt.plot(strategi_data['datum'],
+                strategi_data['cumulative_profit'], label=strategi)
 
-    # Skapa en bar plot för antal 7-5 rätt per strategi per datum
-    fig, ax = plt.subplots()
-    for strategy in df_resultat['strategi'].unique():
-        strategy_data = df_resultat[df_resultat['strategy'] == strategy]
-        ax.bar(strategy_data['datum'], strategy_data['7_rätt'],
-               label=strategy + ' - 7 rätt')
-        ax.bar(strategy_data['datum'], strategy_data['6_rätt'],
-               label=strategy + ' - 6 rätt')
-        ax.bar(strategy_data['datum'], strategy_data['5_rätt'],
-               label=strategy + ' - 5 rätt')
-    ax.set_xlabel('Datum')
-    ax.set_ylabel('Antal 7-5 rätt')
-    ax.legend()
-    plt.show()
+    # Använd mdates för att sätta tidsaxeln
+    interval= int((strategi_data['datum'].nunique()+1)/8)
+    
+    plt.gca().xaxis.set_major_formatter(mdates.DateFormatter('%Y-%m'))
+    plt.gca().xaxis.set_major_locator(mdates.MonthLocator(bymonth=range(1,13), interval=2))
 
-def bygg_strategi1(a):
-    return None
+    plt.title('Kumulativ vinst/förlust över tid per strategi')
+    # plt.xlabel('Datum')
+    plt.ylabel('Kumulativ vinst/förlust')
+    plt.legend()
+    placeholder2.pyplot()
 
-def bygg_strategi2(b,c):
-    return None
+    #### Skapa en bar plot för antal 5-7 rätt per strategi ####
+   
+    # skala om 5 och 6 rätt så att de blir i ung samma skala som 7 rätt
+    df_resultat['6_rätt/10'] = df_resultat['6_rätt']/10
+    df_resultat['5_rätt/100'] = df_resultat['5_rätt']/100
+    df_resultat.drop(['5_rätt', '6_rätt'], axis=1, inplace=True)
+    
+    # Summera 7, 6 och 5 rätt per strategi
+    df_sum = df_resultat.groupby('strategi').sum()
+    df_sum = df_sum.drop(['vinst_förlust', 'cumulative_profit'], axis=1)
+    
+    # Skapa bar plot
+    plt.figure()
+    df_sum.plot(kind='bar', stacked=False)
+    # plt.xlabel('Strategi')
+    plt.suptitle('Antal 5-7 rätt per strategi')
+    plt.ylabel('Antal 5-7 rätt')
+    plt.legend()
+    placeholder3.pyplot()
 
 def next_datum(df, curr_datum=None, step=1):
     """ Tar fram nästa datum för testet
@@ -621,12 +721,16 @@ def next_datum(df, curr_datum=None, step=1):
         tuple: L2_datum, ny curr_datum
     """
     
-    alla_datum = df.datum.astype(str).unique().tolist()
+    alla_datum = df.datum.unique()                        ###.astype(str).unique().tolist()
     if curr_datum is None:
         curr_datum = alla_datum[200]  # första gången är det 200 veckor för rejäl start av training   
     
     log_print(f'next_datum 1: curr_datum: {curr_datum}, type: {type(curr_datum)}', 'i')
-    ix2 = np.where(alla_datum == curr_datum)[0][0]+step   # index till ny curr_datum
+    log_print(f'next_datum 2: all_datum[0]: {alla_datum[0]}, type: {type(alla_datum[0])}', 'i')
+    
+    ix2 = [i for i, date in enumerate(alla_datum) if date == curr_datum][0]+step
+
+    # ix2 = np.where(alla_datum == curr_datum)[0][0]+step   # index till ny curr_datum
     ix1 = int(round(ix2/2)+0.5) # index till L2_datum   (learn fr o m L2_datum till curr_datum)
     # learn L1_modeller på allt fram till L2_datum
     
@@ -637,6 +741,8 @@ def next_datum(df, curr_datum=None, step=1):
     if ix2 < len(alla_datum):
         curr_datum = alla_datum[ix2] # nästa omgång att testa på
         L2_datum = alla_datum[ix1]  # till_datum för att lära L1-modellern (L2-modellerna startar from L2_datum)
+        curr_datum= pd.to_datetime(curr_datum, format='%Y-%m-%d').date()
+        L2_datum= pd.to_datetime(L2_datum, format='%Y-%m-%d').date()
     else:
         curr_datum, L2_datum = None, None
     
@@ -650,58 +756,71 @@ def backtest(df, L1_modeller, L2_modeller, step=1, gap=0, proba_val=0.6):
     placeholder3 = st.empty()
     
     use_features, cat_features, num_features = mod.read_in_features()
-    # Bygg strategier
-    strategier = [
-        # name           function, modell_lista, hyperparams, use_features
-        (bygg_strategi1, 'a'),
-        (bygg_strategi2, 'b','c'),
+    # Bygg strategier - ha alltid med minst en strategi med 'outer' och lägg den först i samma grupp
+    # 'inner' används i predict och betyder att vi inte behöver köra learn_modeller
+    strategier = {
+        'strategi 1': ('inner', 'geomotric','outer', 'layers'),
+        'strategi 2': ('inner', 'arithmetic'),
+        
         # ... fler strategier ...
-    ]
-    df_resultat = pd.DataFrame(columns=['datum', 'strategi', 'vinst_forlust', '7_rätt', '6_rätt', '5_rätt'])
+        
+    }
+    df_resultat = pd.DataFrame(columns=['datum', 'strategi', 'vinst_förlust', '7_rätt', '6_rätt', '5_rätt'])
     df_utdelning = pd.read_csv('utdelning.csv')
     
     # Dela upp datan i lär- och test-delar
-    L2_datum, curr_datum = next_datum(df, curr_datum=None, step=1)
+    L2_datum, curr_datum = next_datum(df, curr_datum=None, step=step)
 
     # För varje unikt datum i test-delen
     while curr_datum is not None: 
         # for strategi_name, (strategi, L1_modeller, L2_modeller, use_features) in strategier.items():
-        for strategi in strategier:
+        for strategi_namn, strategi in strategier.items():
+            log_print(f'curr_datum: {curr_datum}, {strategi_namn}: {strategi}', 'i')
             placeholder0.empty()
-            placeholder0.info(f'Aktuell datum: {curr_datum} {"        "} \n strategi: {strategi}')
-            
-            # kanske bättre att skicka med func in i de olika funktionerna nedan
-            func = strategi[0]
-            args = strategi[1:]
-            strategy = func(*args)
-            # kanske bättre att skicka med func in i de olika funktionerna nedan
-
-            # TODO: Använd curr_datum mfl för att skapa L1_input och L2_input
-            
-            # Lär modeller och predict aktuell datum
-            L2_output_df = learn_modeller_och_predict(
-                df, curr_datum, L2_datum, L1_modeller, L2_modeller, use_features)
+            placeholder0.info(f'Aktuell datum: {curr_datum} {"        "} \n {strategi_namn}: {strategi}')
+        
+            if 'outer' in strategi:
+                # Lär modeller och predict aktuell datum
+                curr_stack_df, L2_features = learn_modeller(df, curr_datum, L2_datum, L1_modeller, L2_modeller, use_features)
+                log_print(f'curr_stack_df shape={curr_stack_df.shape} min_dat=\
+                {curr_stack_df.datum.min()}, max_dat={curr_stack_df.datum.max()}', 'i')
+                curr_stack_df.to_csv('backtest_curr_stack_df.csv', index=False)
+            else:
+                curr_stack_df = pd.read_csv('backtest_curr_stack_df.csv')
+                
+            ############# predict curr_stack_df med L2 dvs läggg till viktad meta #####################
+            weights = [0.25, 0.25, 0.25, 0.25] 
+            mean_type = 'arithemtic' if 'arithmetic' in strategi else 'geometric'
+            L2_output_df = mod.predict_med_L2_modeller(
+                L2_modeller, curr_stack_df, L2_features, mean_type=mean_type, weights=weights)
+            assert L2_output_df.shape[0] > 0, log_print(f'L2_output_df är tom', 'e')
+            assert 'meta' in L2_output_df.columns, log_print(f'L2_output_df saknar meta-kolumn', 'e')
             assert L2_output_df.shape[0] > 0, 'L2_output_df.shape[0] empty'
-            
+
+            ############# Nu ligger proba_kolumner plus viktad meta i L2_output_df ############################
+
             # Välj ut hästar för spel df_proba skall innehålla data för en omgång
             veckans_rad, kostnad = välj_ut_hästar_för_spel(strategi, L2_output_df)
             log_print(f'veckans_rad.shape: {veckans_rad.shape}  Kostnad: {kostnad}')
             
             # Beräkna resultat
-            utdelning, _7_rätt, _6_rätt, _5_rätt = mod.rätta_rad(veckans_rad, curr_datum, df_utdelning)
-            vinst_forlust =  utdelning - kostnad
+            _7_rätt, _6_rätt, _5_rätt, utdelning = mod.rätta_rad(veckans_rad, curr_datum, df_utdelning)
+            vinst_förlust =  utdelning - kostnad
+            log_print(f'vinst_förlust: {vinst_förlust}  utdelning: {utdelning}  kostnad: {kostnad}','i')
             
-            # spara resultat i dataframe df_resultat
-            df_resultat.loc[len(df_resultat)] = [curr_datum, strategy, vinst_forlust, _7_rätt, _6_rätt, _5_rätt]
-
-
+            # make a string of the current date
+            row = [curr_datum.strftime('%Y-%m-%d'), strategi_namn, vinst_förlust, _7_rätt, _6_rätt, _5_rätt]
+            # print(row)
+            df_resultat.loc[len(df_resultat)] = row
+            print(df_resultat.tail(3))
+            df_resultat.to_csv('BacktestResult.csv', index=False)      
             # Plot resultat
             placeholder1.empty()
             placeholder2.empty()
             placeholder3.empty()
-            plot_resultat(df_resultat)
+            plot_resultat(df_resultat, placeholder2, placeholder3)
             
-        L1_datum, L2_datum, curr_datum = next_datum(df, curr_datum, step, gap)
+        L2_datum, curr_datum = next_datum(df, curr_datum, step)
         
 def backtest_old(df, df_resultat, modeller, meta_modeller, datumar, gap=0, proba_val=0.6, base_ix=100, meta_ix=150, cv=False, step=1):
     """ Backtesting anpassad för travets omgångar, dvs datum istf dagar"""

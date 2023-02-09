@@ -282,14 +282,12 @@ def predict_med_L2_modeller(L2_modeller, L2_input, use_features, weights=[0.25, 
     if mean_type == 'arithmetic':
         # aritmetisk medelvärde
         temp['meta'] = temp[proba_cols].mean(axis=1)
-
+        log_print(f'mean_type == arithmetic','i')
         # temp['meta'] = temp.filter(like='proba_').mean(axis=1)
     else:
         # geometriskt medelvärde
         temp['meta'] = (temp[proba_cols].prod(axis=1)) ** (1/len(weights))
-        
-        # temp['meta'] = temp.filter(like='proba_').prod(
-        #     axis=1) ** (1/len(L2_modeller))
+        log_print(f'mean_type == geometric','i')
 
     return temp
 
@@ -428,8 +426,8 @@ def välj_rad(df, max_insats=360):
 
 def beräkna_utdelning(datum, sjuor, sexor, femmor, df_utdelning):
     # kolla om datum finns i df_utdelning
+    datum = pd.to_datetime(datum).date().strftime('%Y-%m-%d')
     log_print(f'finns datum {datum}, typ={type(datum)}, {(df_utdelning.datum==datum).sum()}', 'i')
-    log_print(df_utdelning.query('datum == "2017-09-03"'), 'i')
     assert len(df_utdelning.query('datum == @datum')) > 0, log_print(f'datum {datum} finns inte i df_utdelning', 'e')
     
     min_utdelning = df_utdelning.loc[df_utdelning.datum == datum, [

@@ -29,3 +29,6 @@ spel/sparad_stack_L2.csv
 spel/veckans_rad.csv
 spel/__pycache__/V75_scraping.cpython-39.pyc
 spel/__pycache__/*.*
+spel/BacktestPlot.csv
+spel/BacktestResult.csv
+spel/backtest_curr_stack_df.csv
