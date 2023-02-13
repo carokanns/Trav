@@ -6,6 +6,6 @@
         "max_depth": 2,
         "learning_rate": 0.07
     },
-    "AUC": 0.92621,
-    "Logloss": 0.33245
+    "AUC": 0.7621,
+    "Logloss": 0.53245
 }

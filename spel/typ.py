@@ -211,15 +211,18 @@ class Typ():
         return X
 
     # Ny Learn metod som tar hänsyn till att vi kan ha CatBoost eller XGBoost
-    def learn(self, X_, y=None, X_test_=None, y_test=None, params=None, use_L2_features_=None, iterations=ITERATIONS, save=True, verbose=False):
+    def learn(self, X_, y=None, X_test_=None, y_test=None, params=None, use_features_=None, iterations=ITERATIONS, save=True, verbose=False):
         log_print(f'Typ: startar learn() för {self.name}')
         assert X_ is not None, log_print(f'X skall inte vara None')
         assert 'streck' in list(X_.columns), log_print(f'streck saknas i learn X')
-        use_L2_features = None
-        if use_L2_features_:
-            assert 'streck' in use_L2_features_, log_print(f'streck saknas i use_L2_features_')
-            use_L2_features = use_L2_features_.copy()
-        assert verbose == False, log_print(f'verbose=True är inte implementerat i learn')
+        
+        if use_features_ is None:
+            use_features, cat_features, num_features = mod.read_in_features()
+        else:
+            _, cat_features, num_features = mod.read_in_features()
+            use_features = use_features_.copy()
+
+        assert 'streck' in use_features, log_print(f'streck saknas i Learn: use_features ({self.name})')
         assert 'datum' in X_.columns, log_print(f'datum saknas i learn X_ i början av learn')
 
         if self.name.startswith('cat'):
@@ -235,23 +238,7 @@ class Typ():
         X_test = None
         if X_test_ is not None:
             X_test = X_test_.copy()
-
-        use_features, cat_features, num_features = mod.read_in_features()
-        # läs in NUM_FEATURES.txt till num_features
-        with open(self.pref+'NUM_FEATURES.txt', 'r', encoding='utf-8') as f:
-            num_features = f.read().split()
-
-        # läs in CAT_FEATURES.txt till cat_features
-        with open(self.pref+'CAT_FEATURES.txt', 'r', encoding='utf-8') as f:
-            cat_features = f.read().split()
-
-        if use_L2_features is None:
-            use_features = cat_features + num_features
-            assert 'streck' in use_features, log_print(f'streck saknas i Learn: use_features ({self.name})')
-        else:
-            assert 'streck' in use_L2_features, log_print(f'streck saknas i Learn: use_L2_features ({self.name})')
-            use_features = use_L2_features
-
+ 
         ENC = None
 
         if params is None:
@@ -260,8 +247,6 @@ class Typ():
                 params = json.load(f)
                 params = params['params']
 
-        # print('params:', params)
-        # print('iterations:', iterations)
         if 'iterations' in params:
             iterations = params['iterations'] 
             params.pop('iterations')
@@ -270,7 +255,6 @@ class Typ():
         X = self.prepare_for_model(X)
 
         if not self.streck:
-            # X.drop('streck', axis=1, inplace=True)
             use_features.remove('streck')
 
         assert X[cat_features].isnull().sum().sum() == 0,log_print(f'there are NaN values in cat_features')
@@ -278,8 +262,11 @@ class Typ():
         if model_type == 'catboost':
             X = prepare_for_catboost(X, verbose=verbose)
             model = CatBoostClassifier(**params,
-                                       iterations=iterations,
-                                       loss_function='Logloss', eval_metric='AUC', verbose=verbose)
+                                       iterations=iterations, 
+                                       thread_count=-1,
+                                       loss_function='Logloss', 
+                                       eval_metric='AUC', 
+                                       verbose=verbose)
         elif model_type == 'xgboost':
             X, ENC = prepare_for_xgboost(X, y, cat_features, encoder=ENC, verbose=verbose, pref=self.pref)
 
@@ -291,7 +278,11 @@ class Typ():
             model = xgb.XGBClassifier(**params,
                                       #   iterations=iterations,
                                       early_stopping_rounds=Typ.EARLY_STOPPING_ROUNDS if X_test is not None else None,
-                                      objective='binary:logistic', eval_metric='auc')
+                                      objective='binary:logistic', 
+                                      eval_metric='auc', 
+                                      scale_pos_weight=9, 
+                                      njobs=-1, 
+                                      verbose=verbose)
         else:
             raise Exception(log_print(f'unknown model type'))
 
@@ -305,24 +296,19 @@ class Typ():
                 model.fit(X[use_features], y, verbose=0)
             else:
                 raise Exception(log_print(f'unknown model type'))
-
         else:
             assert 'datum' in X_test.columns, log_print(f'datum saknas i learn X_test')
             X_test = self.prepare_for_model(X_test)
 
             if model_type == 'catboost':
                 X_test = prepare_for_catboost(X_test, verbose=verbose)
-            elif model_type == 'xgboost':
-                X_test, _ = prepare_for_xgboost(X_test, encoder=ENC, verbose=verbose, pref=self.pref)
-            else:
-                raise Exception(log_print(f'unknown model type'))
-
-            if model_type == 'catboost':
                 eval_pool = Pool(X_test[use_features],
                                  y_test, cat_features=cat_features)
                 model.fit(X[use_features], y, cat_features=cat_features, eval_set=eval_pool,
                           use_best_model=True, early_stopping_rounds=Typ.EARLY_STOPPING_ROUNDS)
             elif model_type == 'xgboost':
+                X_test, _ = prepare_for_xgboost(
+                    X_test, encoder=ENC, verbose=verbose, pref=self.pref)
                 # Kolla att alla kolumner är numeriska i use_features
                 non_numeric_columns = [c for c in X_test[use_features].columns if X_test[c].dtype.name == 'object']
                 assert len(non_numeric_columns) == 0, log_print(f'X innehåller non-numeric columns: {non_numeric_columns.columns}')

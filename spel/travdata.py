@@ -265,17 +265,13 @@ class v75():
     #  f - ✔️ hx_kusk samma som kusk 
     
     def lägg_till_kolumner(self, df_):
-        # TODO: Använd skapa_modeller.py i stället för denna
+        # TODO: Använd mod.skapa_modeller.py i stället för denna
         """
         Lägger till nya kolumner b-f ovan
         Körs typiskt efter förbered_data()
         """
-        print(f'Använd mod.skapa_modeller i stället')
-        print(f'Använd mod.skapa_modeller i stället')
-        print(f'Använd mod.skapa_modeller i stället')
-        print(f'Använd mod.skapa_modeller i stället')
-        print(f'Använd mod.skapa_modeller i stället')
-        print(f'Använd mod.skapa_modeller i stället')
+   
+        print(f'"lägg_till_kolumner()" i travdata: Använd mod.skapa_modeller i stället')
         
         df = df_.copy()
         ##### kr/total_kr_avd ******

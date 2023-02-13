@@ -194,7 +194,8 @@ def do_grid_search(X,y, typ, params, use_features, cat_features, folds=5,randoms
                 return_train_score = False,
                 # n_iter=100, 
                 cv=tscv.split(X),
-                scoring='roc_auc',
+                refit='roc_auc',
+                scoring=['roc_auc', 'neg_log_loss'],
                 verbose=2,
                 n_jobs=-1)
 
@@ -211,16 +212,19 @@ def do_grid_search(X,y, typ, params, use_features, cat_features, folds=5,randoms
         # cv_df = pd.DataFrame(rs.cv_results_)
         # cv_df.to_csv('cv_results.csv', index=False)
 
+        print('rs.cv_results.keys()',rs.cv_results_.keys())  
+        time.sleep(3)
         ix = rs.best_index_
         try:
-            Logloss = rs.cv_results_['test-Logloss-mean'][ix]
-            log_print(f'rs.cv_results_["test-Logloss-mean"][{ix}]={Logloss}','i')
+            Logloss = -rs.cv_results_['mean_test_neg_log_loss'][ix]
+            log_print(f'rs.cv_results_["mean_test_neg_log_loss"][{ix}]={Logloss}','i')
         except:
-            log_print(f'rs.cv_results_["test-Logloss-mean"][{ix}] not found', 'e')
+            log_print(
+                f'rs.cv_results_["mean_test_neg_log_loss"][{ix}] not found', 'e')
             Logloss=1
             
-        assert AUC == rs.cv_results_['mean_test_score'][ix], \
-                log_print(f'AUC != mean_test_score[{ix}]', 'e')
+        assert AUC == rs.cv_results_['mean_test_roc_auc'][ix], \
+            log_print(f'AUC != mean_test_roc_auc[{ix}]', 'e')
         
         grid_search_result = {'params': best_params, 'AUC': round(AUC,5), 'Logloss': round(Logloss,5)}    
     else:

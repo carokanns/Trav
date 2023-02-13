@@ -20,7 +20,7 @@ spel/v75_tester/*.csv
 spel/v75_tester/*.txt
 spel/v75_tester/*.pkl
 spel/v75_tester/*.json
-spel/__pycache__/*.*
+spel/__pycache__/*
 spel/temp.csv
 spel/sparad_scrape_learn.csv
 spel/sparad_scrape_spela.csv
@@ -32,3 +32,7 @@ spel/__pycache__/*.*
 spel/BacktestPlot.csv
 spel/BacktestResult.csv
 spel/backtest_curr_stack_df.csv
+spel/modeller/cat2mod_columns.txt
+spel/modeller/cat2mod.model
+spel/modeller/xgb2mod.model
+spel/modeller/xgb2mod_columns.txt

@@ -172,7 +172,7 @@ def learn_L2_modeller(L2_modeller, L2_input_data, L2_features, save=True):
             params = params['params']
 
         assert 'streck' in L2_features, log_print(f'{enum} streck is missing in use_L2features innan learn för {model_name}','d')
-        my_meta = model.learn(X_meta, y_meta, use_L2_features_=L2_features, params=params, save=save)
+        my_meta = model.learn(X_meta, y_meta, use_features_=L2_features, params=params, save=save)
 
         # L2_modeller[model_name] = my_meta
 
@@ -225,6 +225,8 @@ def predict_med_L2_modeller(L2_modeller, L2_input, use_features, weights=[0.25, 
 
     Returns:
         temp: DataFrame L2_input kompletterat med L2_modellers prediktioner
+        
+    TODO: skriv om denna funktion så att vi använder df med use_features och inte proba_data   
     """
     df = L2_input.copy(deep=True)
     
@@ -252,42 +254,26 @@ def predict_med_L2_modeller(L2_modeller, L2_input, use_features, weights=[0.25, 
 
         missing_items = set(use_features) - set(temp.columns)
         assert not missing_items, f'{missing_items} in use_features not in temp.columns {temp.columns}'
-        
-        # temp_describe = temp.describe(include='all').T
-        # log_print(f'temp.describe() = {temp_describe}','i')
-        # temp_describe = temp[use_features].describe(include='all').T
-        # log_print(f'temp[use_features].describe() = {temp_describe}','i')
-        
-        
-        # # skriv ut use_features som textfil
-        # with open(pref+'temp_'+model_name+'_columns.txt', "w", encoding="utf-8") as f:
-        #     for col in use_features:
-        #         f.write(col + '\n') 
-                
+           
         # temp.to_csv(pref+'temp2.csv', index=False)
         log_print(f'predict_med_L2_modeller: {model_name} {type(model)}','i')
         temp['proba_' + model_name] = model.predict(temp, use_features_=use_features)
         log_print(f'model.predict klar','i')
-        
+    
+    # TODO: Skapa proba_cols automatiskt från L2_modeller    
     proba_cols = ['proba_cat1L2', 'proba_cat2L2', 'proba_xgb1L2', 'proba_xgb2L2']
-    # multiply each column with its corresponding weight
-    # weights = pd.Series(weights * len(temp), index=temp.index)
-    # weights_matrix = np.repeat(weights, len(temp), axis=0).reshape(-1, len(weights))
-
-    # weighted_cols = temp[proba_cols].mul(weights, axis=0)
-    # weighted_cols = temp[proba_cols].values * weights_matrix
     for col in proba_cols:
         temp[col] = temp[col] * weights[proba_cols.index(col)]
     
     if mean_type == 'arithmetic':
         # aritmetisk medelvärde
         temp['meta'] = temp[proba_cols].mean(axis=1)
-        log_print(f'mean_type == arithmetic','i')
+        log_print(f'mean_type == arithmetic weights={weights}','i')
         # temp['meta'] = temp.filter(like='proba_').mean(axis=1)
     else:
         # geometriskt medelvärde
         temp['meta'] = (temp[proba_cols].prod(axis=1)) ** (1/len(weights))
-        log_print(f'mean_type == geometric','i')
+        log_print(f'mean_type == geometric weights={weights}','i')
 
     return temp
 
