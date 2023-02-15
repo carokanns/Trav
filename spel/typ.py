@@ -281,8 +281,8 @@ class Typ():
                                       objective='binary:logistic', 
                                       eval_metric='auc', 
                                       scale_pos_weight=9, 
-                                      njobs=-1, 
-                                      verbose=verbose)
+                                      nthread=-1,
+                                      )
         else:
             raise Exception(log_print(f'unknown model type'))
 

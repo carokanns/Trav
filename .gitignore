@@ -36,3 +36,4 @@ spel/modeller/cat2mod_columns.txt
 spel/modeller/cat2mod.model
 spel/modeller/xgb2mod.model
 spel/modeller/xgb2mod_columns.txt
+spel/df_resultat.csv

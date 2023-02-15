@@ -202,7 +202,6 @@ def plot_resultat(df_resultat_, placeholder2, placeholder3):
     df_resultat['cumulative_profit'] = df_resultat.groupby('strategi')[
         'vinst_förlust'].cumsum()
     
-    
     # Skapa line plot
     plt.figure()
     plt.close()  # Stäng föregående plot# convert datum to date without time
@@ -212,21 +211,19 @@ def plot_resultat(df_resultat_, placeholder2, placeholder3):
         strategi_data = df_resultat[df_resultat['strategi'] == strategi]
         plt.plot(strategi_data['datum'],
                 strategi_data['cumulative_profit'], label=strategi)
-
-    # Använd mdates för att sätta tidsaxeln
-    # antal_unika = df_resultat['datum'].nunique()
-    # interval = int(antal_unika/6)+1
-    # log_print(f'antal_unika={antal_unika}, interval={interval}', 'i')
     
-    plt.gca().xaxis.set_major_formatter(mdates.DateFormatter('%y-%m'))
-    plt.gca().xaxis.set_major_locator(mdates.AutoDateLocator())
+    # ta fram en lista med alla unika datum i df_resultat
+    x_ticks = df_resultat['datum'].unique()
+    # Se till att listan har högst 10 element
+    x_ticks = x_ticks[::int(len(x_ticks)/16)]
+    plt.xticks(x_ticks, rotation=90)
 
     plt.title('Kumulativ vinst/förlust över tid')
-    # plt.xlabel('Datum')
     plt.ylabel('Kumulativ vinst/förlust')
     plt.legend()
     placeholder2.pyplot()
 
+####################################################################
     #### Skapa en bar plot för antal 5-7 rätt per strategi ####
    
     # skala om 5 och 6 rätt så att de blir i ung samma skala som 7 rätt
@@ -238,7 +235,6 @@ def plot_resultat(df_resultat_, placeholder2, placeholder3):
     df_sum = df_resultat.groupby('strategi').sum()
     df_sum = df_sum.drop(['vinst_förlust', 'cumulative_profit'], axis=1)
     
-    # Skapa bar plot
     # Skapa bar plot
     
     plt.figure()  # Skapa en ny tom figure
@@ -307,9 +303,11 @@ def next_datum(df, curr_datum=None, step=1):
     log_print(f'next_datum: curr_datum={curr_datum} type={type(curr_datum)}','i'    ) 
     return L2_datum, curr_datum
 
-def set_up_for_restarting(strategier):
+def set_up_for_restarting(strategier,placeholder2, placeholder3):
+    found=False
     try:
         df_resultat = pd.read_csv('df_resultat.csv')
+        found=True
     except: # Om det inte finns någon df_resultat.csv
         curr_datum = None
         df_resultat = pd.DataFrame(columns=['datum', 'strategi', 'vinst_förlust', '7_rätt', '6_rätt', '5_rätt'])
@@ -330,7 +328,8 @@ def set_up_for_restarting(strategier):
     # Är det samma strategieri df_resultat som vi har i dict strategier?
     strategier_i_df = df_resultat[df_resultat.datum == curr_datum].strategi.unique()
     assert set(strategier_i_df) == set(strategier), log_print(f'strategier_i_df={strategier_i_df} != strategier={strategier}')
-    
+    if found:
+        plot_resultat(df_resultat, placeholder2,placeholder3)
     return df_resultat, curr_datum
     
 def backtest(df, L1_modeller, L2_modeller, step=1, gap=0, proba_val=0.6):
@@ -357,7 +356,7 @@ def backtest(df, L1_modeller, L2_modeller, step=1, gap=0, proba_val=0.6):
         
     }
     
-    df_resultat, curr_datum = set_up_for_restarting(strategier)
+    df_resultat, curr_datum = set_up_for_restarting(strategier,placeholder2, placeholder3)
     df_utdelning = pd.read_csv('utdelning.csv')
     
     # Dela upp datan i lär- och test-delar
@@ -394,8 +393,8 @@ def backtest(df, L1_modeller, L2_modeller, step=1, gap=0, proba_val=0.6):
                 learn_input_df = df.query('datum < @curr_datum')
                 _ = mod.learn_L1_modeller({'xgb2mod':xgb2mod}, learn_input_df, use_features, save=True)
                 
-                curr_df = df.query('datum == @curr_datum')
-                curr_df['meta']= xgb2mod.predict(curr_df.copy(), use_features)
+                curr_df = df.query('datum == @curr_datum').copy(deep=True)
+                curr_df['meta']= xgb2mod.predict(curr_df, use_features)
                 L2_output_df = curr_df    # HACK: använder L2_output_d2 även om L2 inte använts här
             else:    
                 ############# predict curr_stack_df med L2 dvs läggg till viktad meta #####################
@@ -479,9 +478,9 @@ def main():
         df_resultat = kör(df, L1_modeller, L2_modeller, cv=False)
 
 if __name__ == "__main__":
-    if True:
+    if True:    # Kör med streamlit
         main()
-    else: # Kör ren py     
+    else:       # Kör ren py utan streamlit     
             
         # Skapa v75-instans
         v75 = td.v75(pref='')
