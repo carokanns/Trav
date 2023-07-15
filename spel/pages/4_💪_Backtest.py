@@ -48,7 +48,7 @@ Sätt start_datum tex start_datum = '2016-08-01.
 0. Varje modell har indivduella kolumner samt strategi för att ta fram raden.  
     a. Speca per modell i Typ-klassen.
 1. Loop över veckor. Learn fram till aktuell vecka och spara modell.  
-    a. Skit i cv tillsvidare
+    a. Skit i cv tillsvidare - tar för lång tid.
     b. Ev Spara modell med aktuell datum i namnet.
 2. Predict nästa vecka (generera rad enl modellens strategi)
 3. Rätta, Hämta ev priser och Spara resultat som en df i en csv-fil.

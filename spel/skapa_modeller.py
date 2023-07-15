@@ -288,7 +288,7 @@ def lägg_till_extra_kolumner(df_):
     df['rel_kr'] = df.kr/sum_kr
     df.drop(['kr'], axis=1, inplace=True)
     
-    ##### avst till ettan (streck) ******
+    ##### avst till ettan (streck) ****** 
     df['max_streck'] = df.groupby(['datum', 'avd']).streck.transform(lambda x: x.max())
     df['streck_avst'] = df.max_streck - df.streck
     df.drop(['max_streck'], axis=1, inplace=True)
